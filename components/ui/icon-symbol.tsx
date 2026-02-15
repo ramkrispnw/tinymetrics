@@ -40,6 +40,7 @@ const MAPPING = {
   "play.fill": "play-arrow",
   "stop.fill": "stop",
   "bolt.fill": "bolt",
+  "person.fill": "person",
 } as IconMapping;
 
 export function IconSymbol({

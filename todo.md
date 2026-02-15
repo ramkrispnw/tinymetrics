@@ -17,3 +17,4 @@
 - [x] Build Settings screen (baby profile, units, premium toggle)
 - [x] Generate app logo and update branding
 - [x] Rename app to TinyMetrics
+- [x] Add Google account login
