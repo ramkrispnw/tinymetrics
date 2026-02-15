@@ -18,3 +18,4 @@
 - [x] Generate app logo and update branding
 - [x] Rename app to TinyMetrics
 - [x] Add Google account login
+- [x] Optimize as mobile web app (PWA meta tags, viewport, web manifest)

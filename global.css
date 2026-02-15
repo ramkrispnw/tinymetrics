@@ -1,3 +1,44 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Mobile web app optimizations */
+@media screen {
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* Prevent pull-to-refresh on mobile browsers */
+  body {
+    overscroll-behavior-y: contain;
+  }
+
+  /* Disable long-press context menu on mobile */
+  * {
+    -webkit-touch-callout: none;
+  }
+
+  /* Allow text selection only in input fields */
+  input, textarea {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Smooth scrolling for all scroll containers */
+  [data-scroll] {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Safe area padding for notched devices */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

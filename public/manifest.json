@@ -1,0 +1,22 @@
+{
+  "name": "TinyMetrics",
+  "short_name": "TinyMetrics",
+  "description": "Track your baby's feeds, sleep, diapers, and more with AI-powered insights.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#6C63FF",
+  "icons": [
+    {
+      "src": "/assets/images/favicon.png",
+      "sizes": "196x196",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/images/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
+  ]
+}
