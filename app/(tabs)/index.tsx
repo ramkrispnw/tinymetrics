@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Modal,
   Platform,
+  Image,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -32,8 +33,9 @@ import { LogObservationSheet } from "@/components/log-observation-sheet";
 import { SetupProfileSheet } from "@/components/setup-profile-sheet";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { ShareSheet } from "@/components/share-sheet";
+import { LogGrowthSheet } from "@/components/log-growth-sheet";
 
-type SheetType = "feed" | "sleep" | "diaper" | "observation" | "profile" | "settings" | "share" | null;
+type SheetType = "feed" | "sleep" | "diaper" | "observation" | "profile" | "settings" | "share" | "growth" | null;
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -158,17 +160,26 @@ export default function HomeScreen() {
             {state.profile ? (
               <Pressable
                 onPress={() => setActiveSheet("profile")}
-                style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+                style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 12 }, pressed && { opacity: 0.7 }]}
               >
-                <View className="flex-row items-center gap-1">
-                  <Text className="text-2xl font-bold text-foreground">
-                    {state.profile.name}
-                  </Text>
-                  <IconSymbol name="chevron.right" size={14} color={colors.muted} />
+                <View style={[styles.headerAvatar, { backgroundColor: colors.primary + "20" }]}>
+                  {state.profile.photoUri ? (
+                    <Image source={{ uri: state.profile.photoUri }} style={styles.headerAvatarImg} />
+                  ) : (
+                    <Text style={{ fontSize: 22 }}>👶</Text>
+                  )}
                 </View>
-                {profileSubtitle && (
-                  <Text className="text-sm text-muted mt-0.5">{profileSubtitle}</Text>
-                )}
+                <View style={{ flex: 1 }}>
+                  <View className="flex-row items-center gap-1">
+                    <Text className="text-2xl font-bold text-foreground">
+                      {state.profile.name}
+                    </Text>
+                    <IconSymbol name="chevron.right" size={14} color={colors.muted} />
+                  </View>
+                  {profileSubtitle && (
+                    <Text className="text-sm text-muted mt-0.5">{profileSubtitle}</Text>
+                  )}
+                </View>
               </Pressable>
             ) : (
               <Pressable
@@ -274,6 +285,23 @@ export default function HomeScreen() {
           ))}
         </View>
 
+        {/* Growth Tracking Button */}
+        <Pressable
+          onPress={() => setActiveSheet("growth")}
+          style={({ pressed }) => [
+            styles.growthBtn,
+            { backgroundColor: colors.success + "12", borderColor: colors.success + "30" },
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <Text style={{ fontSize: 20 }}>📏</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 15 }}>Log Growth</Text>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>Track weight & height over time</Text>
+          </View>
+          <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+        </Pressable>
+
         {/* Recent Activity */}
         <Text className="text-lg font-semibold text-foreground mb-3">Today's Activity</Text>
         {recentEvents.length === 0 ? (
@@ -328,6 +356,9 @@ export default function HomeScreen() {
       </Modal>
       <Modal visible={activeSheet === "share"} animationType="slide" presentationStyle="pageSheet">
         <ShareSheet onClose={closeSheet} />
+      </Modal>
+      <Modal visible={activeSheet === "growth"} animationType="slide" presentationStyle="pageSheet">
+        <LogGrowthSheet onClose={closeSheet} />
       </Modal>
     </ScreenContainer>
   );
@@ -426,5 +457,27 @@ const styles = StyleSheet.create({
   eventTime: {
     fontSize: 12,
     fontWeight: "500",
+  },
+  headerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  headerAvatarImg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  growthBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 20,
   },
 });

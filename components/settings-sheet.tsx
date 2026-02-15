@@ -8,11 +8,13 @@ import {
   Platform,
   Switch,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useStore, calculateAge } from "@/lib/store";
+import { generateEventsCSV, generateGrowthCSV, generateFullReport, shareData } from "@/lib/export-utils";
 import { useAuth } from "@/hooks/use-auth";
 import { startOAuthLogin } from "@/constants/oauth";
 import * as Haptics from "expo-haptics";
@@ -147,7 +149,11 @@ export function SettingsSheet({ onClose, onOpenShare, onEditProfile }: Props) {
             {/* Top row: avatar + name + edit button */}
             <View style={styles.profileTopRow}>
               <View style={[styles.profileAvatar, { backgroundColor: colors.primary + "20" }]}>
-                <Text style={{ fontSize: 28 }}>👶</Text>
+                {state.profile.photoUri ? (
+                  <Image source={{ uri: state.profile.photoUri }} style={styles.profileAvatarImg} />
+                ) : (
+                  <Text style={{ fontSize: 28 }}>👶</Text>
+                )}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.profileName, { color: colors.foreground }]}>
@@ -292,8 +298,8 @@ export function SettingsSheet({ onClose, onOpenShare, onEditProfile }: Props) {
           <IconSymbol name="chevron.right" size={16} color={colors.muted} />
         </Pressable>
 
-        {/* Stats */}
-        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Data</Text>
+        {/* Data & Export */}
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Data & Export</Text>
         <View style={[styles.settingRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingTitle, { color: colors.foreground }]}>Total Events</Text>
@@ -302,6 +308,74 @@ export function SettingsSheet({ onClose, onOpenShare, onEditProfile }: Props) {
             </Text>
           </View>
         </View>
+
+        <Pressable
+          onPress={() => {
+            const csv = generateEventsCSV(state.events, state.settings.units);
+            shareData("TinyMetrics_Events", csv);
+            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          style={({ pressed }) => [
+            styles.settingRow,
+            { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 8 },
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <View style={[styles.exportIcon, { backgroundColor: colors.primary + "15" }]}>
+            <IconSymbol name="doc.on.doc.fill" size={18} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.settingTitle, { color: colors.foreground }]}>Export Events CSV</Text>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>Share all logged events</Text>
+          </View>
+          <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+        </Pressable>
+
+        {state.growthHistory.length > 0 && (
+          <Pressable
+            onPress={() => {
+              const csv = generateGrowthCSV(state.growthHistory);
+              shareData("TinyMetrics_Growth", csv);
+              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            style={({ pressed }) => [
+              styles.settingRow,
+              { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 8 },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <View style={[styles.exportIcon, { backgroundColor: colors.success + "15" }]}>
+              <IconSymbol name="doc.on.doc.fill" size={18} color={colors.success} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.settingTitle, { color: colors.foreground }]}>Export Growth CSV</Text>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>Share weight & height history</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+          </Pressable>
+        )}
+
+        <Pressable
+          onPress={() => {
+            const report = generateFullReport(state);
+            shareData("TinyMetrics_Full_Report", report);
+            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          style={({ pressed }) => [
+            styles.settingRow,
+            { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 8 },
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <View style={[styles.exportIcon, { backgroundColor: colors.warning + "15" }]}>
+            <IconSymbol name="doc.on.doc.fill" size={18} color={colors.warning} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.settingTitle, { color: colors.foreground }]}>Full Report</Text>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>Profile + events + growth summary</Text>
+          </View>
+          <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+        </Pressable>
 
         {/* App Info */}
         <View style={styles.appInfo}>
@@ -393,6 +467,12 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+  },
+  profileAvatarImg: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
   },
   profileName: {
     fontSize: 18,
@@ -470,6 +550,13 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 14,
     borderWidth: 1,
+  },
+  exportIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   appInfo: {
     paddingVertical: 32,

@@ -17,6 +17,7 @@ import {
   type FeedData,
   type SleepData,
   type DiaperData,
+  type GrowthEntry,
 } from "@/lib/store";
 import * as Haptics from "expo-haptics";
 
@@ -246,10 +247,173 @@ export default function TrendsScreen() {
             labelFn={(v) => formatDuration(v)}
           />
         </View>
+
+        {/* Growth Chart */}
+        {state.growthHistory.length > 0 && (
+          <GrowthChart entries={state.growthHistory} colors={colors} />
+        )}
       </ScrollView>
     </ScreenContainer>
   );
 }
+
+function GrowthChart({ entries, colors }: { entries: GrowthEntry[]; colors: any }) {
+  // Sort entries by date ascending
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const weightEntries = sorted.filter((e) => e.weight != null);
+  const heightEntries = sorted.filter((e) => e.height != null);
+
+  const formatDate = (d: string) => {
+    const dt = new Date(d + "T12:00:00");
+    return dt.toLocaleDateString([], { month: "short", day: "numeric" });
+  };
+
+  const LineChart = ({
+    data,
+    color,
+    unitLabel,
+  }: {
+    data: { date: string; value: number }[];
+    color: string;
+    unitLabel: string;
+  }) => {
+    if (data.length === 0) return null;
+    const maxVal = Math.max(...data.map((d) => d.value));
+    const minVal = Math.min(...data.map((d) => d.value));
+    const range = maxVal - minVal || 1;
+
+    return (
+      <View style={growthStyles.lineChartContainer}>
+        {/* Y axis labels */}
+        <View style={growthStyles.yAxis}>
+          <Text style={[growthStyles.yLabel, { color: colors.muted }]}>
+            {maxVal.toFixed(1)}
+          </Text>
+          <Text style={[growthStyles.yLabel, { color: colors.muted }]}>
+            {((maxVal + minVal) / 2).toFixed(1)}
+          </Text>
+          <Text style={[growthStyles.yLabel, { color: colors.muted }]}>
+            {minVal.toFixed(1)}
+          </Text>
+        </View>
+        {/* Chart area */}
+        <View style={growthStyles.chartArea}>
+          {/* Grid lines */}
+          <View style={[growthStyles.gridLine, { backgroundColor: colors.border + "40", top: 0 }]} />
+          <View style={[growthStyles.gridLine, { backgroundColor: colors.border + "40", top: "50%" }]} />
+          <View style={[growthStyles.gridLine, { backgroundColor: colors.border + "40", bottom: 0 }]} />
+          {/* Data points */}
+          <View style={growthStyles.pointsRow}>
+            {data.map((d, i) => {
+              const yPct = data.length === 1 ? 50 : ((d.value - minVal) / range) * 80 + 10;
+              return (
+                <View key={d.date + i} style={[growthStyles.pointColumn]}>
+                  <View style={{ flex: 1, justifyContent: "flex-end" }}>
+                    <View style={{ height: `${yPct}%`, alignItems: "center" }}>
+                      <Text style={[growthStyles.pointValue, { color }]}>
+                        {d.value.toFixed(1)}
+                      </Text>
+                      <View style={[growthStyles.dot, { backgroundColor: color }]} />
+                    </View>
+                  </View>
+                  <Text style={[growthStyles.xLabel, { color: colors.muted }]} numberOfLines={1}>
+                    {formatDate(d.date)}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <>
+      {weightEntries.length > 0 && (
+        <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.chartHeader}>
+            <Text style={[styles.chartTitle, { color: colors.foreground }]}>Weight Over Time</Text>
+            <Text style={[styles.chartAvg, { color: colors.success }]}>
+              Latest: {weightEntries[weightEntries.length - 1].weight} {weightEntries[weightEntries.length - 1].weightUnit || "kg"}
+            </Text>
+          </View>
+          <LineChart
+            data={weightEntries.map((e) => ({ date: e.date, value: e.weight! }))}
+            color={colors.success}
+            unitLabel={weightEntries[0].weightUnit || "kg"}
+          />
+        </View>
+      )}
+      {heightEntries.length > 0 && (
+        <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.chartHeader}>
+            <Text style={[styles.chartTitle, { color: colors.foreground }]}>Height Over Time</Text>
+            <Text style={[styles.chartAvg, { color: colors.primary }]}>
+              Latest: {heightEntries[heightEntries.length - 1].height} {heightEntries[heightEntries.length - 1].heightUnit || "cm"}
+            </Text>
+          </View>
+          <LineChart
+            data={heightEntries.map((e) => ({ date: e.date, value: e.height! }))}
+            color={colors.primary}
+            unitLabel={heightEntries[0].heightUnit || "cm"}
+          />
+        </View>
+      )}
+    </>
+  );
+}
+
+const growthStyles = StyleSheet.create({
+  lineChartContainer: {
+    flexDirection: "row",
+    height: 140,
+  },
+  yAxis: {
+    width: 40,
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    paddingRight: 6,
+    paddingBottom: 18,
+  },
+  yLabel: {
+    fontSize: 9,
+    fontWeight: "500",
+  },
+  chartArea: {
+    flex: 1,
+    position: "relative",
+    paddingBottom: 18,
+  },
+  gridLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+  },
+  pointsRow: {
+    flex: 1,
+    flexDirection: "row",
+  },
+  pointColumn: {
+    flex: 1,
+    alignItems: "center",
+  },
+  pointValue: {
+    fontSize: 9,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  xLabel: {
+    fontSize: 8,
+    marginTop: 4,
+  },
+});
 
 const styles = StyleSheet.create({
   rangeRow: {

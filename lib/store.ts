@@ -68,11 +68,22 @@ export interface AppSettings {
   theme: "auto" | "light" | "dark";
 }
 
+export interface GrowthEntry {
+  id: string;
+  date: string; // ISO date YYYY-MM-DD
+  weight?: number;
+  weightUnit?: WeightUnit;
+  height?: number;
+  heightUnit?: HeightUnit;
+  createdAt: string;
+}
+
 export interface AppState {
   profile: BabyProfile | null;
   events: BabyEvent[];
   settings: AppSettings;
   activeSleep: { startTime: string } | null;
+  growthHistory: GrowthEntry[];
 }
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
@@ -88,6 +99,7 @@ export const DEFAULT_STATE: AppState = {
   events: [],
   settings: DEFAULT_SETTINGS,
   activeSleep: null,
+  growthHistory: [],
 };
 
 // ─── Storage Keys ────────────────────────────────────────────────────────────
@@ -97,23 +109,26 @@ const KEYS = {
   EVENTS: "@baby_tracker_events",
   SETTINGS: "@baby_tracker_settings",
   ACTIVE_SLEEP: "@baby_tracker_active_sleep",
+  GROWTH_HISTORY: "@baby_tracker_growth_history",
 };
 
 // ─── Persistence Helpers ─────────────────────────────────────────────────────
 
 export async function loadState(): Promise<AppState> {
   try {
-    const [profileStr, eventsStr, settingsStr, activeSleepStr] = await AsyncStorage.multiGet([
+    const [profileStr, eventsStr, settingsStr, activeSleepStr, growthStr] = await AsyncStorage.multiGet([
       KEYS.PROFILE,
       KEYS.EVENTS,
       KEYS.SETTINGS,
       KEYS.ACTIVE_SLEEP,
+      KEYS.GROWTH_HISTORY,
     ]);
     return {
       profile: profileStr[1] ? JSON.parse(profileStr[1]) : null,
       events: eventsStr[1] ? JSON.parse(eventsStr[1]) : [],
       settings: settingsStr[1] ? JSON.parse(settingsStr[1]) : DEFAULT_SETTINGS,
       activeSleep: activeSleepStr[1] ? JSON.parse(activeSleepStr[1]) : null,
+      growthHistory: growthStr[1] ? JSON.parse(growthStr[1]) : [],
     };
   } catch {
     return DEFAULT_STATE;
@@ -138,6 +153,10 @@ export async function saveActiveSleep(activeSleep: { startTime: string } | null)
   } else {
     await AsyncStorage.removeItem(KEYS.ACTIVE_SLEEP);
   }
+}
+
+export async function saveGrowthHistory(entries: GrowthEntry[]) {
+  await AsyncStorage.setItem(KEYS.GROWTH_HISTORY, JSON.stringify(entries));
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
@@ -233,6 +252,8 @@ export interface StoreContextValue {
   updateSettings: (settings: Partial<AppSettings>) => Promise<void>;
   startSleep: () => Promise<void>;
   stopSleep: () => Promise<BabyEvent | null>;
+  addGrowthEntry: (entry: Omit<GrowthEntry, "id" | "createdAt">) => Promise<void>;
+  deleteGrowthEntry: (id: string) => Promise<void>;
   reload: () => Promise<void>;
 }
 

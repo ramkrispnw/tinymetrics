@@ -26,3 +26,8 @@
 - [x] Add functionality for parents to update/edit baby profile from home screen
 - [x] Add shared account feature for 2 parents to collaborate on tracking
 - [x] Show full baby profile info in Settings with edit button
+- [x] Add profile photo upload/camera for baby profile
+- [x] Display profile photo in home screen header and settings
+- [x] Implement growth history tracking (weight/height over time)
+- [x] Add growth curve visualization to Trends tab
+- [x] Implement data export as CSV with share sheet

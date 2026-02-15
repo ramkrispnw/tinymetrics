@@ -8,72 +8,40 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
-  Image,
-  Alert,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
 import type { WeightUnit, HeightUnit } from "@/lib/store";
-import { calculateAge } from "@/lib/store";
-import { pickImage } from "@/lib/image-utils";
 import * as Haptics from "expo-haptics";
 
 interface Props {
   onClose: () => void;
 }
 
-export function SetupProfileSheet({ onClose }: Props) {
+export function LogGrowthSheet({ onClose }: Props) {
   const colors = useColors();
-  const { state, updateProfile } = useStore();
-  const [name, setName] = useState(state.profile?.name || "");
-  const [birthDate, setBirthDate] = useState(state.profile?.birthDate || "");
-  const [weight, setWeight] = useState(state.profile?.weight?.toString() || "");
+  const { state, addGrowthEntry } = useStore();
+  const today = new Date().toISOString().split("T")[0];
+
+  const [date, setDate] = useState(today);
+  const [weight, setWeight] = useState("");
   const [weightUnit, setWeightUnit] = useState<WeightUnit>(state.profile?.weightUnit || "kg");
-  const [height, setHeight] = useState(state.profile?.height?.toString() || "");
+  const [height, setHeight] = useState("");
   const [heightUnit, setHeightUnit] = useState<HeightUnit>(state.profile?.heightUnit || "cm");
-  const [photoUri, setPhotoUri] = useState(state.profile?.photoUri || "");
   const [saving, setSaving] = useState(false);
 
-  const parsedBirthDate = birthDate.match(/^\d{4}-\d{2}-\d{2}$/) ? birthDate : null;
-  const ageInfo = parsedBirthDate ? calculateAge(parsedBirthDate) : null;
-
-  const handlePickPhoto = async (source: "camera" | "gallery") => {
-    try {
-      const result = await pickImage(source);
-      if (result) {
-        setPhotoUri(result.uri);
-        if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-    } catch (e) {
-      console.error("Photo pick error:", e);
-    }
-  };
-
-  const showPhotoOptions = () => {
-    if (Platform.OS === "web") {
-      handlePickPhoto("gallery");
-      return;
-    }
-    Alert.alert("Baby Photo", "Choose a photo source", [
-      { text: "Camera", onPress: () => handlePickPhoto("camera") },
-      { text: "Photo Library", onPress: () => handlePickPhoto("gallery") },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  };
+  const canSave = weight.trim() || height.trim();
 
   const handleSave = async () => {
-    if (!name.trim()) return;
+    if (!canSave) return;
     setSaving(true);
-    await updateProfile({
-      name: name.trim(),
-      birthDate: birthDate || new Date().toISOString().split("T")[0],
+    await addGrowthEntry({
+      date: date || today,
       weight: weight ? parseFloat(weight) : undefined,
       weightUnit,
       height: height ? parseFloat(height) : undefined,
       heightUnit,
-      photoUri: photoUri || undefined,
     });
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -90,10 +58,10 @@ export function SetupProfileSheet({ onClose }: Props) {
           <Pressable onPress={onClose} style={({ pressed }) => [pressed && { opacity: 0.6 }]}>
             <Text style={[styles.cancelText, { color: colors.muted }]}>Cancel</Text>
           </Pressable>
-          <Text style={[styles.title, { color: colors.foreground }]}>Baby Profile</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>Log Growth</Text>
           <Pressable
             onPress={handleSave}
-            disabled={saving || !name.trim()}
+            disabled={saving || !canSave}
             style={({ pressed }) => [pressed && { opacity: 0.6 }]}
           >
             {saving ? (
@@ -102,7 +70,7 @@ export function SetupProfileSheet({ onClose }: Props) {
               <Text
                 style={[
                   styles.saveText,
-                  { color: name.trim() ? colors.primary : colors.muted },
+                  { color: canSave ? colors.primary : colors.muted },
                 ]}
               >
                 Save
@@ -111,64 +79,28 @@ export function SetupProfileSheet({ onClose }: Props) {
           </Pressable>
         </View>
 
-        {/* Avatar with Photo Upload */}
-        <View style={styles.avatarSection}>
-          <Pressable
-            onPress={showPhotoOptions}
-            style={({ pressed }) => [pressed && { opacity: 0.8 }]}
-          >
-            <View style={[styles.avatar, { backgroundColor: colors.primary + "20" }]}>
-              {photoUri ? (
-                <Image source={{ uri: photoUri }} style={styles.avatarImage} />
-              ) : (
-                <Text style={{ fontSize: 40 }}>👶</Text>
-              )}
-            </View>
-            <View style={[styles.cameraOverlay, { backgroundColor: colors.primary }]}>
-              <IconSymbol name="camera.fill" size={14} color="#fff" />
-            </View>
-          </Pressable>
-          <Text style={{ color: colors.muted, fontSize: 13, marginTop: 4 }}>
-            Tap to add photo
+        {/* Icon */}
+        <View style={styles.iconSection}>
+          <View style={[styles.iconCircle, { backgroundColor: colors.success + "20" }]}>
+            <Text style={{ fontSize: 36 }}>📏</Text>
+          </View>
+          <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8 }}>
+            Track weight and height over time
           </Text>
-          {ageInfo && (
-            <View style={[styles.ageBadge, { backgroundColor: colors.primary + "15" }]}>
-              <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 15 }}>
-                {ageInfo.label}
-              </Text>
-            </View>
-          )}
         </View>
 
-        {/* Name */}
-        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Baby's Name</Text>
+        {/* Date */}
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Date</Text>
         <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="e.g. Emma"
-            placeholderTextColor={colors.muted}
-            returnKeyType="done"
-            style={[styles.textInput, { color: colors.foreground }]}
-            autoFocus={!state.profile}
-          />
-        </View>
-
-        {/* Birth Date */}
-        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Date of Birth</Text>
-        <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <TextInput
-            value={birthDate}
-            onChangeText={setBirthDate}
+            value={date}
+            onChangeText={setDate}
             placeholder="YYYY-MM-DD"
             placeholderTextColor={colors.muted}
             returnKeyType="done"
             style={[styles.textInput, { color: colors.foreground }]}
           />
         </View>
-        <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
-          Format: YYYY-MM-DD (e.g. 2025-12-15)
-        </Text>
 
         {/* Weight */}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>Weight</Text>
@@ -177,7 +109,7 @@ export function SetupProfileSheet({ onClose }: Props) {
             <TextInput
               value={weight}
               onChangeText={setWeight}
-              placeholder={weightUnit === "kg" ? "e.g. 4.5" : "e.g. 9.9"}
+              placeholder={weightUnit === "kg" ? "e.g. 5.2" : "e.g. 11.5"}
               placeholderTextColor={colors.muted}
               keyboardType="decimal-pad"
               returnKeyType="done"
@@ -195,8 +127,8 @@ export function SetupProfileSheet({ onClose }: Props) {
                 style={({ pressed }) => [
                   styles.unitBtn,
                   {
-                    backgroundColor: weightUnit === u ? colors.primary : colors.surface,
-                    borderColor: weightUnit === u ? colors.primary : colors.border,
+                    backgroundColor: weightUnit === u ? colors.success : colors.surface,
+                    borderColor: weightUnit === u ? colors.success : colors.border,
                   },
                   pressed && { opacity: 0.8 },
                 ]}
@@ -222,7 +154,7 @@ export function SetupProfileSheet({ onClose }: Props) {
             <TextInput
               value={height}
               onChangeText={setHeight}
-              placeholder={heightUnit === "cm" ? "e.g. 52" : "e.g. 20.5"}
+              placeholder={heightUnit === "cm" ? "e.g. 55" : "e.g. 21.5"}
               placeholderTextColor={colors.muted}
               keyboardType="decimal-pad"
               returnKeyType="done"
@@ -240,8 +172,8 @@ export function SetupProfileSheet({ onClose }: Props) {
                 style={({ pressed }) => [
                   styles.unitBtn,
                   {
-                    backgroundColor: heightUnit === u ? colors.primary : colors.surface,
-                    borderColor: heightUnit === u ? colors.primary : colors.border,
+                    backgroundColor: heightUnit === u ? colors.success : colors.surface,
+                    borderColor: heightUnit === u ? colors.success : colors.border,
                   },
                   pressed && { opacity: 0.8 },
                 ]}
@@ -260,12 +192,34 @@ export function SetupProfileSheet({ onClose }: Props) {
           </View>
         </View>
 
-        {/* Info card */}
-        <View style={[styles.infoCard, { backgroundColor: colors.primary + "08", borderColor: colors.primary + "20" }]}>
-          <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 20 }}>
-            Weight and height help the AI assistant provide age- and size-appropriate advice for your baby.
-          </Text>
-        </View>
+        {/* Recent entries */}
+        {state.growthHistory.length > 0 && (
+          <>
+            <Text style={[styles.sectionLabel, { color: colors.muted }]}>Recent Entries</Text>
+            {state.growthHistory.slice(0, 5).map((entry) => (
+              <View
+                key={entry.id}
+                style={[styles.entryRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
+                <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 14 }}>
+                  {entry.date}
+                </Text>
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  {entry.weight != null && (
+                    <Text style={{ color: colors.muted, fontSize: 13 }}>
+                      {entry.weight} {entry.weightUnit || "kg"}
+                    </Text>
+                  )}
+                  {entry.height != null && (
+                    <Text style={{ color: colors.muted, fontSize: 13 }}>
+                      {entry.height} {entry.heightUnit || "cm"}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ))}
+          </>
+        )}
       </ScrollView>
     </ScreenContainer>
   );
@@ -281,41 +235,16 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 16 },
   title: { fontSize: 17, fontWeight: "700" },
   saveText: { fontSize: 16, fontWeight: "700" },
-  avatarSection: {
+  iconSection: {
     alignItems: "center",
-    paddingVertical: 24,
-    gap: 6,
+    paddingVertical: 20,
   },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  avatarImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  cameraOverlay: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#fff",
-  },
-  ageBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginTop: 4,
   },
   sectionLabel: {
     fontSize: 13,
@@ -354,10 +283,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  infoCard: {
-    marginTop: 24,
+  entryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 14,
     borderRadius: 12,
     borderWidth: 1,
+    marginBottom: 8,
   },
 });

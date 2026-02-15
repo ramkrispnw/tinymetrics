@@ -5,6 +5,7 @@ import {
   type BabyEvent,
   type BabyProfile,
   type AppSettings,
+  type GrowthEntry,
   DEFAULT_STATE,
   StoreContext,
   generateId,
@@ -13,6 +14,7 @@ import {
   saveEvents,
   saveProfile,
   saveSettings,
+  saveGrowthHistory,
 } from "./store";
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
@@ -72,6 +74,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     await saveActiveSleep(activeSleep);
   }, []);
 
+  const addGrowthEntry = useCallback(
+    async (entry: Omit<GrowthEntry, "id" | "createdAt">) => {
+      const newEntry: GrowthEntry = {
+        ...entry,
+        id: generateId(),
+        createdAt: new Date().toISOString(),
+      };
+      setState((prev) => {
+        const updated = [newEntry, ...prev.growthHistory];
+        saveGrowthHistory(updated);
+        return { ...prev, growthHistory: updated };
+      });
+    },
+    []
+  );
+
+  const deleteGrowthEntry = useCallback(async (id: string) => {
+    setState((prev) => {
+      const updated = prev.growthHistory.filter((e) => e.id !== id);
+      saveGrowthHistory(updated);
+      return { ...prev, growthHistory: updated };
+    });
+  }, []);
+
   const stopSleep = useCallback(async (): Promise<BabyEvent | null> => {
     return new Promise((resolve) => {
       setState((prev) => {
@@ -114,6 +140,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         updateSettings,
         startSleep,
         stopSleep,
+        addGrowthEntry,
+        deleteGrowthEntry,
         reload,
       }}
     >
