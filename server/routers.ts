@@ -24,18 +24,37 @@ export const appRouter = router({
         z.object({
           question: z.string().min(1).max(2000),
           context: z.string().max(5000).optional(),
+          babyProfile: z.object({
+            name: z.string().optional(),
+            ageLabel: z.string().optional(),
+            weight: z.number().optional(),
+            weightUnit: z.string().optional(),
+            height: z.number().optional(),
+            heightUnit: z.string().optional(),
+          }).optional(),
         })
       )
       .mutation(async ({ input }) => {
-        const response = await invokeLLM({
-          messages: [
-            {
-              role: "system",
-              content: `You are a helpful baby care assistant. You help new parents track and understand their baby's health patterns. 
+        let systemPrompt = `You are a helpful baby care assistant. You help new parents track and understand their baby's health patterns. 
 You provide evidence-based advice about feeding, sleeping, diaper changes, and general baby health.
 Always be supportive and reassuring while being accurate. If something seems concerning, recommend consulting a pediatrician.
-Keep responses concise and practical. Use simple language.`,
-            },
+Keep responses concise and practical. Use simple language.`;
+
+        if (input.babyProfile) {
+          const bp = input.babyProfile;
+          const profileParts: string[] = [];
+          if (bp.name) profileParts.push(`Name: ${bp.name}`);
+          if (bp.ageLabel) profileParts.push(`Age: ${bp.ageLabel}`);
+          if (bp.weight != null) profileParts.push(`Weight: ${bp.weight} ${bp.weightUnit || "kg"}`);
+          if (bp.height != null) profileParts.push(`Height: ${bp.height} ${bp.heightUnit || "cm"}`);
+          if (profileParts.length > 0) {
+            systemPrompt += `\n\nBaby profile information:\n${profileParts.join("\n")}\n\nTailor your advice to this baby's specific age, weight, and height. Reference age-appropriate milestones, feeding amounts, and sleep patterns. If weight or height seems outside normal ranges for the age, gently mention it.`;
+          }
+        }
+
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: systemPrompt },
             {
               role: "user",
               content: input.context
@@ -173,6 +192,14 @@ Return a JSON response with:
           imageBase64: z.string(),
           mimeType: z.string().default("image/jpeg"),
           question: z.string().max(1000).optional(),
+          babyProfile: z.object({
+            name: z.string().optional(),
+            ageLabel: z.string().optional(),
+            weight: z.number().optional(),
+            weightUnit: z.string().optional(),
+            height: z.number().optional(),
+            heightUnit: z.string().optional(),
+          }).optional(),
         })
       )
       .mutation(async ({ input }) => {
@@ -180,14 +207,25 @@ Return a JSON response with:
         const key = `photos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
         const { url } = await storagePut(key, buffer, input.mimeType);
 
+        let systemPrompt = `You are a helpful baby care assistant with image analysis capabilities.
+Analyze the uploaded image in the context of baby health and care.
+Provide helpful, accurate observations. If you notice anything concerning, recommend consulting a pediatrician.`;
+
+        if (input.babyProfile) {
+          const bp = input.babyProfile;
+          const profileParts: string[] = [];
+          if (bp.name) profileParts.push(`Name: ${bp.name}`);
+          if (bp.ageLabel) profileParts.push(`Age: ${bp.ageLabel}`);
+          if (bp.weight != null) profileParts.push(`Weight: ${bp.weight} ${bp.weightUnit || "kg"}`);
+          if (bp.height != null) profileParts.push(`Height: ${bp.height} ${bp.heightUnit || "cm"}`);
+          if (profileParts.length > 0) {
+            systemPrompt += `\n\nBaby profile information:\n${profileParts.join("\n")}\n\nTailor your analysis and advice to this baby's specific age, weight, and size.`;
+          }
+        }
+
         const response = await invokeLLM({
           messages: [
-            {
-              role: "system",
-              content: `You are a helpful baby care assistant with image analysis capabilities.
-Analyze the uploaded image in the context of baby health and care.
-Provide helpful, accurate observations. If you notice anything concerning, recommend consulting a pediatrician.`,
-            },
+            { role: "system", content: systemPrompt },
             {
               role: "user",
               content: [

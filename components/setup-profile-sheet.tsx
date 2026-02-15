@@ -10,9 +10,10 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
+import type { WeightUnit, HeightUnit } from "@/lib/store";
+import { calculateAge } from "@/lib/store";
 import * as Haptics from "expo-haptics";
 
 interface Props {
@@ -24,7 +25,14 @@ export function SetupProfileSheet({ onClose }: Props) {
   const { state, updateProfile } = useStore();
   const [name, setName] = useState(state.profile?.name || "");
   const [birthDate, setBirthDate] = useState(state.profile?.birthDate || "");
+  const [weight, setWeight] = useState(state.profile?.weight?.toString() || "");
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>(state.profile?.weightUnit || "kg");
+  const [height, setHeight] = useState(state.profile?.height?.toString() || "");
+  const [heightUnit, setHeightUnit] = useState<HeightUnit>(state.profile?.heightUnit || "cm");
   const [saving, setSaving] = useState(false);
+
+  const parsedBirthDate = birthDate.match(/^\d{4}-\d{2}-\d{2}$/) ? birthDate : null;
+  const ageInfo = parsedBirthDate ? calculateAge(parsedBirthDate) : null;
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -32,6 +40,10 @@ export function SetupProfileSheet({ onClose }: Props) {
     await updateProfile({
       name: name.trim(),
       birthDate: birthDate || new Date().toISOString().split("T")[0],
+      weight: weight ? parseFloat(weight) : undefined,
+      weightUnit,
+      height: height ? parseFloat(height) : undefined,
+      heightUnit,
     });
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -74,6 +86,13 @@ export function SetupProfileSheet({ onClose }: Props) {
           <View style={[styles.avatar, { backgroundColor: colors.primary + "20" }]}>
             <Text style={{ fontSize: 40 }}>👶</Text>
           </View>
+          {ageInfo && (
+            <View style={[styles.ageBadge, { backgroundColor: colors.primary + "15" }]}>
+              <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 15 }}>
+                {ageInfo.label}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Name */}
@@ -105,6 +124,103 @@ export function SetupProfileSheet({ onClose }: Props) {
         <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
           Format: YYYY-MM-DD (e.g. 2025-12-15)
         </Text>
+
+        {/* Weight */}
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Weight</Text>
+        <View style={styles.measureRow}>
+          <View style={[styles.measureInput, { backgroundColor: colors.surface, borderColor: colors.border, flex: 1 }]}>
+            <TextInput
+              value={weight}
+              onChangeText={setWeight}
+              placeholder={weightUnit === "kg" ? "e.g. 4.5" : "e.g. 9.9"}
+              placeholderTextColor={colors.muted}
+              keyboardType="decimal-pad"
+              returnKeyType="done"
+              style={[styles.textInput, { color: colors.foreground }]}
+            />
+          </View>
+          <View style={styles.unitToggle}>
+            {(["kg", "lbs"] as WeightUnit[]).map((u) => (
+              <Pressable
+                key={u}
+                onPress={() => {
+                  setWeightUnit(u);
+                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                style={({ pressed }) => [
+                  styles.unitBtn,
+                  {
+                    backgroundColor: weightUnit === u ? colors.primary : colors.surface,
+                    borderColor: weightUnit === u ? colors.primary : colors.border,
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: weightUnit === u ? "#fff" : colors.foreground,
+                    fontWeight: weightUnit === u ? "700" : "500",
+                    fontSize: 14,
+                  }}
+                >
+                  {u}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* Height */}
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Height</Text>
+        <View style={styles.measureRow}>
+          <View style={[styles.measureInput, { backgroundColor: colors.surface, borderColor: colors.border, flex: 1 }]}>
+            <TextInput
+              value={height}
+              onChangeText={setHeight}
+              placeholder={heightUnit === "cm" ? "e.g. 52" : "e.g. 20.5"}
+              placeholderTextColor={colors.muted}
+              keyboardType="decimal-pad"
+              returnKeyType="done"
+              style={[styles.textInput, { color: colors.foreground }]}
+            />
+          </View>
+          <View style={styles.unitToggle}>
+            {(["cm", "in"] as HeightUnit[]).map((u) => (
+              <Pressable
+                key={u}
+                onPress={() => {
+                  setHeightUnit(u);
+                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                style={({ pressed }) => [
+                  styles.unitBtn,
+                  {
+                    backgroundColor: heightUnit === u ? colors.primary : colors.surface,
+                    borderColor: heightUnit === u ? colors.primary : colors.border,
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: heightUnit === u ? "#fff" : colors.foreground,
+                    fontWeight: heightUnit === u ? "700" : "500",
+                    fontSize: 14,
+                  }}
+                >
+                  {u}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* Info card */}
+        <View style={[styles.infoCard, { backgroundColor: colors.primary + "08", borderColor: colors.primary + "20" }]}>
+          <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 20 }}>
+            Weight and height help the AI assistant provide age- and size-appropriate advice for your baby.
+          </Text>
+        </View>
       </ScrollView>
     </ScreenContainer>
   );
@@ -123,6 +239,7 @@ const styles = StyleSheet.create({
   avatarSection: {
     alignItems: "center",
     paddingVertical: 24,
+    gap: 10,
   },
   avatar: {
     width: 100,
@@ -130,6 +247,11 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     alignItems: "center",
     justifyContent: "center",
+  },
+  ageBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
   sectionLabel: {
     fontSize: 13,
@@ -147,5 +269,31 @@ const styles = StyleSheet.create({
   textInput: {
     fontSize: 16,
     paddingVertical: 14,
+  },
+  measureRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "center",
+  },
+  measureInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+  },
+  unitToggle: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  unitBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  infoCard: {
+    marginTop: 24,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
   },
 });

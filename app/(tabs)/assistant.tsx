@@ -20,6 +20,7 @@ import {
   formatDuration,
   mlToOz,
   getDayKey,
+  calculateAge,
   type FeedData,
   type SleepData,
   type DiaperData,
@@ -44,6 +45,19 @@ export default function AssistantScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   const isPremium = state.settings.isPremium;
+
+  const getBabyProfilePayload = () => {
+    if (!state.profile) return undefined;
+    const ageInfo = state.profile.birthDate ? calculateAge(state.profile.birthDate) : null;
+    return {
+      name: state.profile.name || undefined,
+      ageLabel: ageInfo?.label || undefined,
+      weight: state.profile.weight ?? undefined,
+      weightUnit: state.profile.weightUnit || undefined,
+      height: state.profile.height ?? undefined,
+      heightUnit: state.profile.heightUnit || undefined,
+    };
+  };
 
   const buildContext = () => {
     const today = new Date().toISOString().split("T")[0];
@@ -73,7 +87,13 @@ export default function AssistantScreen() {
     );
     const totalDiapers = diaperEvents.length;
 
-    return `Baby: ${state.profile?.name || "Unknown"}, Birth: ${state.profile?.birthDate || "Unknown"}
+    const profileInfo = state.profile
+      ? `Baby: ${state.profile.name || "Unknown"}, Birth: ${state.profile.birthDate || "Unknown"}` +
+        (state.profile.weight != null ? `, Weight: ${state.profile.weight} ${state.profile.weightUnit || "kg"}` : "") +
+        (state.profile.height != null ? `, Height: ${state.profile.height} ${state.profile.heightUnit || "cm"}` : "")
+      : "Baby: Unknown";
+
+    return `${profileInfo}
 Last 7 days summary:
 - Feed events: ${feedEvents.length}, total intake: ${totalFeedMl}ml
 - Sleep events: ${sleepEvents.length}, total: ${formatDuration(totalSleepMin)}
@@ -111,6 +131,7 @@ Recent events (last 24h): ${recentEvents
         imageBase64: img.base64,
         mimeType: img.mimeType,
         question: input.trim() || undefined,
+        babyProfile: getBabyProfilePayload(),
       });
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
@@ -152,6 +173,7 @@ Recent events (last 24h): ${recentEvents
       const result = await askAI.mutateAsync({
         question: userMsg.content,
         context,
+        babyProfile: getBabyProfilePayload(),
       });
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
@@ -191,8 +213,9 @@ Recent events (last 24h): ${recentEvents
     try {
       const context = buildContext();
       const result = await askAI.mutateAsync({
-        question: "Generate a comprehensive daily summary of the baby's feeding, sleeping, diaper changes, and any health observations. Include any patterns or concerns.",
+        question: "Generate a comprehensive daily summary of the baby's feeding, sleeping, diaper changes, and any health observations. Include any patterns or concerns. Tailor your advice to the baby's age, weight, and height.",
         context,
+        babyProfile: getBabyProfilePayload(),
       });
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),

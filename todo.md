@@ -20,3 +20,6 @@
 - [x] Add Google account login
 - [x] Optimize as mobile web app (PWA meta tags, viewport, web manifest)
 - [x] Add date and time inputs to all log event sheets (Feed, Sleep, Diaper, Observation)
+- [x] Add weight (kg/lbs) and height (cm/in) to baby profile
+- [x] Calculate and display baby age from DOB
+- [x] Tailor AI answers to baby's weight, height, and age

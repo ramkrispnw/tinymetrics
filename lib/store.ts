@@ -49,10 +49,17 @@ export interface BabyEvent {
   createdAt: string; // ISO
 }
 
+export type WeightUnit = "kg" | "lbs";
+export type HeightUnit = "cm" | "in";
+
 export interface BabyProfile {
   name: string;
   birthDate: string; // ISO date
   photoUri?: string;
+  weight?: number; // stored in the user's chosen unit
+  weightUnit?: WeightUnit;
+  height?: number; // stored in the user's chosen unit
+  heightUnit?: HeightUnit;
 }
 
 export interface AppSettings {
@@ -163,6 +170,43 @@ export function formatTime(isoString: string): string {
 export function formatDate(isoString: string): string {
   const d = new Date(isoString);
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+export function calculateAge(birthDateISO: string): { months: number; days: number; label: string } {
+  const birth = new Date(birthDateISO);
+  const now = new Date();
+  let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
+  let days = now.getDate() - birth.getDate();
+  if (days < 0) {
+    months -= 1;
+    const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+  const totalDays = months * 30 + days;
+  if (months < 1) {
+    return { months: 0, days: totalDays, label: `${totalDays} day${totalDays !== 1 ? "s" : ""} old` };
+  }
+  if (months < 24) {
+    const label = days > 0 ? `${months}mo ${days}d old` : `${months}mo old`;
+    return { months, days, label };
+  }
+  const years = Math.floor(months / 12);
+  const remMonths = months % 12;
+  const label = remMonths > 0 ? `${years}y ${remMonths}mo old` : `${years}y old`;
+  return { months, days, label };
+}
+
+export function getProfileSummary(profile: BabyProfile | null): string {
+  if (!profile) return "No baby profile set up.";
+  const age = calculateAge(profile.birthDate);
+  let summary = `Baby name: ${profile.name}, Age: ${age.label}`;
+  if (profile.weight != null) {
+    summary += `, Weight: ${profile.weight} ${profile.weightUnit || "kg"}`;
+  }
+  if (profile.height != null) {
+    summary += `, Height: ${profile.height} ${profile.heightUnit || "cm"}`;
+  }
+  return summary;
 }
 
 export function isToday(isoString: string): boolean {

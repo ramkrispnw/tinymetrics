@@ -18,6 +18,7 @@ import {
   formatTime,
   formatDuration,
   mlToOz,
+  calculateAge,
   type BabyEvent,
   type FeedData,
   type SleepData,
@@ -73,20 +74,23 @@ export default function HomeScreen() {
 
   const recentEvents = useMemo(() => todayEvents.slice(0, 8), [todayEvents]);
 
-  const babyAge = useMemo(() => {
+  const ageInfo = useMemo(() => {
     if (!state.profile?.birthDate) return null;
-    const birth = new Date(state.profile.birthDate);
-    const now = new Date();
-    const diffDays = Math.floor((now.getTime() - birth.getTime()) / 86400000);
-    if (diffDays < 0) return null;
-    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? "s" : ""} old`;
-    if (diffDays < 30) {
-      const weeks = Math.floor(diffDays / 7);
-      return `${weeks} week${weeks !== 1 ? "s" : ""} old`;
-    }
-    const months = Math.floor(diffDays / 30.44);
-    return `${months} month${months !== 1 ? "s" : ""} old`;
+    return calculateAge(state.profile.birthDate);
   }, [state.profile?.birthDate]);
+
+  const profileSubtitle = useMemo(() => {
+    if (!state.profile) return null;
+    const parts: string[] = [];
+    if (ageInfo) parts.push(ageInfo.label);
+    if (state.profile.weight != null) {
+      parts.push(`${state.profile.weight} ${state.profile.weightUnit || "kg"}`);
+    }
+    if (state.profile.height != null) {
+      parts.push(`${state.profile.height} ${state.profile.heightUnit || "cm"}`);
+    }
+    return parts.join(" · ");
+  }, [state.profile, ageInfo]);
 
   const displayAmount = useCallback(
     (ml: number) => {
@@ -155,8 +159,8 @@ export default function HomeScreen() {
                 <Text className="text-2xl font-bold text-foreground">
                   {state.profile.name}
                 </Text>
-                {babyAge && (
-                  <Text className="text-sm text-muted mt-0.5">{babyAge}</Text>
+                {profileSubtitle && (
+                  <Text className="text-sm text-muted mt-0.5">{profileSubtitle}</Text>
                 )}
               </>
             ) : (
