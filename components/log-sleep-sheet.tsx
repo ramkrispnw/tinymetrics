@@ -14,6 +14,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
 import * as Haptics from "expo-haptics";
+import { DateTimePicker } from "@/components/date-time-picker";
 
 interface Props {
   onClose: () => void;
@@ -26,6 +27,7 @@ export function LogSleepSheet({ onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [manualDuration, setManualDuration] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const [eventDate, setEventDate] = useState(new Date());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isActive = !!state.activeSleep;
@@ -75,8 +77,8 @@ export function LogSleepSheet({ onClose }: Props) {
     if (!manualDuration) return;
     setSaving(true);
     const durationMin = parseInt(manualDuration, 10);
-    const endTime = new Date();
-    const startTime = new Date(endTime.getTime() - durationMin * 60000);
+    const endTime = new Date(eventDate.getTime() + durationMin * 60000);
+    const startTime = eventDate;
 
     await addEvent({
       type: "sleep",
@@ -178,6 +180,15 @@ export function LogSleepSheet({ onClose }: Props) {
               </Text>
               <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
             </View>
+
+            {/* Date & Time */}
+            <Text style={[styles.sectionLabel, { color: colors.muted }]}>When</Text>
+            <DateTimePicker
+              value={eventDate}
+              onChange={setEventDate}
+              accentColor={colors.sleep}
+              label="Sleep started at"
+            />
 
             {/* Quick Presets */}
             <Text style={[styles.sectionLabel, { color: colors.muted }]}>Quick Duration</Text>

@@ -17,6 +17,7 @@ import type { ObservationCategory, Severity, ObservationData } from "@/lib/store
 import * as Haptics from "expo-haptics";
 import { pickImage } from "@/lib/image-utils";
 import { trpc } from "@/lib/trpc";
+import { DateTimePicker } from "@/components/date-time-picker";
 
 interface Props {
   onClose: () => void;
@@ -30,6 +31,7 @@ export function LogObservationSheet({ onClose }: Props) {
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [eventDate, setEventDate] = useState(new Date());
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
@@ -46,7 +48,7 @@ export function LogObservationSheet({ onClose }: Props) {
 
     await addEvent({
       type: "observation",
-      timestamp: new Date().toISOString(),
+      timestamp: eventDate.toISOString(),
       data,
     });
 
@@ -93,6 +95,15 @@ export function LogObservationSheet({ onClose }: Props) {
             )}
           </Pressable>
         </View>
+
+        {/* Date & Time */}
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>When</Text>
+        <DateTimePicker
+          value={eventDate}
+          onChange={setEventDate}
+          accentColor={colors.observation}
+          label="Event time"
+        />
 
         {/* Category */}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>Category</Text>

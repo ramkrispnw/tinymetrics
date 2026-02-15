@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { pickImage } from "@/lib/image-utils";
 import { trpc } from "@/lib/trpc";
 import { Image } from "expo-image";
+import { DateTimePicker } from "@/components/date-time-picker";
 
 interface Props {
   onClose: () => void;
@@ -31,6 +32,7 @@ export function LogFeedSheet({ onClose }: Props) {
   const [durationMin, setDurationMin] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [eventDate, setEventDate] = useState(new Date());
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -86,7 +88,7 @@ export function LogFeedSheet({ onClose }: Props) {
 
     await addEvent({
       type: "feed",
-      timestamp: new Date().toISOString(),
+      timestamp: eventDate.toISOString(),
       data,
     });
 
@@ -125,6 +127,15 @@ export function LogFeedSheet({ onClose }: Props) {
             )}
           </Pressable>
         </View>
+
+        {/* Date & Time */}
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>When</Text>
+        <DateTimePicker
+          value={eventDate}
+          onChange={setEventDate}
+          accentColor={colors.feed}
+          label="Event time"
+        />
 
         {/* Method Selector */}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>Type</Text>

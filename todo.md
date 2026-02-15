@@ -19,3 +19,4 @@
 - [x] Rename app to TinyMetrics
 - [x] Add Google account login
 - [x] Optimize as mobile web app (PWA meta tags, viewport, web manifest)
+- [x] Add date and time inputs to all log event sheets (Feed, Sleep, Diaper, Observation)

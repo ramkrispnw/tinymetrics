@@ -17,6 +17,7 @@ import type { DiaperType, PooColor, PooConsistency, DiaperData } from "@/lib/sto
 import * as Haptics from "expo-haptics";
 import { pickImage } from "@/lib/image-utils";
 import { trpc } from "@/lib/trpc";
+import { DateTimePicker } from "@/components/date-time-picker";
 
 interface Props {
   onClose: () => void;
@@ -30,6 +31,7 @@ export function LogDiaperSheet({ onClose }: Props) {
   const [pooConsistency, setPooConsistency] = useState<PooConsistency | undefined>();
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [eventDate, setEventDate] = useState(new Date());
   const [analyzing, setAnalyzing] = useState(false);
   const analyzeDiaper = trpc.ai.analyzeDiaper.useMutation();
 
@@ -44,7 +46,7 @@ export function LogDiaperSheet({ onClose }: Props) {
 
     await addEvent({
       type: "diaper",
-      timestamp: new Date().toISOString(),
+      timestamp: eventDate.toISOString(),
       data,
     });
 
@@ -99,6 +101,15 @@ export function LogDiaperSheet({ onClose }: Props) {
             )}
           </Pressable>
         </View>
+
+        {/* Date & Time */}
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>When</Text>
+        <DateTimePicker
+          value={eventDate}
+          onChange={setEventDate}
+          accentColor={colors.diaper}
+          label="Event time"
+        />
 
         {/* Type Selector */}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>Type</Text>
