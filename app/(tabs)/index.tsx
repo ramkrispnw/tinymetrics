@@ -34,8 +34,9 @@ import { SetupProfileSheet } from "@/components/setup-profile-sheet";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { ShareSheet } from "@/components/share-sheet";
 import { LogGrowthSheet } from "@/components/log-growth-sheet";
+import { ImportLogsSheet } from "@/components/import-logs-sheet";
 
-type SheetType = "feed" | "sleep" | "diaper" | "observation" | "profile" | "settings" | "share" | "growth" | null;
+type SheetType = "feed" | "sleep" | "diaper" | "observation" | "profile" | "settings" | "share" | "growth" | "import" | null;
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -302,6 +303,23 @@ export default function HomeScreen() {
           <IconSymbol name="chevron.right" size={16} color={colors.muted} />
         </Pressable>
 
+        {/* Import Logs Button */}
+        <Pressable
+          onPress={() => setActiveSheet("import")}
+          style={({ pressed }) => [
+            styles.growthBtn,
+            { backgroundColor: colors.primary + "12", borderColor: colors.primary + "30", marginTop: 8 },
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <Text style={{ fontSize: 20 }}>📄</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 15 }}>Import Prior Logs</Text>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>Upload PDF/notes for AI parsing</Text>
+          </View>
+          <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+        </Pressable>
+
         {/* Recent Activity */}
         <Text className="text-lg font-semibold text-foreground mb-3">Today's Activity</Text>
         {recentEvents.length === 0 ? (
@@ -359,6 +377,9 @@ export default function HomeScreen() {
       </Modal>
       <Modal visible={activeSheet === "growth"} animationType="slide" presentationStyle="pageSheet">
         <LogGrowthSheet onClose={closeSheet} />
+      </Modal>
+      <Modal visible={activeSheet === "import"} animationType="slide" presentationStyle="pageSheet">
+        <ImportLogsSheet onClose={closeSheet} />
       </Modal>
     </ScreenContainer>
   );

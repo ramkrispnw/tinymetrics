@@ -32,3 +32,4 @@
 - [x] Add growth curve visualization to Trends tab
 - [x] Implement data export as CSV with share sheet
 - [x] Add delete functionality for growth entries in Log Growth sheet
+- [x] Add PDF upload for importing prior baby logs via AI parsing

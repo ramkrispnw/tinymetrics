@@ -254,6 +254,7 @@ export interface StoreContextValue {
   stopSleep: () => Promise<BabyEvent | null>;
   addGrowthEntry: (entry: Omit<GrowthEntry, "id" | "createdAt">) => Promise<void>;
   deleteGrowthEntry: (id: string) => Promise<void>;
+  importEvents: (events: Omit<BabyEvent, "id" | "createdAt">[]) => Promise<number>;
   reload: () => Promise<void>;
 }
 

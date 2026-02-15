@@ -98,6 +98,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const importEvents = useCallback(
+    async (events: Omit<BabyEvent, "id" | "createdAt">[]): Promise<number> => {
+      const newEvents: BabyEvent[] = events.map((e) => ({
+        ...e,
+        id: generateId() + Math.random().toString(36).slice(2, 4),
+        createdAt: new Date().toISOString(),
+      }));
+      return new Promise((resolve) => {
+        setState((prev) => {
+          const merged = [...newEvents, ...prev.events].sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+          saveEvents(merged);
+          resolve(newEvents.length);
+          return { ...prev, events: merged };
+        });
+      });
+    },
+    []
+  );
+
   const stopSleep = useCallback(async (): Promise<BabyEvent | null> => {
     return new Promise((resolve) => {
       setState((prev) => {
@@ -142,6 +163,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         stopSleep,
         addGrowthEntry,
         deleteGrowthEntry,
+        importEvents,
         reload,
       }}
     >

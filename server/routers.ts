@@ -220,6 +220,69 @@ Return a JSON response with:
         }
       }),
 
+    // Parse PDF with prior baby logs and extract events
+    parsePdfLogs: publicProcedure
+      .input(
+        z.object({
+          fileBase64: z.string(),
+          mimeType: z.string().default("application/pdf"),
+          fileName: z.string().default("notes.pdf"),
+        })
+      )
+      .mutation(async ({ input }) => {
+        // Upload PDF to S3 first
+        const buffer = Buffer.from(input.fileBase64, "base64");
+        const key = `pdf-imports/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.pdf`;
+        const { url } = await storagePut(key, buffer, input.mimeType);
+
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are a data extraction assistant for a baby tracking app. Parse the uploaded PDF document which contains baby care notes/logs.
+
+Extract ALL events you can find and return them as a JSON object with an "events" array. Each event should have:
+- type: one of "feed", "sleep", "diaper", "observation"
+- timestamp: ISO 8601 datetime string (if only date is given, use noon of that day; if only time, use today's date)
+- data: an object with type-specific fields:
+  For "feed": { method: "bottle"|"breast_left"|"breast_right"|"solid", amountMl?: number, durationMin?: number, notes?: string }
+  For "sleep": { startTime: ISO string, endTime?: ISO string, durationMin?: number, notes?: string }
+  For "diaper": { type: "pee"|"poo"|"both", pooColor?: "yellow"|"green"|"brown"|"black"|"red", notes?: string }
+  For "observation": { category: "rash"|"fast_breathing"|"fever"|"vomiting"|"cough"|"other", severity: "mild"|"moderate"|"severe", description?: string, notes?: string }
+
+Be thorough — extract every event mentioned. If amounts are in oz, convert to ml (1 oz = ~30 ml). If times are ambiguous, make reasonable assumptions. Return valid JSON only.`,
+            },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Please parse all baby care events from this document and return them as structured JSON." },
+                { type: "file_url", file_url: { url, mime_type: "application/pdf" } },
+              ],
+            },
+          ],
+          response_format: { type: "json_object" },
+        });
+
+        try {
+          const rawContent = response?.choices?.[0]?.message?.content;
+          const content = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent) || "{}";
+          const parsed = JSON.parse(content);
+          const events = Array.isArray(parsed.events) ? parsed.events : [];
+          return {
+            events,
+            totalFound: events.length,
+            sourceUrl: url,
+          };
+        } catch {
+          return {
+            events: [],
+            totalFound: 0,
+            sourceUrl: url,
+            error: "Could not parse the PDF contents",
+          };
+        }
+      }),
+
     // General photo analysis (premium)
     analyzePhoto: publicProcedure
       .input(
