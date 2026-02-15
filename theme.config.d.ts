@@ -8,6 +8,10 @@ export const themeColors: {
   success: { light: string; dark: string };
   warning: { light: string; dark: string };
   error: { light: string; dark: string };
+  feed: { light: string; dark: string };
+  sleep: { light: string; dark: string };
+  diaper: { light: string; dark: string };
+  observation: { light: string; dark: string };
 };
 
 declare const themeConfig: {

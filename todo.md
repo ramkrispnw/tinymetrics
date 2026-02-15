@@ -1,0 +1,19 @@
+# Project TODO
+
+- [x] Update theme colors (brand palette for baby tracker)
+- [x] Set up tab navigation (Home, Activity, Trends, AI Assistant)
+- [x] Add icon mappings for all tabs
+- [x] Create data models and AsyncStorage persistence layer
+- [x] Build Home screen with summary cards and quick-action buttons
+- [x] Build Log Feed modal with manual entry and image capture
+- [x] Build Log Sleep modal with timer and manual entry
+- [x] Build Log Diaper modal with quick toggles and image capture
+- [x] Build Log Observation modal with categories and image capture
+- [x] Build Activity Log screen with filters and event list
+- [x] Build Trends screen with charts (feed, diaper, sleep)
+- [x] Build AI Assistant screen with premium gate
+- [x] Implement server-side AI image analysis (bottle reading, diaper classification)
+- [x] Implement server-side AI summaries and Q&A
+- [x] Build Settings screen (baby profile, units, premium toggle)
+- [x] Generate app logo and update branding
+- [x] Rename app to TinyMetrics

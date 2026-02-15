@@ -1,5 +1,3 @@
-// Fallback for using MaterialIcons on Android and web.
-
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { SymbolWeight, SymbolViewProps } from "expo-symbols";
 import { ComponentProps } from "react";
@@ -8,23 +6,42 @@ import { OpaqueColorValue, type StyleProp, type TextStyle } from "react-native";
 type IconMapping = Record<SymbolViewProps["name"], ComponentProps<typeof MaterialIcons>["name"]>;
 type IconSymbolName = keyof typeof MAPPING;
 
-/**
- * Add your SF Symbols to Material Icons mappings here.
- * - see Material Icons in the [Icons Directory](https://icons.expo.fyi).
- * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
- */
 const MAPPING = {
   "house.fill": "home",
-  "paperplane.fill": "send",
-  "chevron.left.forwardslash.chevron.right": "code",
+  "list.bullet": "format-list-bulleted",
+  "chart.bar.fill": "bar-chart",
+  "sparkles": "auto-awesome",
+  "plus": "add",
+  "drop.fill": "water-drop",
+  "moon.fill": "nightlight-round",
+  "fork.knife": "restaurant",
+  "eye.fill": "visibility",
+  "camera.fill": "camera-alt",
+  "xmark": "close",
   "chevron.right": "chevron-right",
+  "chevron.left": "chevron-left",
+  "gearshape.fill": "settings",
+  "clock.fill": "access-time",
+  "pencil": "edit",
+  "trash.fill": "delete",
+  "photo.fill": "photo",
+  "paperplane.fill": "send",
+  "heart.fill": "favorite",
+  "exclamationmark.triangle.fill": "warning",
+  "checkmark.circle.fill": "check-circle",
+  "arrow.up.circle.fill": "upload",
+  "lock.fill": "lock",
+  "crown.fill": "workspace-premium",
+  "info.circle.fill": "info",
+  "thermometer": "thermostat",
+  "lungs.fill": "air",
+  "face.smiling": "sentiment-satisfied",
+  "staroflife.fill": "emergency",
+  "play.fill": "play-arrow",
+  "stop.fill": "stop",
+  "bolt.fill": "bolt",
 } as IconMapping;
 
-/**
- * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
- * This ensures a consistent look across platforms, and optimal resource usage.
- * Icon `name`s are based on SF Symbols and require manual mapping to Material Icons.
- */
 export function IconSymbol({
   name,
   size = 24,

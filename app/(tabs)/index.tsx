@@ -1,48 +1,416 @@
-import { ScrollView, Text, View, TouchableOpacity } from "react-native";
-
+import { useCallback, useMemo, useState } from "react";
+import {
+  FlatList,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  StyleSheet,
+  Modal,
+  Platform,
+} from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useColors } from "@/hooks/use-colors";
+import { useStore } from "@/lib/store";
+import {
+  isToday,
+  formatTime,
+  formatDuration,
+  mlToOz,
+  type BabyEvent,
+  type FeedData,
+  type SleepData,
+  type DiaperData,
+  type ObservationData,
+} from "@/lib/store";
+import { LogFeedSheet } from "@/components/log-feed-sheet";
+import { LogSleepSheet } from "@/components/log-sleep-sheet";
+import { LogDiaperSheet } from "@/components/log-diaper-sheet";
+import { LogObservationSheet } from "@/components/log-observation-sheet";
+import { SetupProfileSheet } from "@/components/setup-profile-sheet";
+import { SettingsSheet } from "@/components/settings-sheet";
 
-/**
- * Home Screen - NativeWind Example
- *
- * This template uses NativeWind (Tailwind CSS for React Native).
- * You can use familiar Tailwind classes directly in className props.
- *
- * Key patterns:
- * - Use `className` instead of `style` for most styling
- * - Theme colors: use tokens directly (bg-background, text-foreground, bg-primary, etc.); no dark: prefix needed
- * - Responsive: standard Tailwind breakpoints work on web
- * - Custom colors defined in tailwind.config.js
- */
+type SheetType = "feed" | "sleep" | "diaper" | "observation" | "profile" | "settings" | null;
+
 export default function HomeScreen() {
+  const colors = useColors();
+  const { state } = useStore();
+  const [activeSheet, setActiveSheet] = useState<SheetType>(null);
+
+  const todayEvents = useMemo(
+    () => state.events.filter((e) => isToday(e.timestamp)),
+    [state.events]
+  );
+
+  const todayFeedMl = useMemo(() => {
+    return todayEvents
+      .filter((e) => e.type === "feed")
+      .reduce((sum, e) => sum + ((e.data as FeedData).amountMl || 0), 0);
+  }, [todayEvents]);
+
+  const todayDiapers = useMemo(() => {
+    const diapers = todayEvents.filter((e) => e.type === "diaper");
+    let pee = 0;
+    let poo = 0;
+    diapers.forEach((e) => {
+      const d = e.data as DiaperData;
+      if (d.type === "pee") pee++;
+      else if (d.type === "poo") poo++;
+      else {
+        pee++;
+        poo++;
+      }
+    });
+    return { pee, poo, total: diapers.length };
+  }, [todayEvents]);
+
+  const todaySleepMin = useMemo(() => {
+    return todayEvents
+      .filter((e) => e.type === "sleep")
+      .reduce((sum, e) => sum + ((e.data as SleepData).durationMin || 0), 0);
+  }, [todayEvents]);
+
+  const recentEvents = useMemo(() => todayEvents.slice(0, 8), [todayEvents]);
+
+  const babyAge = useMemo(() => {
+    if (!state.profile?.birthDate) return null;
+    const birth = new Date(state.profile.birthDate);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - birth.getTime()) / 86400000);
+    if (diffDays < 0) return null;
+    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? "s" : ""} old`;
+    if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return `${weeks} week${weeks !== 1 ? "s" : ""} old`;
+    }
+    const months = Math.floor(diffDays / 30.44);
+    return `${months} month${months !== 1 ? "s" : ""} old`;
+  }, [state.profile?.birthDate]);
+
+  const displayAmount = useCallback(
+    (ml: number) => {
+      if (state.settings.units === "oz") return `${mlToOz(ml)} oz`;
+      return `${ml} ml`;
+    },
+    [state.settings.units]
+  );
+
+  const getEventIcon = (type: string) => {
+    switch (type) {
+      case "feed": return "fork.knife" as const;
+      case "sleep": return "moon.fill" as const;
+      case "diaper": return "drop.fill" as const;
+      case "observation": return "eye.fill" as const;
+      default: return "info.circle.fill" as const;
+    }
+  };
+
+  const getEventColor = (type: string) => {
+    switch (type) {
+      case "feed": return colors.feed;
+      case "sleep": return colors.sleep;
+      case "diaper": return colors.diaper;
+      case "observation": return colors.observation;
+      default: return colors.muted;
+    }
+  };
+
+  const getEventSummary = (event: BabyEvent): string => {
+    switch (event.type) {
+      case "feed": {
+        const d = event.data as FeedData;
+        const amt = d.amountMl ? displayAmount(d.amountMl) : "";
+        const dur = d.durationMin ? formatDuration(d.durationMin) : "";
+        const method = d.method === "bottle" ? "Bottle" : d.method === "solid" ? "Solid" : "Breast";
+        return [method, amt, dur].filter(Boolean).join(" · ");
+      }
+      case "sleep": {
+        const d = event.data as SleepData;
+        return d.durationMin ? formatDuration(d.durationMin) : "In progress...";
+      }
+      case "diaper": {
+        const d = event.data as DiaperData;
+        return d.type === "both" ? "Pee & Poo" : d.type === "pee" ? "Pee" : "Poo";
+      }
+      case "observation": {
+        const d = event.data as ObservationData;
+        return `${d.category.replace("_", " ")} · ${d.severity}`;
+      }
+      default:
+        return "";
+    }
+  };
+
+  const closeSheet = () => setActiveSheet(null);
+
   return (
-    <ScreenContainer className="p-6">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View className="flex-1 gap-8">
-          {/* Hero Section */}
-          <View className="items-center gap-2">
-            <Text className="text-4xl font-bold text-foreground">Welcome</Text>
-            <Text className="text-base text-muted text-center">
-              Edit app/(tabs)/index.tsx to get started
-            </Text>
+    <ScreenContainer className="px-4 pt-2">
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+        {/* Header */}
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-1">
+            {state.profile ? (
+              <>
+                <Text className="text-2xl font-bold text-foreground">
+                  {state.profile.name}
+                </Text>
+                {babyAge && (
+                  <Text className="text-sm text-muted mt-0.5">{babyAge}</Text>
+                )}
+              </>
+            ) : (
+              <Pressable
+                onPress={() => setActiveSheet("profile")}
+                style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+              >
+                <Text className="text-2xl font-bold text-foreground">
+                  Welcome!
+                </Text>
+                <Text className="text-sm text-primary mt-0.5">
+                  Tap to set up baby profile
+                </Text>
+              </Pressable>
+            )}
           </View>
+          <Pressable
+            onPress={() => setActiveSheet("settings")}
+            style={({ pressed }) => [
+              styles.settingsBtn,
+              { backgroundColor: colors.surface },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <IconSymbol name="gearshape.fill" size={20} color={colors.muted} />
+          </Pressable>
+        </View>
 
-          {/* Example Card */}
-          <View className="w-full max-w-sm self-center bg-surface rounded-2xl p-6 shadow-sm border border-border">
-            <Text className="text-lg font-semibold text-foreground mb-2">NativeWind Ready</Text>
-            <Text className="text-sm text-muted leading-relaxed">
-              Use Tailwind CSS classes directly in your React Native components.
+        {/* Active Sleep Banner */}
+        {state.activeSleep && (
+          <Pressable
+            onPress={() => setActiveSheet("sleep")}
+            style={({ pressed }) => [
+              styles.sleepBanner,
+              { backgroundColor: colors.sleep + "20", borderColor: colors.sleep },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <IconSymbol name="moon.fill" size={18} color={colors.sleep} />
+            <Text style={[styles.sleepBannerText, { color: colors.sleep }]}>
+              Sleep in progress — tap to stop
             </Text>
-          </View>
+          </Pressable>
+        )}
 
-          {/* Example Button */}
-          <View className="items-center">
-            <TouchableOpacity className="bg-primary px-6 py-3 rounded-full active:opacity-80">
-              <Text className="text-background font-semibold">Get Started</Text>
-            </TouchableOpacity>
+        {/* Summary Cards */}
+        <View className="flex-row gap-3 mb-5">
+          <View
+            style={[styles.summaryCard, { backgroundColor: colors.feed + "15", borderColor: colors.feed + "30" }]}
+          >
+            <IconSymbol name="fork.knife" size={20} color={colors.feed} />
+            <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+              {displayAmount(todayFeedMl)}
+            </Text>
+            <Text style={[styles.summaryLabel, { color: colors.muted }]}>Feed</Text>
+          </View>
+          <View
+            style={[styles.summaryCard, { backgroundColor: colors.diaper + "15", borderColor: colors.diaper + "30" }]}
+          >
+            <IconSymbol name="drop.fill" size={20} color={colors.diaper} />
+            <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+              {todayDiapers.pee}P / {todayDiapers.poo}💩
+            </Text>
+            <Text style={[styles.summaryLabel, { color: colors.muted }]}>Diapers</Text>
+          </View>
+          <View
+            style={[styles.summaryCard, { backgroundColor: colors.sleep + "15", borderColor: colors.sleep + "30" }]}
+          >
+            <IconSymbol name="moon.fill" size={20} color={colors.sleep} />
+            <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+              {formatDuration(todaySleepMin)}
+            </Text>
+            <Text style={[styles.summaryLabel, { color: colors.muted }]}>Sleep</Text>
           </View>
         </View>
+
+        {/* Quick Actions */}
+        <Text className="text-lg font-semibold text-foreground mb-3">Log Event</Text>
+        <View className="flex-row gap-3 mb-6">
+          {[
+            { type: "feed" as const, label: "Feed", icon: "fork.knife" as const, color: colors.feed },
+            { type: "sleep" as const, label: "Sleep", icon: "moon.fill" as const, color: colors.sleep },
+            { type: "diaper" as const, label: "Diaper", icon: "drop.fill" as const, color: colors.diaper },
+            { type: "observation" as const, label: "Note", icon: "eye.fill" as const, color: colors.observation },
+          ].map((action) => (
+            <Pressable
+              key={action.type}
+              onPress={() => setActiveSheet(action.type)}
+              style={({ pressed }) => [
+                styles.quickAction,
+                { backgroundColor: action.color + "15", borderColor: action.color + "30" },
+                pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 },
+              ]}
+            >
+              <View
+                style={[styles.quickActionIcon, { backgroundColor: action.color + "25" }]}
+              >
+                <IconSymbol name={action.icon} size={24} color={action.color} />
+              </View>
+              <Text style={[styles.quickActionLabel, { color: colors.foreground }]}>
+                {action.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* Recent Activity */}
+        <Text className="text-lg font-semibold text-foreground mb-3">Today's Activity</Text>
+        {recentEvents.length === 0 ? (
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={{ color: colors.muted, textAlign: "center" }}>
+              No events logged today.{"\n"}Tap a button above to start tracking!
+            </Text>
+          </View>
+        ) : (
+          recentEvents.map((event) => (
+            <View
+              key={event.id}
+              style={[styles.eventRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            >
+              <View style={[styles.eventIcon, { backgroundColor: getEventColor(event.type) + "20" }]}>
+                <IconSymbol name={getEventIcon(event.type)} size={18} color={getEventColor(event.type)} />
+              </View>
+              <View style={styles.eventContent}>
+                <Text style={[styles.eventTitle, { color: colors.foreground }]}>
+                  {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
+                </Text>
+                <Text style={[styles.eventSummary, { color: colors.muted }]}>
+                  {getEventSummary(event)}
+                </Text>
+              </View>
+              <Text style={[styles.eventTime, { color: colors.muted }]}>
+                {formatTime(event.timestamp)}
+              </Text>
+            </View>
+          ))
+        )}
       </ScrollView>
+
+      {/* Modals */}
+      <Modal visible={activeSheet === "feed"} animationType="slide" presentationStyle="pageSheet">
+        <LogFeedSheet onClose={closeSheet} />
+      </Modal>
+      <Modal visible={activeSheet === "sleep"} animationType="slide" presentationStyle="pageSheet">
+        <LogSleepSheet onClose={closeSheet} />
+      </Modal>
+      <Modal visible={activeSheet === "diaper"} animationType="slide" presentationStyle="pageSheet">
+        <LogDiaperSheet onClose={closeSheet} />
+      </Modal>
+      <Modal visible={activeSheet === "observation"} animationType="slide" presentationStyle="pageSheet">
+        <LogObservationSheet onClose={closeSheet} />
+      </Modal>
+      <Modal visible={activeSheet === "profile"} animationType="slide" presentationStyle="pageSheet">
+        <SetupProfileSheet onClose={closeSheet} />
+      </Modal>
+      <Modal visible={activeSheet === "settings"} animationType="slide" presentationStyle="pageSheet">
+        <SettingsSheet onClose={closeSheet} />
+      </Modal>
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  settingsBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sleepBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  sleepBannerText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  summaryCard: {
+    flex: 1,
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 4,
+  },
+  summaryValue: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  summaryLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  quickAction: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+  },
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickActionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  emptyCard: {
+    padding: 24,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  eventRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+    gap: 12,
+  },
+  eventIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eventContent: {
+    flex: 1,
+  },
+  eventTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  eventSummary: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  eventTime: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+});

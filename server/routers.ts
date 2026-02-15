@@ -1,28 +1,211 @@
+import { z } from "zod";
 import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import { invokeLLM } from "./_core/llm";
+import { storagePut } from "./storage";
 
 export const appRouter = router({
-  // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
+      return { success: true } as const;
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  ai: router({
+    // AI Q&A endpoint
+    ask: publicProcedure
+      .input(
+        z.object({
+          question: z.string().min(1).max(2000),
+          context: z.string().max(5000).optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are a helpful baby care assistant. You help new parents track and understand their baby's health patterns. 
+You provide evidence-based advice about feeding, sleeping, diaper changes, and general baby health.
+Always be supportive and reassuring while being accurate. If something seems concerning, recommend consulting a pediatrician.
+Keep responses concise and practical. Use simple language.`,
+            },
+            {
+              role: "user",
+              content: input.context
+                ? `Context about my baby:\n${input.context}\n\nQuestion: ${input.question}`
+                : input.question,
+            },
+          ],
+        });
+        const rawAnswer = response?.choices?.[0]?.message?.content;
+        const answer = typeof rawAnswer === "string" ? rawAnswer : "I'm sorry, I couldn't generate a response.";
+        return { answer };
+      }),
+
+    // Image analysis for bottles (before/after feed)
+    analyzeBottle: publicProcedure
+      .input(
+        z.object({
+          imageBase64: z.string(),
+          mimeType: z.string().default("image/jpeg"),
+        })
+      )
+      .mutation(async ({ input }) => {
+        // Upload to S3 first
+        const buffer = Buffer.from(input.imageBase64, "base64");
+        const key = `bottle-images/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+        const { url } = await storagePut(key, buffer, input.mimeType);
+
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are an image analysis assistant for a baby tracking app. 
+Analyze the baby bottle image and determine the milk/formula level based on the markings on the bottle.
+Return a JSON response with:
+- amountMl: estimated amount in milliliters (number)
+- confidence: "high", "medium", or "low"
+- description: brief description of what you see`,
+            },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Analyze this baby bottle image and tell me the amount of milk/formula visible based on the bottle markings." },
+                { type: "image_url", image_url: { url, detail: "high" } },
+              ],
+            },
+          ],
+          response_format: { type: "json_object" },
+        });
+
+        try {
+          const rawContent = response?.choices?.[0]?.message?.content;
+          const content = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent) || "{}";
+          const parsed = JSON.parse(content);
+          return {
+            amountMl: parsed.amountMl || 0,
+            confidence: parsed.confidence || "low",
+            description: parsed.description || "Could not analyze the image",
+            imageUrl: url,
+          };
+        } catch {
+          return {
+            amountMl: 0,
+            confidence: "low" as const,
+            description: "Could not parse the analysis result",
+            imageUrl: url,
+          };
+        }
+      }),
+
+    // Image analysis for diapers
+    analyzeDiaper: publicProcedure
+      .input(
+        z.object({
+          imageBase64: z.string(),
+          mimeType: z.string().default("image/jpeg"),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const buffer = Buffer.from(input.imageBase64, "base64");
+        const key = `diaper-images/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+        const { url } = await storagePut(key, buffer, input.mimeType);
+
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are an image analysis assistant for a baby tracking app.
+Analyze the diaper image and classify it.
+Return a JSON response with:
+- type: "pee", "poo", or "both"
+- pooColor: if poo is present, one of "yellow", "green", "brown", "black", "red" (or null)
+- pooConsistency: if poo is present, one of "liquid", "soft", "firm", "hard" (or null)
+- confidence: "high", "medium", or "low"
+- description: brief description of what you observe`,
+            },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Analyze this diaper image and classify the contents." },
+                { type: "image_url", image_url: { url, detail: "high" } },
+              ],
+            },
+          ],
+          response_format: { type: "json_object" },
+        });
+
+        try {
+          const rawContent2 = response?.choices?.[0]?.message?.content;
+          const content = typeof rawContent2 === "string" ? rawContent2 : JSON.stringify(rawContent2) || "{}";
+          const parsed = JSON.parse(content);
+          return {
+            type: parsed.type || "pee",
+            pooColor: parsed.pooColor || null,
+            pooConsistency: parsed.pooConsistency || null,
+            confidence: parsed.confidence || "low",
+            description: parsed.description || "Could not analyze the image",
+            imageUrl: url,
+          };
+        } catch {
+          return {
+            type: "pee" as const,
+            pooColor: null,
+            pooConsistency: null,
+            confidence: "low" as const,
+            description: "Could not parse the analysis result",
+            imageUrl: url,
+          };
+        }
+      }),
+
+    // General photo analysis (premium)
+    analyzePhoto: publicProcedure
+      .input(
+        z.object({
+          imageBase64: z.string(),
+          mimeType: z.string().default("image/jpeg"),
+          question: z.string().max(1000).optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const buffer = Buffer.from(input.imageBase64, "base64");
+        const key = `photos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+        const { url } = await storagePut(key, buffer, input.mimeType);
+
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are a helpful baby care assistant with image analysis capabilities.
+Analyze the uploaded image in the context of baby health and care.
+Provide helpful, accurate observations. If you notice anything concerning, recommend consulting a pediatrician.`,
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: input.question || "Please analyze this image and provide any relevant observations about my baby's health or care.",
+                },
+                { type: "image_url", image_url: { url, detail: "high" } },
+              ],
+            },
+          ],
+        });
+
+        const rawPhotoAnswer = response?.choices?.[0]?.message?.content;
+        const answer = typeof rawPhotoAnswer === "string" ? rawPhotoAnswer : "I couldn't analyze the image.";
+        return { answer, imageUrl: url };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
