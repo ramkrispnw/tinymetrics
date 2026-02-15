@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -21,7 +22,7 @@ interface Props {
 
 export function LogGrowthSheet({ onClose }: Props) {
   const colors = useColors();
-  const { state, addGrowthEntry } = useStore();
+  const { state, addGrowthEntry, deleteGrowthEntry } = useStore();
   const today = new Date().toISOString().split("T")[0];
 
   const [date, setDate] = useState(today);
@@ -32,6 +33,29 @@ export function LogGrowthSheet({ onClose }: Props) {
   const [saving, setSaving] = useState(false);
 
   const canSave = weight.trim() || height.trim();
+
+  const handleDelete = (id: string, date: string) => {
+    const doDelete = () => {
+      deleteGrowthEntry(id);
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    };
+    if (Platform.OS === "web") {
+      if (window.confirm(`Delete growth entry from ${date}?`)) {
+        doDelete();
+      }
+    } else {
+      Alert.alert(
+        "Delete Entry",
+        `Delete growth entry from ${date}?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: doDelete },
+        ]
+      );
+    }
+  };
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -196,26 +220,38 @@ export function LogGrowthSheet({ onClose }: Props) {
         {state.growthHistory.length > 0 && (
           <>
             <Text style={[styles.sectionLabel, { color: colors.muted }]}>Recent Entries</Text>
-            {state.growthHistory.slice(0, 5).map((entry) => (
+            {state.growthHistory.slice(0, 10).map((entry) => (
               <View
                 key={entry.id}
                 style={[styles.entryRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
               >
-                <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 14 }}>
-                  {entry.date}
-                </Text>
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  {entry.weight != null && (
-                    <Text style={{ color: colors.muted, fontSize: 13 }}>
-                      {entry.weight} {entry.weightUnit || "kg"}
-                    </Text>
-                  )}
-                  {entry.height != null && (
-                    <Text style={{ color: colors.muted, fontSize: 13 }}>
-                      {entry.height} {entry.heightUnit || "cm"}
-                    </Text>
-                  )}
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 14 }}>
+                    {entry.date}
+                  </Text>
+                  <View style={{ flexDirection: "row", gap: 12, marginTop: 2 }}>
+                    {entry.weight != null && (
+                      <Text style={{ color: colors.muted, fontSize: 13 }}>
+                        {entry.weight} {entry.weightUnit || "kg"}
+                      </Text>
+                    )}
+                    {entry.height != null && (
+                      <Text style={{ color: colors.muted, fontSize: 13 }}>
+                        {entry.height} {entry.heightUnit || "cm"}
+                      </Text>
+                    )}
+                  </View>
                 </View>
+                <Pressable
+                  onPress={() => handleDelete(entry.id, entry.date)}
+                  style={({ pressed }) => [
+                    styles.deleteBtn,
+                    { backgroundColor: colors.error + "15" },
+                    pressed && { opacity: 0.6 },
+                  ]}
+                >
+                  <Text style={{ color: colors.error, fontSize: 13, fontWeight: "600" }}>Delete</Text>
+                </Pressable>
               </View>
             ))}
           </>
@@ -291,5 +327,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: 8,
+  },
+  deleteBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginLeft: 8,
   },
 });

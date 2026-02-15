@@ -31,3 +31,4 @@
 - [x] Implement growth history tracking (weight/height over time)
 - [x] Add growth curve visualization to Trends tab
 - [x] Implement data export as CSV with share sheet
+- [x] Add delete functionality for growth entries in Log Growth sheet
