@@ -41,6 +41,8 @@ const MAPPING = {
   "stop.fill": "stop",
   "bolt.fill": "bolt",
   "person.fill": "person",
+  "person.2.fill": "people",
+  "doc.on.doc.fill": "content-copy",
 } as IconMapping;
 
 export function IconSymbol({

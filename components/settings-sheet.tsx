@@ -19,9 +19,10 @@ import * as Haptics from "expo-haptics";
 
 interface Props {
   onClose: () => void;
+  onOpenShare: () => void;
 }
 
-export function SettingsSheet({ onClose }: Props) {
+export function SettingsSheet({ onClose, onOpenShare }: Props) {
   const colors = useColors();
   const { state, updateSettings } = useStore();
   const { user, isAuthenticated, loading: authLoading, logout, refresh } = useAuth();
@@ -203,6 +204,28 @@ export function SettingsSheet({ onClose }: Props) {
           />
         </View>
 
+        {/* Partner Sharing */}
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Partner Sharing</Text>
+        <Pressable
+          onPress={onOpenShare}
+          style={({ pressed }) => [
+            styles.settingRow,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <View style={[styles.shareIcon, { backgroundColor: colors.primary + "15" }]}>
+            <IconSymbol name="person.2.fill" size={20} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.settingTitle, { color: colors.foreground }]}>Share with Partner</Text>
+            <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>
+              Invite your partner to track together
+            </Text>
+          </View>
+          <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+        </Pressable>
+
         {/* Stats */}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>Data</Text>
         <View style={[styles.settingRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -326,6 +349,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
+  },
+  shareIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   appInfo: {
     paddingVertical: 32,

@@ -31,8 +31,9 @@ import { LogDiaperSheet } from "@/components/log-diaper-sheet";
 import { LogObservationSheet } from "@/components/log-observation-sheet";
 import { SetupProfileSheet } from "@/components/setup-profile-sheet";
 import { SettingsSheet } from "@/components/settings-sheet";
+import { ShareSheet } from "@/components/share-sheet";
 
-type SheetType = "feed" | "sleep" | "diaper" | "observation" | "profile" | "settings" | null;
+type SheetType = "feed" | "sleep" | "diaper" | "observation" | "profile" | "settings" | "share" | null;
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -155,14 +156,20 @@ export default function HomeScreen() {
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-1">
             {state.profile ? (
-              <>
-                <Text className="text-2xl font-bold text-foreground">
-                  {state.profile.name}
-                </Text>
+              <Pressable
+                onPress={() => setActiveSheet("profile")}
+                style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+              >
+                <View className="flex-row items-center gap-1">
+                  <Text className="text-2xl font-bold text-foreground">
+                    {state.profile.name}
+                  </Text>
+                  <IconSymbol name="chevron.right" size={14} color={colors.muted} />
+                </View>
                 {profileSubtitle && (
                   <Text className="text-sm text-muted mt-0.5">{profileSubtitle}</Text>
                 )}
-              </>
+              </Pressable>
             ) : (
               <Pressable
                 onPress={() => setActiveSheet("profile")}
@@ -317,7 +324,10 @@ export default function HomeScreen() {
         <SetupProfileSheet onClose={closeSheet} />
       </Modal>
       <Modal visible={activeSheet === "settings"} animationType="slide" presentationStyle="pageSheet">
-        <SettingsSheet onClose={closeSheet} />
+        <SettingsSheet onClose={closeSheet} onOpenShare={() => setActiveSheet("share")} />
+      </Modal>
+      <Modal visible={activeSheet === "share"} animationType="slide" presentationStyle="pageSheet">
+        <ShareSheet onClose={closeSheet} />
       </Modal>
     </ScreenContainer>
   );

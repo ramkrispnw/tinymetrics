@@ -5,6 +5,8 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import { storagePut } from "./storage";
+import { protectedProcedure } from "./_core/trpc";
+import * as db from "./db";
 
 export const appRouter = router({
   system: systemRouter,
@@ -14,6 +16,39 @@ export const appRouter = router({
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
+    }),
+  }),
+
+  sharing: router({
+    // Generate an invite code for the current user
+    createInvite: protectedProcedure.mutation(async ({ ctx }) => {
+      const result = await db.createInvite(ctx.user.id);
+      return { code: result.code };
+    }),
+
+    // Accept an invite code from a partner
+    acceptInvite: protectedProcedure
+      .input(z.object({ code: z.string().min(4).max(10) }))
+      .mutation(async ({ ctx, input }) => {
+        const result = await db.acceptInvite(input.code, ctx.user.id);
+        return result;
+      }),
+
+    // Get current partner info
+    getPartner: protectedProcedure.query(async ({ ctx }) => {
+      const partner = await db.getPartnerInfo(ctx.user.id);
+      return partner;
+    }),
+
+    // Get pending invite code
+    getPendingInvite: protectedProcedure.query(async ({ ctx }) => {
+      const invite = await db.getPendingInvite(ctx.user.id);
+      return invite ? { code: invite.code } : null;
+    }),
+
+    // Revoke sharing
+    revokeSharing: protectedProcedure.mutation(async ({ ctx }) => {
+      return db.revokeSharing(ctx.user.id);
     }),
   }),
 

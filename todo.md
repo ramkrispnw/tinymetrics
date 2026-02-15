@@ -23,3 +23,5 @@
 - [x] Add weight (kg/lbs) and height (cm/in) to baby profile
 - [x] Calculate and display baby age from DOB
 - [x] Tailor AI answers to baby's weight, height, and age
+- [x] Add functionality for parents to update/edit baby profile from home screen
+- [x] Add shared account feature for 2 parents to collaborate on tracking
