@@ -12,7 +12,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { useStore } from "@/lib/store";
+import { useStore, calculateAge } from "@/lib/store";
 import { useAuth } from "@/hooks/use-auth";
 import { startOAuthLogin } from "@/constants/oauth";
 import * as Haptics from "expo-haptics";
@@ -20,9 +20,10 @@ import * as Haptics from "expo-haptics";
 interface Props {
   onClose: () => void;
   onOpenShare: () => void;
+  onEditProfile: () => void;
 }
 
-export function SettingsSheet({ onClose, onOpenShare }: Props) {
+export function SettingsSheet({ onClose, onOpenShare, onEditProfile }: Props) {
   const colors = useColors();
   const { state, updateSettings } = useStore();
   const { user, isAuthenticated, loading: authLoading, logout, refresh } = useAuth();
@@ -140,10 +141,11 @@ export function SettingsSheet({ onClose, onOpenShare }: Props) {
         )}
 
         {/* Baby Profile */}
-        {state.profile && (
-          <>
-            <Text style={[styles.sectionLabel, { color: colors.muted }]}>Baby Profile</Text>
-            <View style={[styles.profileCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Baby Profile</Text>
+        {state.profile ? (
+          <View style={[styles.profileCardFull, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            {/* Top row: avatar + name + edit button */}
+            <View style={styles.profileTopRow}>
               <View style={[styles.profileAvatar, { backgroundColor: colors.primary + "20" }]}>
                 <Text style={{ fontSize: 28 }}>👶</Text>
               </View>
@@ -151,12 +153,76 @@ export function SettingsSheet({ onClose, onOpenShare }: Props) {
                 <Text style={[styles.profileName, { color: colors.foreground }]}>
                   {state.profile.name}
                 </Text>
-                <Text style={{ color: colors.muted, fontSize: 13 }}>
-                  Born {state.profile.birthDate}
+                {state.profile.birthDate && (() => {
+                  const age = calculateAge(state.profile!.birthDate);
+                  return (
+                    <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600", marginTop: 2 }}>
+                      {age.label}
+                    </Text>
+                  );
+                })()}
+              </View>
+              <Pressable
+                onPress={onEditProfile}
+                style={({ pressed }) => [
+                  styles.editBtn,
+                  { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" },
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>Edit</Text>
+              </Pressable>
+            </View>
+
+            {/* Divider */}
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+            {/* Profile details grid */}
+            <View style={styles.profileGrid}>
+              <View style={styles.profileDetailItem}>
+                <Text style={[styles.detailLabel, { color: colors.muted }]}>Date of Birth</Text>
+                <Text style={[styles.detailValue, { color: colors.foreground }]}>
+                  {state.profile.birthDate || "Not set"}
+                </Text>
+              </View>
+              <View style={styles.profileDetailItem}>
+                <Text style={[styles.detailLabel, { color: colors.muted }]}>Weight</Text>
+                <Text style={[styles.detailValue, { color: colors.foreground }]}>
+                  {state.profile.weight != null
+                    ? `${state.profile.weight} ${state.profile.weightUnit || "kg"}`
+                    : "Not set"}
+                </Text>
+              </View>
+              <View style={styles.profileDetailItem}>
+                <Text style={[styles.detailLabel, { color: colors.muted }]}>Height</Text>
+                <Text style={[styles.detailValue, { color: colors.foreground }]}>
+                  {state.profile.height != null
+                    ? `${state.profile.height} ${state.profile.heightUnit || "cm"}`
+                    : "Not set"}
                 </Text>
               </View>
             </View>
-          </>
+          </View>
+        ) : (
+          <Pressable
+            onPress={onEditProfile}
+            style={({ pressed }) => [
+              styles.setupProfileBtn,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <View style={[styles.profileAvatar, { backgroundColor: colors.primary + "20" }]}>
+              <Text style={{ fontSize: 28 }}>👶</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.settingTitle, { color: colors.foreground }]}>Set Up Baby Profile</Text>
+              <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>
+                Add your baby's name, DOB, weight, and height
+              </Text>
+            </View>
+            <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+          </Pressable>
         )}
 
         {/* Units */}
@@ -356,6 +422,54 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+  },
+  profileCardFull: {
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  profileTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  editBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  divider: {
+    height: 1,
+    marginVertical: 14,
+  },
+  profileGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  profileDetailItem: {
+    minWidth: "30%" as any,
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    marginBottom: 3,
+  },
+  detailValue: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  setupProfileBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
   },
   appInfo: {
     paddingVertical: 32,

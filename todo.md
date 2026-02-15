@@ -25,3 +25,4 @@
 - [x] Tailor AI answers to baby's weight, height, and age
 - [x] Add functionality for parents to update/edit baby profile from home screen
 - [x] Add shared account feature for 2 parents to collaborate on tracking
+- [x] Show full baby profile info in Settings with edit button

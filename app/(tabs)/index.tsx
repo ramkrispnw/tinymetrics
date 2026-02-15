@@ -324,7 +324,7 @@ export default function HomeScreen() {
         <SetupProfileSheet onClose={closeSheet} />
       </Modal>
       <Modal visible={activeSheet === "settings"} animationType="slide" presentationStyle="pageSheet">
-        <SettingsSheet onClose={closeSheet} onOpenShare={() => setActiveSheet("share")} />
+        <SettingsSheet onClose={closeSheet} onOpenShare={() => setActiveSheet("share")} onEditProfile={() => setActiveSheet("profile")} />
       </Modal>
       <Modal visible={activeSheet === "share"} animationType="slide" presentationStyle="pageSheet">
         <ShareSheet onClose={closeSheet} />
