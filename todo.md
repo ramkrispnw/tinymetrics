@@ -42,3 +42,7 @@
 - [x] Trends: split diaper chart into separate pee and poo charts
 - [x] Trends: both diaper counts as 1 pee + 1 poo
 - [x] Activity: make every event editable by the user
+- [x] Treat weight/height profile updates as trackable events
+- [x] Add metric/imperial toggle to Trends charts
+- [x] Convert all readings to user's selected unit system in charts
+- [x] Ensure imported data displays correctly in trend charts with unit conversion

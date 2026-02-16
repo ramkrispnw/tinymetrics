@@ -108,9 +108,44 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateProfile = useCallback(async (profile: BabyProfile) => {
-    setState((prev) => ({ ...prev, profile }));
-    await saveProfile(profile);
-  }, []);
+    // Check if weight or height changed — if so, log a growth event
+    setState((prev) => {
+      const oldProfile = prev.profile;
+      const weightChanged = profile.weight != null && (oldProfile?.weight !== profile.weight || oldProfile?.weightUnit !== profile.weightUnit);
+      const heightChanged = profile.height != null && (oldProfile?.height !== profile.height || oldProfile?.heightUnit !== profile.heightUnit);
+
+      let updatedEvents = prev.events;
+      if (weightChanged || heightChanged) {
+        const growthEvent: BabyEvent = {
+          id: generateId(),
+          type: "growth",
+          timestamp: new Date().toISOString(),
+          data: {
+            weight: profile.weight,
+            weightUnit: profile.weightUnit || "kg",
+            height: profile.height,
+            heightUnit: profile.heightUnit || "cm",
+            notes: "Profile updated",
+          },
+          createdAt: new Date().toISOString(),
+        };
+        updatedEvents = [growthEvent, ...prev.events];
+        saveEvents(updatedEvents);
+        // Sync growth event to cloud
+        syncMutation.mutateAsync({
+          events: [{
+            clientId: growthEvent.id,
+            type: growthEvent.type,
+            eventTimestamp: growthEvent.timestamp,
+            data: JSON.stringify(growthEvent.data),
+          }],
+        }).catch(() => {});
+      }
+
+      saveProfile(profile);
+      return { ...prev, profile, events: updatedEvents };
+    });
+  }, [syncMutation]);
 
   const updateSettings = useCallback(async (partial: Partial<AppSettings>) => {
     setState((prev) => {
@@ -133,13 +168,42 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         id: generateId(),
         createdAt: new Date().toISOString(),
       };
+      // Also log as a growth event for Trends tracking
+      const growthEvent: BabyEvent = {
+        id: generateId(),
+        type: "growth",
+        timestamp: new Date(entry.date + "T12:00:00").toISOString(),
+        data: {
+          weight: entry.weight,
+          weightUnit: entry.weightUnit || "kg",
+          height: entry.height,
+          heightUnit: entry.heightUnit || "cm",
+          notes: "Growth log entry",
+        },
+        createdAt: new Date().toISOString(),
+      };
       setState((prev) => {
-        const updated = [newEntry, ...prev.growthHistory];
-        saveGrowthHistory(updated);
-        return { ...prev, growthHistory: updated };
+        const updatedGrowth = [newEntry, ...prev.growthHistory];
+        const updatedEvents = [growthEvent, ...prev.events];
+        saveGrowthHistory(updatedGrowth);
+        saveEvents(updatedEvents);
+        return { ...prev, growthHistory: updatedGrowth, events: updatedEvents };
       });
+      // Sync growth event to cloud
+      try {
+        await syncMutation.mutateAsync({
+          events: [{
+            clientId: growthEvent.id,
+            type: growthEvent.type,
+            eventTimestamp: growthEvent.timestamp,
+            data: JSON.stringify(growthEvent.data),
+          }],
+        });
+      } catch {
+        // Offline or not logged in
+      }
     },
-    []
+    [syncMutation]
   );
 
   const deleteGrowthEntry = useCallback(async (id: string) => {

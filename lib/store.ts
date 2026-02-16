@@ -3,7 +3,7 @@ import { createContext, useContext } from "react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type EventType = "feed" | "sleep" | "diaper" | "observation";
+export type EventType = "feed" | "sleep" | "diaper" | "observation" | "growth";
 
 export type FeedMethod = "bottle" | "breast_left" | "breast_right" | "solid";
 export type DiaperType = "pee" | "poo" | "both";
@@ -40,11 +40,19 @@ export interface ObservationData {
   notes?: string;
 }
 
+export interface GrowthData {
+  weight?: number;
+  weightUnit?: WeightUnit;
+  height?: number;
+  heightUnit?: HeightUnit;
+  notes?: string;
+}
+
 export interface BabyEvent {
   id: string;
   type: EventType;
   timestamp: string; // ISO
-  data: FeedData | SleepData | DiaperData | ObservationData;
+  data: FeedData | SleepData | DiaperData | ObservationData | GrowthData;
   imageUrl?: string;
   createdAt: string; // ISO
 }
@@ -171,6 +179,42 @@ export function mlToOz(ml: number): number {
 
 export function ozToMl(oz: number): number {
   return Math.round(oz / 0.033814);
+}
+
+// ─── Unit Conversions ───────────────────────────────────────────────────────
+
+export function kgToLbs(kg: number): number {
+  return Math.round(kg * 2.20462 * 100) / 100;
+}
+
+export function lbsToKg(lbs: number): number {
+  return Math.round(lbs / 2.20462 * 100) / 100;
+}
+
+export function cmToIn(cm: number): number {
+  return Math.round(cm / 2.54 * 100) / 100;
+}
+
+export function inToCm(inches: number): number {
+  return Math.round(inches * 2.54 * 100) / 100;
+}
+
+/** Convert weight to target unit */
+export function convertWeight(value: number, fromUnit: WeightUnit, toUnit: WeightUnit): number {
+  if (fromUnit === toUnit) return value;
+  return fromUnit === "kg" ? kgToLbs(value) : lbsToKg(value);
+}
+
+/** Convert height to target unit */
+export function convertHeight(value: number, fromUnit: HeightUnit, toUnit: HeightUnit): number {
+  if (fromUnit === toUnit) return value;
+  return fromUnit === "cm" ? cmToIn(value) : inToCm(value);
+}
+
+/** Convert feed amount to target unit */
+export function convertFeedAmount(value: number, fromUnit: "ml" | "oz", toUnit: "ml" | "oz"): number {
+  if (fromUnit === toUnit) return value;
+  return fromUnit === "ml" ? mlToOz(value) : ozToMl(value);
 }
 
 export function formatDuration(minutes: number): string {
