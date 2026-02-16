@@ -16,6 +16,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
 import { trpc } from "@/lib/trpc";
+import { pickImage } from "@/lib/image-utils";
 import * as Haptics from "expo-haptics";
 
 type ImportStep = "pick" | "uploading" | "parsing" | "preview" | "importing" | "done" | "error";
@@ -34,12 +35,48 @@ export function ImportLogsSheet({ onClose }: Props) {
   const colors = useColors();
   const { importEvents } = useStore();
   const parsePdf = trpc.ai.parsePdfLogs.useMutation();
+  const parseImage = trpc.ai.parseImageLogs.useMutation();
 
   const [step, setStep] = useState<ImportStep>("pick");
   const [fileName, setFileName] = useState("");
   const [parsedEvents, setParsedEvents] = useState<ParsedEvent[]>([]);
   const [importedCount, setImportedCount] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const handlePickImage = async (source: "camera" | "gallery") => {
+    try {
+      const result = await pickImage(source);
+      if (!result) return;
+
+      setFileName(source === "camera" ? "Camera Photo" : "Photo from Library");
+      setStep("uploading");
+
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+
+      setStep("parsing");
+
+      const result2 = await parseImage.mutateAsync({
+        imageBase64: result.base64 || "",
+        mimeType: "image/jpeg",
+      });
+
+      if (result2.events && result2.events.length > 0) {
+        setParsedEvents(result2.events);
+        setStep("preview");
+      } else {
+        setErrorMsg(
+          (result2 as any).error || "No events could be extracted from this image. Make sure it contains baby care logs."
+        );
+        setStep("error");
+      }
+    } catch (err: any) {
+      console.error("[ImportLogs] Image Error:", err);
+      setErrorMsg(err?.message || "Failed to process the image. Please try again.");
+      setStep("error");
+    }
+  };
 
   const handlePickFile = async () => {
     try {
@@ -273,15 +310,41 @@ export function ImportLogsSheet({ onClose }: Props) {
               ]}
             >
               <IconSymbol name="doc.on.doc.fill" size={20} color="#fff" />
-              <Text style={styles.pickBtnText}>Choose File</Text>
+              <Text style={styles.pickBtnText}>Choose File (PDF / Text)</Text>
             </Pressable>
+
+            <View style={{ flexDirection: "row", gap: 10, width: "100%", marginTop: 12 }}>
+              <Pressable
+                onPress={() => handlePickImage("camera")}
+                style={({ pressed }) => [
+                  styles.pickBtn,
+                  { backgroundColor: colors.success, flex: 1 },
+                  pressed && { opacity: 0.9, transform: [{ scale: 0.97 }] },
+                ]}
+              >
+                <IconSymbol name="camera.fill" size={20} color="#fff" />
+                <Text style={styles.pickBtnText}>Take Photo</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => handlePickImage("gallery")}
+                style={({ pressed }) => [
+                  styles.pickBtn,
+                  { backgroundColor: "#6366F1", flex: 1 },
+                  pressed && { opacity: 0.9, transform: [{ scale: 0.97 }] },
+                ]}
+              >
+                <IconSymbol name="photo.fill" size={20} color="#fff" />
+                <Text style={styles.pickBtnText}>From Photos</Text>
+              </Pressable>
+            </View>
 
             <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.infoTitle, { color: colors.foreground }]}>Supported Formats</Text>
               <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 20, marginTop: 4 }}>
                 {"\u2022"} PDF files (from Apple Notes, Google Docs, etc.){"\n"}
                 {"\u2022"} Text files (.txt){"\n"}
-                {"\u2022"} Any document with baby care notes
+                {"\u2022"} Photos of handwritten notes or screenshots{"\n"}
+                {"\u2022"} Any image or document with baby care logs
               </Text>
               <View style={[styles.tipRow, { backgroundColor: colors.primary + "10", marginTop: 12 }]}>
                 <Text style={{ color: colors.primary, fontSize: 12, lineHeight: 18 }}>

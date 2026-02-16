@@ -435,6 +435,102 @@ Be thorough — extract every day/row mentioned. If amounts are in oz, convert t
         }
       }),
 
+    // Parse images (screenshots, photos of notes) for baby log data
+    parseImageLogs: publicProcedure
+      .input(
+        z.object({
+          imageBase64: z.string(),
+          mimeType: z.string().default("image/jpeg"),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const buffer = Buffer.from(input.imageBase64, "base64");
+        const key = `image-imports/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+        const { url } = await storagePut(key, buffer, input.mimeType);
+
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are a data extraction assistant for a baby tracking app. The user has uploaded a photo that contains baby care notes or logs. This could be a screenshot from Apple Notes, a photo of handwritten notes, or any image with baby tracking data.\n\nExtract the data and return a JSON object with a "daily_rows" array. Each row should have:\n- date: the date in YYYY-MM-DD format (infer the year if not shown, use 2025 or 2026 as reasonable)\n- intakeMl: total daily feed intake in milliliters (number). If in oz, convert to ml (1 oz = ~30 ml). If not available, use 0.\n- wetDiapers: number of wet/pee diapers that day (number). If not available, use 0.\n- pooDiapers: number of poo diapers that day (number). If not available, use 0.\n- sleepMin: total sleep in minutes for the day (number, optional). If not available, use 0.\n- notes: any extra observations or notes for that day (string, optional).\n\nRead dates, times, and details carefully from the image. Be thorough — extract every day/row visible. Return valid JSON only.`,
+            },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Please parse all baby care data from this image and return them as structured JSON with a daily_rows array." },
+                { type: "image_url", image_url: { url } },
+              ],
+            },
+          ],
+          response_format: { type: "json_object" },
+        });
+
+        try {
+          const rawContent = response?.choices?.[0]?.message?.content;
+          const content = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent) || "{}";
+          const parsed = JSON.parse(content);
+          const dailyRows = Array.isArray(parsed.daily_rows) ? parsed.daily_rows : [];
+
+          const events: any[] = [];
+          for (const row of dailyRows) {
+            const date = row.date || new Date().toISOString().split("T")[0];
+            const noonTimestamp = `${date}T12:00:00.000Z`;
+
+            const intakeMl = typeof row.intakeMl === "number" ? row.intakeMl : Number(row.intakeMl) || 0;
+            if (intakeMl > 0) {
+              events.push({
+                type: "feed",
+                timestamp: noonTimestamp,
+                data: { method: "bottle", amountMl: intakeMl, notes: `Imported from image for ${date}` },
+              });
+            }
+
+            const wetCount = typeof row.wetDiapers === "number" ? row.wetDiapers : Number(row.wetDiapers) || 0;
+            for (let i = 0; i < wetCount; i++) {
+              const hour = 6 + Math.floor((i * 12) / Math.max(wetCount, 1));
+              const ts = `${date}T${String(hour).padStart(2, "0")}:${String(i * 5 % 60).padStart(2, "0")}:00.000Z`;
+              events.push({
+                type: "diaper",
+                timestamp: ts,
+                data: { type: "pee", notes: `Imported from image for ${date}` },
+              });
+            }
+
+            const pooCount = typeof row.pooDiapers === "number" ? row.pooDiapers : Number(row.pooDiapers) || 0;
+            for (let i = 0; i < pooCount; i++) {
+              const hour = 8 + Math.floor((i * 10) / Math.max(pooCount, 1));
+              const ts = `${date}T${String(hour).padStart(2, "0")}:${String(30 + i * 5 % 30).padStart(2, "0")}:00.000Z`;
+              events.push({
+                type: "diaper",
+                timestamp: ts,
+                data: { type: "poo", pooColor: "yellow", notes: `Imported from image for ${date}` },
+              });
+            }
+
+            const sleepMin = typeof row.sleepMin === "number" ? row.sleepMin : Number(row.sleepMin) || 0;
+            if (sleepMin > 0) {
+              events.push({
+                type: "sleep",
+                timestamp: `${date}T20:00:00.000Z`,
+                data: { startTime: `${date}T20:00:00.000Z`, durationMin: sleepMin, notes: `Imported from image for ${date}` },
+              });
+            }
+
+            if (row.notes && row.notes.trim()) {
+              events.push({
+                type: "observation",
+                timestamp: noonTimestamp,
+                data: { category: "other", severity: "mild", description: row.notes.trim(), notes: `Imported from image for ${date}` },
+              });
+            }
+          }
+
+          return { events, totalFound: events.length, dailyRowCount: dailyRows.length };
+        } catch {
+          return { events: [], totalFound: 0, dailyRowCount: 0, error: "Could not parse the image contents" };
+        }
+      }),
+
     // General photo analysis (premium)
     analyzePhoto: publicProcedure
       .input(

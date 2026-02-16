@@ -26,6 +26,13 @@ import {
   type HeightUnit,
 } from "@/lib/store";
 import * as Haptics from "expo-haptics";
+import {
+  getWHOWeightData,
+  getWHOHeightData,
+  kgToLbs,
+  cmToIn,
+  type PercentileRow,
+} from "@/lib/who-growth-data";
 
 type Range = 7 | 14 | 30;
 type FeedUnit = "ml" | "oz";
@@ -600,6 +607,9 @@ export default function TrendsScreen() {
               color={colors.success}
               unitLabel={weightUnit}
               colors={colors}
+              whoData={getWHOWeightData(state.profile?.sex)}
+              whoConvert={weightUnit === "lbs" ? kgToLbs : undefined}
+              birthDate={state.profile?.birthDate}
             />
           </View>
         )}
@@ -639,6 +649,9 @@ export default function TrendsScreen() {
               color={colors.primary}
               unitLabel={heightUnit}
               colors={colors}
+              whoData={getWHOHeightData(state.profile?.sex)}
+              whoConvert={heightUnit === "in" ? cmToIn : undefined}
+              birthDate={state.profile?.birthDate}
             />
           </View>
         )}
@@ -653,17 +666,56 @@ function LineChart({
   color,
   unitLabel,
   colors,
+  whoData,
+  whoConvert,
+  birthDate,
 }: {
   data: { date: string; value: number }[];
   color: string;
   unitLabel: string;
   colors: any;
+  whoData?: PercentileRow[];
+  whoConvert?: (v: number) => number;
+  birthDate?: string;
 }) {
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
   if (data.length === 0) return null;
-  const maxVal = Math.max(...data.map((d) => d.value));
-  const minVal = Math.min(...data.map((d) => d.value));
+
+  // Calculate baby age in months for each data point to map to WHO data
+  const getMonthAge = (dateStr: string): number | null => {
+    if (!birthDate) return null;
+    const birth = new Date(birthDate + "T00:00:00");
+    const d = new Date(dateStr + "T00:00:00");
+    const months = (d.getFullYear() - birth.getFullYear()) * 12 + (d.getMonth() - birth.getMonth());
+    return Math.max(0, Math.min(24, months));
+  };
+
+  // Get WHO percentile value for a given month
+  const getWHOValue = (month: number, percentile: keyof PercentileRow): number | null => {
+    if (!whoData) return null;
+    const row = whoData.find((r) => r.month === Math.round(month));
+    if (!row) return null;
+    const val = row[percentile] as number;
+    return whoConvert ? whoConvert(val) : val;
+  };
+
+  // Include WHO range in min/max calculation
+  let allValues = data.map((d) => d.value);
+  if (whoData && birthDate) {
+    data.forEach((d) => {
+      const m = getMonthAge(d.date);
+      if (m !== null) {
+        const p3 = getWHOValue(m, "p3");
+        const p97 = getWHOValue(m, "p97");
+        if (p3 !== null) allValues.push(p3);
+        if (p97 !== null) allValues.push(p97);
+      }
+    });
+  }
+
+  const maxVal = Math.max(...allValues);
+  const minVal = Math.min(...allValues);
   const rangeVal = maxVal - minVal || 1;
 
   const formatDate = (d: string) => {
@@ -699,6 +751,54 @@ function LineChart({
           </Text>
         </View>
         <View style={growthStyles.chartArea}>
+          {/* WHO Percentile bands */}
+          {whoData && birthDate && data.length > 0 && (() => {
+            const firstMonth = getMonthAge(data[0].date);
+            const lastMonth = getMonthAge(data[data.length - 1].date);
+            const midMonth = firstMonth !== null && lastMonth !== null ? Math.round((firstMonth + lastMonth) / 2) : firstMonth;
+            if (midMonth === null) return null;
+            const p3 = getWHOValue(midMonth, "p3");
+            const p15 = getWHOValue(midMonth, "p15");
+            const p50 = getWHOValue(midMonth, "p50");
+            const p85 = getWHOValue(midMonth, "p85");
+            const p97 = getWHOValue(midMonth, "p97");
+            if (p3 === null || p97 === null || p50 === null) return null;
+            const chartH = 122; // chartArea height minus padding
+            const toY = (v: number) => chartH - ((v - minVal) / rangeVal) * chartH * 0.8 - chartH * 0.1;
+            const y97 = Math.max(0, toY(p97));
+            const y85 = p85 !== null ? toY(p85) : toY(p97);
+            const y50 = toY(p50);
+            const y15 = p15 !== null ? toY(p15) : toY(p3);
+            const y3 = Math.min(chartH, toY(p3));
+            return (
+              <>
+                {/* 3rd-97th percentile band (light) */}
+                <View style={{
+                  position: "absolute", left: 0, right: 0,
+                  top: y97, height: Math.max(1, y3 - y97),
+                  backgroundColor: color + "08", borderRadius: 4,
+                }} />
+                {/* 15th-85th percentile band (medium) */}
+                {p15 !== null && p85 !== null && (
+                  <View style={{
+                    position: "absolute", left: 0, right: 0,
+                    top: y85, height: Math.max(1, y15 - y85),
+                    backgroundColor: color + "12", borderRadius: 4,
+                  }} />
+                )}
+                {/* 50th percentile line */}
+                <View style={{
+                  position: "absolute", left: 0, right: 0,
+                  top: y50, height: 1,
+                  backgroundColor: color + "30",
+                }} />
+                {/* Labels */}
+                <Text style={{ position: "absolute", right: 2, top: y97 - 10, fontSize: 7, color: color + "60" }}>97th</Text>
+                <Text style={{ position: "absolute", right: 2, top: y50 - 10, fontSize: 7, color: color + "80", fontWeight: "600" }}>50th</Text>
+                <Text style={{ position: "absolute", right: 2, top: y3 + 1, fontSize: 7, color: color + "60" }}>3rd</Text>
+              </>
+            );
+          })()}
           <View
             style={[
               growthStyles.gridLine,

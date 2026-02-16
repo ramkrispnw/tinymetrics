@@ -18,6 +18,8 @@ import { generateEventsCSV, generateGrowthCSV, generateFullReport, shareData } f
 import { useAuth } from "@/hooks/use-auth";
 import { startOAuthLogin } from "@/constants/oauth";
 import * as Haptics from "expo-haptics";
+import { Alert } from "react-native";
+import { scheduleFeedingReminder, cancelFeedingReminders } from "@/lib/notifications";
 
 interface Props {
   onClose: () => void;
@@ -31,6 +33,28 @@ export function SettingsSheet({ onClose, onOpenShare, onEditProfile }: Props) {
   const { user, isAuthenticated, loading: authLoading, logout, refresh } = useAuth();
   const [loggingIn, setLoggingIn] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [reminderInterval, setReminderInterval] = useState<number | null>(null);
+  const [reminderActive, setReminderActive] = useState(false);
+
+  const handleSetReminder = async (hours: number) => {
+    const babyName = state.profile?.name || "baby";
+    const id = await scheduleFeedingReminder(hours, babyName);
+    if (id) {
+      setReminderInterval(hours);
+      setReminderActive(true);
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Reminder Set", `You'll be reminded to feed ${babyName} every ${hours} hour${hours !== 1 ? "s" : ""}.`);
+    } else {
+      Alert.alert("Permission Required", "Please enable notifications in your device settings to use feeding reminders.");
+    }
+  };
+
+  const handleCancelReminder = async () => {
+    await cancelFeedingReminders();
+    setReminderInterval(null);
+    setReminderActive(false);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
 
   const toggleUnits = () => {
     const newUnits = state.settings.units === "ml" ? "oz" : "ml";
@@ -297,6 +321,63 @@ export function SettingsSheet({ onClose, onOpenShare, onEditProfile }: Props) {
           </View>
           <IconSymbol name="chevron.right" size={16} color={colors.muted} />
         </Pressable>
+
+        {/* Feeding Reminders */}
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Feeding Reminders</Text>
+        <View style={[styles.settingRow, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: "column", alignItems: "stretch" }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+            <View style={[styles.exportIcon, { backgroundColor: colors.warning + "15" }]}>
+              <Text style={{ fontSize: 18 }}>🍼</Text>
+            </View>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[styles.settingTitle, { color: colors.foreground }]}>Feed Interval Alert</Text>
+              <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>
+                {reminderActive && reminderInterval
+                  ? `Active: every ${reminderInterval}h`
+                  : "Get notified when it's time to feed"}
+              </Text>
+            </View>
+            {reminderActive && (
+              <Pressable
+                onPress={handleCancelReminder}
+                style={({ pressed }) => [
+                  { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.error + "15", borderWidth: 1, borderColor: colors.error + "40" },
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text style={{ color: colors.error, fontWeight: "600", fontSize: 12 }}>Stop</Text>
+              </Pressable>
+            )}
+          </View>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {[1, 1.5, 2, 2.5, 3, 4].map((h) => (
+              <Pressable
+                key={h}
+                onPress={() => handleSetReminder(h)}
+                style={({ pressed }) => [
+                  {
+                    flex: 1,
+                    paddingVertical: 10,
+                    borderRadius: 10,
+                    alignItems: "center" as const,
+                    backgroundColor: reminderInterval === h ? colors.primary : colors.background,
+                    borderWidth: 1,
+                    borderColor: reminderInterval === h ? colors.primary : colors.border,
+                  },
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text style={{
+                  fontSize: 13,
+                  fontWeight: "700",
+                  color: reminderInterval === h ? "#fff" : colors.foreground,
+                }}>
+                  {h}h
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
 
         {/* Data & Export */}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>Data & Export</Text>

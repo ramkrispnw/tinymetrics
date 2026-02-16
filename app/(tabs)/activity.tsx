@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   Platform,
+  ScrollView,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -29,17 +30,65 @@ import { EditEventSheet } from "@/components/edit-event-sheet";
 import * as Haptics from "expo-haptics";
 
 type FilterType = "all" | EventType;
+type DateRange = "today" | "yesterday" | "3days" | "week" | "2weeks" | "month" | "all";
 
 export default function ActivityScreen() {
   const colors = useColors();
   const { state, deleteEvent } = useStore();
   const [filter, setFilter] = useState<FilterType>("all");
+  const [dateRange, setDateRange] = useState<DateRange>("all");
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
 
+  // Calculate date range bounds
+  const dateRangeBounds = useMemo(() => {
+    if (dateRange === "all") return { start: null, end: null };
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
+    switch (dateRange) {
+      case "today":
+        break;
+      case "yesterday":
+        start.setDate(start.getDate() - 1);
+        end.setDate(end.getDate() - 1);
+        break;
+      case "3days":
+        start.setDate(start.getDate() - 2);
+        break;
+      case "week":
+        start.setDate(start.getDate() - 6);
+        break;
+      case "2weeks":
+        start.setDate(start.getDate() - 13);
+        break;
+      case "month":
+        start.setDate(start.getDate() - 29);
+        break;
+    }
+    return { start, end };
+  }, [dateRange]);
+
   const filteredEvents = useMemo(() => {
-    if (filter === "all") return state.events;
-    return state.events.filter((e) => e.type === filter);
-  }, [state.events, filter]);
+    let events = state.events;
+
+    // Apply date range filter
+    if (dateRangeBounds.start && dateRangeBounds.end) {
+      const startMs = dateRangeBounds.start.getTime();
+      const endMs = dateRangeBounds.end.getTime();
+      events = events.filter((e) => {
+        const ts = new Date(e.timestamp).getTime();
+        return ts >= startMs && ts <= endMs;
+      });
+    }
+
+    // Apply type filter
+    if (filter !== "all") {
+      events = events.filter((e) => e.type === filter);
+    }
+
+    return events;
+  }, [state.events, filter, dateRangeBounds]);
 
   const groupedEvents = useMemo(() => {
     const groups: { key: string; title: string; data: BabyEvent[] }[] = [];
@@ -67,6 +116,7 @@ export default function ActivityScreen() {
       case "sleep": return "moon.fill" as const;
       case "diaper": return "drop.fill" as const;
       case "observation": return "eye.fill" as const;
+      case "growth": return "chart.line.uptrend.xyaxis" as const;
       default: return "info.circle.fill" as const;
     }
   };
@@ -77,6 +127,7 @@ export default function ActivityScreen() {
       case "sleep": return colors.sleep;
       case "diaper": return colors.diaper;
       case "observation": return colors.observation;
+      case "growth": return colors.success;
       default: return colors.muted;
     }
   };
@@ -110,6 +161,13 @@ export default function ActivityScreen() {
         const d = event.data as ObservationData;
         return `${d.category.replace("_", " ")} · ${d.severity}`;
       }
+      case "growth": {
+        const d = event.data as any;
+        const parts = [];
+        if (d.weightKg) parts.push(`${d.weightKg} kg`);
+        if (d.heightCm) parts.push(`${d.heightCm} cm`);
+        return parts.join(" · ") || "Growth logged";
+      }
       default:
         return "";
     }
@@ -138,12 +196,23 @@ export default function ActivityScreen() {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const filters: { key: FilterType; label: string }[] = [
+  const typeFilters: { key: FilterType; label: string }[] = [
     { key: "all", label: "All" },
     { key: "feed", label: "Feed" },
     { key: "sleep", label: "Sleep" },
     { key: "diaper", label: "Diaper" },
     { key: "observation", label: "Notes" },
+    { key: "growth", label: "Growth" },
+  ];
+
+  const dateRanges: { key: DateRange; label: string }[] = [
+    { key: "today", label: "Today" },
+    { key: "yesterday", label: "Yesterday" },
+    { key: "3days", label: "3 Days" },
+    { key: "week", label: "Week" },
+    { key: "2weeks", label: "2 Weeks" },
+    { key: "month", label: "Month" },
+    { key: "all", label: "All Time" },
   ];
 
   const renderItem = useCallback(
@@ -200,14 +269,66 @@ export default function ActivityScreen() {
     return items;
   }, [groupedEvents]);
 
+  const eventCount = filteredEvents.length;
+
   return (
     <ScreenContainer className="px-4 pt-2">
       {/* Header */}
-      <Text className="text-2xl font-bold text-foreground mb-3">Activity</Text>
+      <View style={styles.headerRow}>
+        <Text className="text-2xl font-bold text-foreground">Activity</Text>
+        <View style={[styles.countBadge, { backgroundColor: colors.primary + "15" }]}>
+          <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700" }}>
+            {eventCount} event{eventCount !== 1 ? "s" : ""}
+          </Text>
+        </View>
+      </View>
 
-      {/* Filters */}
-      <View style={styles.filterRow}>
-        {filters.map((f) => (
+      {/* Date Range Filter */}
+      <Text style={[styles.filterLabel, { color: colors.muted }]}>Date Range</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.dateFilterScroll}
+        contentContainerStyle={styles.dateFilterRow}
+      >
+        {dateRanges.map((d) => (
+          <Pressable
+            key={d.key}
+            onPress={() => {
+              setDateRange(d.key);
+              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            style={({ pressed }) => [
+              styles.dateFilterBtn,
+              {
+                backgroundColor: dateRange === d.key ? colors.primary : colors.surface,
+                borderColor: dateRange === d.key ? colors.primary : colors.border,
+              },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <Text
+              style={{
+                color: dateRange === d.key ? "#fff" : colors.muted,
+                fontWeight: dateRange === d.key ? "700" : "500",
+                fontSize: 12,
+              }}
+            >
+              {d.label}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {/* Type Filters */}
+      <Text style={[styles.filterLabel, { color: colors.muted }]}>Event Type</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.typeFilterScroll}
+        contentContainerStyle={styles.filterRow}
+      >
+        {typeFilters.map((f) => (
           <Pressable
             key={f.key}
             onPress={() => {
@@ -234,7 +355,7 @@ export default function ActivityScreen() {
             </Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
 
       {/* Event List */}
       <FlatList
@@ -255,7 +376,7 @@ export default function ActivityScreen() {
         ListEmptyComponent={
           <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={{ color: colors.muted, textAlign: "center" }}>
-              No events found.{"\n"}Start logging from the Home tab!
+              No events found for this period.{"\n"}Try adjusting the date range or filters.
             </Text>
           </View>
         }
@@ -272,10 +393,47 @@ export default function ActivityScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  countBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  filterLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  dateFilterScroll: {
+    marginBottom: 10,
+    flexGrow: 0,
+  },
+  dateFilterRow: {
+    flexDirection: "row",
+    gap: 6,
+    paddingRight: 8,
+  },
+  dateFilterBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  typeFilterScroll: {
+    marginBottom: 12,
+    flexGrow: 0,
+  },
   filterRow: {
     flexDirection: "row",
     gap: 6,
-    marginBottom: 16,
+    paddingRight: 8,
   },
   filterBtn: {
     paddingHorizontal: 14,

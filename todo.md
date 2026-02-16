@@ -46,3 +46,9 @@
 - [x] Add metric/imperial toggle to Trends charts
 - [x] Convert all readings to user's selected unit system in charts
 - [x] Ensure imported data displays correctly in trend charts with unit conversion
+- [x] Add date range filter to Activity tab (day/week picker)
+- [x] Add push notification reminders for configurable feeding intervals
+- [x] Add WHO growth percentile overlay to weight/height charts
+- [x] Add image-based import (photos from phone) with AI parsing
+- [x] Imported poo diapers default to yellow color
+- [x] Ensure all imported events show up correctly in Trends charts

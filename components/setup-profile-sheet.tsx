@@ -34,6 +34,7 @@ export function SetupProfileSheet({ onClose }: Props) {
   const [height, setHeight] = useState(state.profile?.height?.toString() || "");
   const [heightUnit, setHeightUnit] = useState<HeightUnit>(state.profile?.heightUnit || "cm");
   const [photoUri, setPhotoUri] = useState(state.profile?.photoUri || "");
+  const [sex, setSex] = useState<"boy" | "girl" | undefined>(state.profile?.sex);
   const [saving, setSaving] = useState(false);
 
   const parsedBirthDate = birthDate.match(/^\d{4}-\d{2}-\d{2}$/) ? birthDate : null;
@@ -69,6 +70,7 @@ export function SetupProfileSheet({ onClose }: Props) {
     await updateProfile({
       name: name.trim(),
       birthDate: birthDate || new Date().toISOString().split("T")[0],
+      sex,
       weight: weight ? parseFloat(weight) : undefined,
       weightUnit,
       height: height ? parseFloat(height) : undefined,
@@ -169,6 +171,39 @@ export function SetupProfileSheet({ onClose }: Props) {
         <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
           Format: YYYY-MM-DD (e.g. 2025-12-15)
         </Text>
+
+        {/* Sex */}
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Sex</Text>
+        <View style={styles.unitToggle}>
+          {(["boy", "girl"] as const).map((s) => (
+            <Pressable
+              key={s}
+              onPress={() => {
+                setSex(sex === s ? undefined : s);
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              style={({ pressed }) => [
+                styles.unitBtn,
+                {
+                  backgroundColor: sex === s ? colors.primary : colors.surface,
+                  borderColor: sex === s ? colors.primary : colors.border,
+                  flex: 1,
+                },
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Text
+                style={{
+                  color: sex === s ? "#fff" : colors.foreground,
+                  fontWeight: sex === s ? "700" : "500",
+                  fontSize: 14,
+                }}
+              >
+                {s === "boy" ? "👦 Boy" : "👧 Girl"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
 
         {/* Weight */}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>Weight</Text>

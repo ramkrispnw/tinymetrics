@@ -63,6 +63,7 @@ export type HeightUnit = "cm" | "in";
 export interface BabyProfile {
   name: string;
   birthDate: string; // ISO date
+  sex?: "boy" | "girl";
   photoUri?: string;
   weight?: number; // stored in the user's chosen unit
   weightUnit?: WeightUnit;
