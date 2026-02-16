@@ -118,14 +118,75 @@ export function ImportLogsSheet({ onClose }: Props) {
     }
   };
 
+  /** Normalize a single parsed event so Trends charts can read it reliably. */
+  const normalizeEvent = (e: ParsedEvent) => {
+    const validTypes = ["feed", "sleep", "diaper", "observation"] as const;
+    const type = validTypes.includes(e.type as any) ? (e.type as typeof validTypes[number]) : "observation";
+
+    // Ensure timestamp is a valid ISO string
+    let timestamp = e.timestamp || new Date().toISOString();
+    try {
+      const d = new Date(timestamp);
+      if (isNaN(d.getTime())) timestamp = new Date().toISOString();
+      else timestamp = d.toISOString();
+    } catch {
+      timestamp = new Date().toISOString();
+    }
+
+    const raw = e.data || {};
+    let data: any;
+
+    switch (type) {
+      case "feed": {
+        const validMethods = ["bottle", "breast_left", "breast_right", "solid"];
+        data = {
+          method: validMethods.includes(raw.method) ? raw.method : "bottle",
+          amountMl: typeof raw.amountMl === "number" ? raw.amountMl : Number(raw.amountMl) || 0,
+          durationMin: typeof raw.durationMin === "number" ? raw.durationMin : Number(raw.durationMin) || undefined,
+          notes: raw.notes || undefined,
+        };
+        break;
+      }
+      case "sleep": {
+        data = {
+          startTime: raw.startTime || timestamp,
+          endTime: raw.endTime || undefined,
+          durationMin: typeof raw.durationMin === "number" ? raw.durationMin : Number(raw.durationMin) || 0,
+          notes: raw.notes || undefined,
+        };
+        break;
+      }
+      case "diaper": {
+        const validDiaperTypes = ["pee", "poo", "both"];
+        data = {
+          type: validDiaperTypes.includes(raw.type) ? raw.type : "pee",
+          pooColor: raw.pooColor || undefined,
+          pooConsistency: raw.pooConsistency || undefined,
+          notes: raw.notes || undefined,
+        };
+        break;
+      }
+      case "observation":
+      default: {
+        const validCategories = ["rash", "fast_breathing", "fever", "vomiting", "cough", "other"];
+        const validSeverities = ["mild", "moderate", "severe"];
+        data = {
+          category: validCategories.includes(raw.category) ? raw.category : "other",
+          severity: validSeverities.includes(raw.severity) ? raw.severity : "mild",
+          description: raw.description || raw.notes || undefined,
+          notes: raw.notes || undefined,
+        };
+        break;
+      }
+    }
+
+    return { type, timestamp, data };
+  };
+
   const handleImport = async () => {
     setStep("importing");
     try {
-      const eventsToImport = parsedEvents.map((e) => ({
-        type: e.type as "feed" | "sleep" | "diaper" | "observation",
-        timestamp: e.timestamp || new Date().toISOString(),
-        data: e.data,
-      }));
+      const eventsToImport = parsedEvents.map(normalizeEvent);
 
       const count = await importEvents(eventsToImport);
       setImportedCount(count);
@@ -259,7 +320,7 @@ export function ImportLogsSheet({ onClose }: Props) {
                 Found {parsedEvents.length} Event{parsedEvents.length !== 1 ? "s" : ""}
               </Text>
               <Text style={[styles.description, { color: colors.muted }]}>
-                Review the extracted events below, then tap Import to add them to your logs.
+                Extracted from your daily logs. Each day's intake is logged as one feed, and individual diaper events are created for each pee/poo count. Tap Import to add them.
               </Text>
             </View>
 

@@ -33,3 +33,5 @@
 - [x] Implement data export as CSV with share sheet
 - [x] Add delete functionality for growth entries in Log Growth sheet
 - [x] Add PDF upload for importing prior baby logs via AI parsing
+- [x] Ensure all imported/uploaded logs show up in Trends tab
+- [x] Update PDF import to handle daily aggregated format (date, intake, wet/poo counts) and expand into individual events

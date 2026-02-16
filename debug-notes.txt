@@ -1,0 +1,16 @@
+Data flow analysis for imported events in Trends:
+
+1. Trends reads from state.events and uses getDayKey(e.timestamp) to bucket by day
+2. getDayKey does: new Date(isoString).toISOString().split("T")[0]
+3. importEvents merges into state.events and sorts by timestamp
+
+Potential issues:
+- AI may return timestamps that aren't valid ISO strings → getDayKey would fail silently
+- AI may return amountMl as string instead of number → feedData sum would be NaN
+- AI may return durationMin as string → sleepData sum would be NaN
+- AI may return diaper type in unexpected format → not counted
+
+Fix: Add data normalization in handleImport to ensure:
+- timestamp is valid ISO string
+- numeric fields (amountMl, durationMin) are actual numbers
+- type fields match expected enums

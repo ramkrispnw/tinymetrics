@@ -239,23 +239,24 @@ Return a JSON response with:
           messages: [
             {
               role: "system",
-              content: `You are a data extraction assistant for a baby tracking app. Parse the uploaded PDF document which contains baby care notes/logs.
+              content: `You are a data extraction assistant for a baby tracking app. Parse the uploaded document which contains baby care notes/logs.
 
-Extract ALL events you can find and return them as a JSON object with an "events" array. Each event should have:
-- type: one of "feed", "sleep", "diaper", "observation"
-- timestamp: ISO 8601 datetime string (if only date is given, use noon of that day; if only time, use today's date)
-- data: an object with type-specific fields:
-  For "feed": { method: "bottle"|"breast_left"|"breast_right"|"solid", amountMl?: number, durationMin?: number, notes?: string }
-  For "sleep": { startTime: ISO string, endTime?: ISO string, durationMin?: number, notes?: string }
-  For "diaper": { type: "pee"|"poo"|"both", pooColor?: "yellow"|"green"|"brown"|"black"|"red", notes?: string }
-  For "observation": { category: "rash"|"fast_breathing"|"fever"|"vomiting"|"cough"|"other", severity: "mild"|"moderate"|"severe", description?: string, notes?: string }
+The document likely contains daily aggregated data with columns like: date, daily intake (ml or oz), number of wet diapers (pee), number of poo diapers, and possibly sleep duration or observations.
 
-Be thorough — extract every event mentioned. If amounts are in oz, convert to ml (1 oz = ~30 ml). If times are ambiguous, make reasonable assumptions. Return valid JSON only.`,
+Extract each row/day and return a JSON object with a "daily_rows" array. Each row should have:
+- date: the date in YYYY-MM-DD format
+- intakeMl: total daily feed intake in milliliters (number). If the value is in oz, convert to ml (1 oz = ~30 ml). If not available, use 0.
+- wetDiapers: number of wet/pee diapers that day (number). If not available, use 0.
+- pooDiapers: number of poo diapers that day (number). If not available, use 0.
+- sleepMin: total sleep in minutes for the day (number, optional). If not available, omit or use 0.
+- notes: any extra observations or notes for that day (string, optional).
+
+Be thorough — extract every day/row mentioned. If amounts are in oz, convert to ml (1 oz ≈ 30 ml). If dates use formats like "Jan 5" or "1/5/2026", convert to YYYY-MM-DD. Return valid JSON only.`,
             },
             {
               role: "user",
               content: [
-                { type: "text", text: "Please parse all baby care events from this document and return them as structured JSON." },
+                { type: "text", text: "Please parse all daily baby care data from this document and return them as structured JSON with a daily_rows array." },
                 { type: "file_url", file_url: { url, mime_type: "application/pdf" } },
               ],
             },
@@ -267,16 +268,99 @@ Be thorough — extract every event mentioned. If amounts are in oz, convert to 
           const rawContent = response?.choices?.[0]?.message?.content;
           const content = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent) || "{}";
           const parsed = JSON.parse(content);
-          const events = Array.isArray(parsed.events) ? parsed.events : [];
+          const dailyRows = Array.isArray(parsed.daily_rows) ? parsed.daily_rows : [];
+
+          // Expand daily aggregated rows into individual events
+          const events: any[] = [];
+          for (const row of dailyRows) {
+            const date = row.date || new Date().toISOString().split("T")[0];
+            const noonTimestamp = `${date}T12:00:00.000Z`;
+
+            // One feed event per day for the total intake
+            const intakeMl = typeof row.intakeMl === "number" ? row.intakeMl : Number(row.intakeMl) || 0;
+            if (intakeMl > 0) {
+              events.push({
+                type: "feed",
+                timestamp: noonTimestamp,
+                data: {
+                  method: "bottle",
+                  amountMl: intakeMl,
+                  notes: `Imported daily total for ${date}`,
+                },
+              });
+            }
+
+            // Individual pee diaper events
+            const wetCount = typeof row.wetDiapers === "number" ? row.wetDiapers : Number(row.wetDiapers) || 0;
+            for (let i = 0; i < wetCount; i++) {
+              // Spread events across the day (every ~2 hours starting at 6am)
+              const hour = 6 + Math.floor((i * 12) / Math.max(wetCount, 1));
+              const ts = `${date}T${String(hour).padStart(2, "0")}:${String(i * 5 % 60).padStart(2, "0")}:00.000Z`;
+              events.push({
+                type: "diaper",
+                timestamp: ts,
+                data: {
+                  type: "pee",
+                  notes: `Imported for ${date}`,
+                },
+              });
+            }
+
+            // Individual poo diaper events
+            const pooCount = typeof row.pooDiapers === "number" ? row.pooDiapers : Number(row.pooDiapers) || 0;
+            for (let i = 0; i < pooCount; i++) {
+              const hour = 8 + Math.floor((i * 10) / Math.max(pooCount, 1));
+              const ts = `${date}T${String(hour).padStart(2, "0")}:${String(30 + i * 5 % 30).padStart(2, "0")}:00.000Z`;
+              events.push({
+                type: "diaper",
+                timestamp: ts,
+                data: {
+                  type: "poo",
+                  notes: `Imported for ${date}`,
+                },
+              });
+            }
+
+            // Optional sleep event
+            const sleepMin = typeof row.sleepMin === "number" ? row.sleepMin : Number(row.sleepMin) || 0;
+            if (sleepMin > 0) {
+              events.push({
+                type: "sleep",
+                timestamp: `${date}T20:00:00.000Z`,
+                data: {
+                  startTime: `${date}T20:00:00.000Z`,
+                  durationMin: sleepMin,
+                  notes: `Imported daily total for ${date}`,
+                },
+              });
+            }
+
+            // Optional observation from notes
+            if (row.notes && row.notes.trim()) {
+              events.push({
+                type: "observation",
+                timestamp: noonTimestamp,
+                data: {
+                  category: "other",
+                  severity: "mild",
+                  description: row.notes.trim(),
+                  notes: `Imported for ${date}`,
+                },
+              });
+            }
+          }
+
           return {
             events,
             totalFound: events.length,
+            dailyRowCount: dailyRows.length,
             sourceUrl: url,
           };
         } catch {
           return {
             events: [],
             totalFound: 0,
+            dailyRowCount: 0,
             sourceUrl: url,
             error: "Could not parse the PDF contents",
           };
