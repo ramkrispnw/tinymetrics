@@ -1,6 +1,6 @@
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, desc, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, shareInvites } from "../drizzle/schema";
+import { InsertUser, users, shareInvites, babyEvents } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -273,6 +273,148 @@ export async function revokeSharing(userId: number) {
           eq(shareInvites.status, "pending"),
           eq(shareInvites.status, "accepted")
         )
+      )
+    );
+
+  return { success: true };
+}
+
+// ─── Cloud Events CRUD ────────────────────────────────────────────────────────────
+
+/**
+ * Get the household ID for a user.
+ * The household is the owner's userId. If the user is a partner, use the owner's userId.
+ */
+export async function getHouseholdId(userId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return userId;
+
+  // Check if user is a partner in an accepted invite
+  const asPartner = await db
+    .select()
+    .from(shareInvites)
+    .where(
+      and(
+        eq(shareInvites.partnerUserId!, userId),
+        eq(shareInvites.status, "accepted")
+      )
+    )
+    .limit(1);
+
+  if (asPartner.length > 0) {
+    return asPartner[0].ownerUserId; // Use owner's ID as household
+  }
+
+  return userId; // User is the owner (or solo)
+}
+
+/** Save events to the cloud */
+export async function saveCloudEvents(
+  userId: number,
+  householdId: number,
+  events: { clientId: string; type: string; eventTimestamp: string; data: string }[]
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  if (events.length === 0) return { inserted: 0 };
+
+  // Filter out events that already exist (by clientId)
+  const clientIds = events.map((e) => e.clientId);
+  const existing = await db
+    .select({ clientId: babyEvents.clientId })
+    .from(babyEvents)
+    .where(inArray(babyEvents.clientId, clientIds));
+  const existingSet = new Set(existing.map((e) => e.clientId));
+
+  const newEvents = events.filter((e) => !existingSet.has(e.clientId));
+  if (newEvents.length === 0) return { inserted: 0 };
+
+  await db.insert(babyEvents).values(
+    newEvents.map((e) => ({
+      userId,
+      householdId,
+      clientId: e.clientId,
+      type: e.type,
+      eventTimestamp: e.eventTimestamp,
+      data: e.data,
+    }))
+  );
+
+  return { inserted: newEvents.length };
+}
+
+/** Fetch all cloud events for a household */
+export async function getCloudEvents(householdId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const events = await db
+    .select()
+    .from(babyEvents)
+    .where(
+      and(
+        eq(babyEvents.householdId, householdId),
+        eq(babyEvents.deleted, 0)
+      )
+    )
+    .orderBy(desc(babyEvents.id));
+
+  return events;
+}
+
+/** Update a cloud event */
+export async function updateCloudEvent(
+  eventId: number,
+  householdId: number,
+  updates: { type?: string; eventTimestamp?: string; data?: string }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(babyEvents)
+    .set(updates)
+    .where(
+      and(
+        eq(babyEvents.id, eventId),
+        eq(babyEvents.householdId, householdId)
+      )
+    );
+
+  return { success: true };
+}
+
+/** Soft-delete a cloud event */
+export async function deleteCloudEvent(eventId: number, householdId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(babyEvents)
+    .set({ deleted: 1 })
+    .where(
+      and(
+        eq(babyEvents.id, eventId),
+        eq(babyEvents.householdId, householdId)
+      )
+    );
+
+  return { success: true };
+}
+
+/** Delete a cloud event by clientId */
+export async function deleteCloudEventByClientId(clientId: string, householdId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(babyEvents)
+    .set({ deleted: 1 })
+    .where(
+      and(
+        eq(babyEvents.clientId, clientId),
+        eq(babyEvents.householdId, householdId)
       )
     );
 

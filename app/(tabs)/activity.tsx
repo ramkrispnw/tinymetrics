@@ -25,6 +25,7 @@ import {
   type DiaperData,
   type ObservationData,
 } from "@/lib/store";
+import { EditEventSheet } from "@/components/edit-event-sheet";
 import * as Haptics from "expo-haptics";
 
 type FilterType = "all" | EventType;
@@ -33,6 +34,7 @@ export default function ActivityScreen() {
   const colors = useColors();
   const { state, deleteEvent } = useStore();
   const [filter, setFilter] = useState<FilterType>("all");
+  const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
 
   const filteredEvents = useMemo(() => {
     if (filter === "all") return state.events;
@@ -48,7 +50,6 @@ export default function ActivityScreen() {
       map.get(key)!.push(e);
     });
     map.forEach((data, key) => {
-      const d = new Date(key);
       const today = new Date();
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
@@ -132,6 +133,11 @@ export default function ActivityScreen() {
     ]);
   };
 
+  const handleEdit = (event: BabyEvent) => {
+    setEditingEvent(event);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
   const filters: { key: FilterType; label: string }[] = [
     { key: "all", label: "All" },
     { key: "feed", label: "Feed" },
@@ -142,16 +148,26 @@ export default function ActivityScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: BabyEvent }) => (
-      <View
-        style={[styles.eventRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      <Pressable
+        onPress={() => handleEdit(item)}
+        style={({ pressed }) => [
+          styles.eventRow,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+          pressed && { opacity: 0.7 },
+        ]}
       >
         <View style={[styles.eventIcon, { backgroundColor: getEventColor(item.type) + "20" }]}>
           <IconSymbol name={getEventIcon(item.type)} size={18} color={getEventColor(item.type)} />
         </View>
         <View style={styles.eventContent}>
-          <Text style={[styles.eventTitle, { color: colors.foreground }]}>
-            {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
-          </Text>
+          <View style={styles.eventTitleRow}>
+            <Text style={[styles.eventTitle, { color: colors.foreground }]}>
+              {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+            </Text>
+            <View style={[styles.editBadge, { backgroundColor: colors.primary + "15" }]}>
+              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "600" }}>Edit</Text>
+            </View>
+          </View>
           <Text style={[styles.eventSummary, { color: colors.muted }]}>
             {getEventSummary(item)}
           </Text>
@@ -161,13 +177,16 @@ export default function ActivityScreen() {
             {formatTime(item.timestamp)}
           </Text>
           <Pressable
-            onPress={() => handleDelete(item)}
-            style={({ pressed }) => [pressed && { opacity: 0.5 }]}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              handleDelete(item);
+            }}
+            style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.5 }]}
           >
             <IconSymbol name="trash.fill" size={16} color={colors.error + "80"} />
           </Pressable>
         </View>
-      </View>
+      </Pressable>
     ),
     [colors, state.settings.units]
   );
@@ -241,6 +260,13 @@ export default function ActivityScreen() {
           </View>
         }
       />
+
+      {/* Edit Event Sheet */}
+      <EditEventSheet
+        visible={editingEvent !== null}
+        event={editingEvent}
+        onClose={() => setEditingEvent(null)}
+      />
     </ScreenContainer>
   );
 }
@@ -282,9 +308,19 @@ const styles = StyleSheet.create({
   eventContent: {
     flex: 1,
   },
+  eventTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   eventTitle: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  editBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   eventSummary: {
     fontSize: 12,
@@ -297,6 +333,9 @@ const styles = StyleSheet.create({
   eventTime: {
     fontSize: 12,
     fontWeight: "500",
+  },
+  deleteBtn: {
+    padding: 4,
   },
   emptyCard: {
     padding: 24,

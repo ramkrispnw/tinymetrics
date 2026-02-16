@@ -44,3 +44,29 @@ export const shareInvites = mysqlTable("share_invites", {
 
 export type ShareInvite = typeof shareInvites.$inferSelect;
 export type InsertShareInvite = typeof shareInvites.$inferInsert;
+
+// ─── Cloud Events ───────────────────────────────────────────────────────────
+
+/** Baby care events stored in the cloud for cross-device sync */
+export const babyEvents = mysqlTable("baby_events", {
+  id: int("id").autoincrement().primaryKey(),
+  /** The user who created this event */
+  userId: int("userId").notNull(),
+  /** Household group ID — owner's userId, shared with partner */
+  householdId: int("householdId").notNull(),
+  /** Client-generated UUID for dedup */
+  clientId: varchar("clientId", { length: 64 }).notNull(),
+  /** Event type: feed, sleep, diaper, observation */
+  type: varchar("type", { length: 32 }).notNull(),
+  /** ISO timestamp of the event */
+  eventTimestamp: varchar("eventTimestamp", { length: 64 }).notNull(),
+  /** JSON-encoded event data */
+  data: text("data").notNull(),
+  /** Soft delete flag */
+  deleted: int("deleted").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type BabyEvent = typeof babyEvents.$inferSelect;
+export type InsertBabyEvent = typeof babyEvents.$inferInsert;

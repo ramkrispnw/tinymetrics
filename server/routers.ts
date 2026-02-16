@@ -52,6 +52,74 @@ export const appRouter = router({
     }),
   }),
 
+  events: router({
+    // Sync events to cloud
+    sync: protectedProcedure
+      .input(
+        z.object({
+          events: z.array(
+            z.object({
+              clientId: z.string(),
+              type: z.string(),
+              eventTimestamp: z.string(),
+              data: z.string(),
+            })
+          ),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const householdId = await db.getHouseholdId(ctx.user.id);
+        const result = await db.saveCloudEvents(ctx.user.id, householdId, input.events);
+        return result;
+      }),
+
+    // Fetch all events for the household
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const householdId = await db.getHouseholdId(ctx.user.id);
+      const events = await db.getCloudEvents(householdId);
+      return events.map((e) => ({
+        id: e.id,
+        clientId: e.clientId,
+        type: e.type,
+        eventTimestamp: e.eventTimestamp,
+        data: e.data,
+        userId: e.userId,
+        createdAt: e.createdAt,
+      }));
+    }),
+
+    // Update an event
+    update: protectedProcedure
+      .input(
+        z.object({
+          clientId: z.string(),
+          type: z.string().optional(),
+          eventTimestamp: z.string().optional(),
+          data: z.string().optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const householdId = await db.getHouseholdId(ctx.user.id);
+        // Find the event by clientId
+        const allEvents = await db.getCloudEvents(householdId);
+        const event = allEvents.find((e) => e.clientId === input.clientId);
+        if (!event) return { success: false, error: "Event not found" };
+        const updates: any = {};
+        if (input.type) updates.type = input.type;
+        if (input.eventTimestamp) updates.eventTimestamp = input.eventTimestamp;
+        if (input.data) updates.data = input.data;
+        return db.updateCloudEvent(event.id, householdId, updates);
+      }),
+
+    // Delete an event
+    delete: protectedProcedure
+      .input(z.object({ clientId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const householdId = await db.getHouseholdId(ctx.user.id);
+        return db.deleteCloudEventByClientId(input.clientId, householdId);
+      }),
+  }),
+
   ai: router({
     // AI Q&A endpoint
     ask: publicProcedure

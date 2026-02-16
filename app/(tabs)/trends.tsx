@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   Platform,
+  Alert,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -52,20 +53,32 @@ export default function TrendsScreen() {
     });
   }, [dateRange, state.events]);
 
-  const diaperData = useMemo(() => {
+  // Split pee and poo into separate data arrays
+  const peeData = useMemo(() => {
     return dateRange.map((day) => {
       const dayEvents = state.events.filter(
         (e) => e.type === "diaper" && getDayKey(e.timestamp) === day
       );
-      let pee = 0;
-      let poo = 0;
+      let count = 0;
       dayEvents.forEach((e) => {
         const d = e.data as DiaperData;
-        if (d.type === "pee") pee++;
-        else if (d.type === "poo") poo++;
-        else { pee++; poo++; }
+        if (d.type === "pee" || d.type === "both") count++;
       });
-      return { day, pee, poo, total: dayEvents.length };
+      return { day, value: count };
+    });
+  }, [dateRange, state.events]);
+
+  const pooData = useMemo(() => {
+    return dateRange.map((day) => {
+      const dayEvents = state.events.filter(
+        (e) => e.type === "diaper" && getDayKey(e.timestamp) === day
+      );
+      let count = 0;
+      dayEvents.forEach((e) => {
+        const d = e.data as DiaperData;
+        if (d.type === "poo" || d.type === "both") count++;
+      });
+      return { day, value: count };
     });
   }, [dateRange, state.events]);
 
@@ -83,11 +96,13 @@ export default function TrendsScreen() {
   }, [dateRange, state.events]);
 
   const maxFeed = Math.max(...feedData.map((d) => d.totalMl), 1);
-  const maxDiaper = Math.max(...diaperData.map((d) => d.total), 1);
+  const maxPee = Math.max(...peeData.map((d) => d.value), 1);
+  const maxPoo = Math.max(...pooData.map((d) => d.value), 1);
   const maxSleep = Math.max(...sleepData.map((d) => d.totalMin), 1);
 
   const avgFeed = feedData.reduce((s, d) => s + d.totalMl, 0) / range;
-  const avgDiaper = diaperData.reduce((s, d) => s + d.total, 0) / range;
+  const avgPee = peeData.reduce((s, d) => s + d.value, 0) / range;
+  const avgPoo = pooData.reduce((s, d) => s + d.value, 0) / range;
   const avgSleep = sleepData.reduce((s, d) => s + d.totalMin, 0) / range;
 
   const displayAmount = (ml: number) => {
@@ -100,54 +115,143 @@ export default function TrendsScreen() {
     return d.toLocaleDateString([], { weekday: "short" }).slice(0, 2);
   };
 
+  const formatFullDate = (day: string) => {
+    const d = new Date(day + "T12:00:00");
+    return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+  };
+
   const ranges: { key: Range; label: string }[] = [
     { key: 7, label: "7 Days" },
     { key: 14, label: "14 Days" },
     { key: 30, label: "30 Days" },
   ];
 
+  // Compute trend line (simple linear regression)
+  function computeTrendLine(values: number[]): number[] {
+    const n = values.length;
+    if (n < 2) return values;
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    for (let i = 0; i < n; i++) {
+      sumX += i;
+      sumY += values[i];
+      sumXY += i * values[i];
+      sumX2 += i * i;
+    }
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+    return values.map((_, i) => Math.max(0, intercept + slope * i));
+  }
+
   const BarChart = ({
     data,
     maxVal,
     color,
     labelFn,
+    avgVal,
+    trendValues,
   }: {
     data: { day: string; value: number }[];
     maxVal: number;
     color: string;
     labelFn: (v: number) => string;
+    avgVal: number;
+    trendValues: number[];
   }) => {
-    const barWidth = range <= 7 ? 28 : range <= 14 ? 18 : 10;
+    const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+    const avgPct = maxVal > 0 ? (avgVal / maxVal) * 100 : 0;
+
     return (
       <View style={styles.chartContainer}>
+        {/* Selected bar tooltip */}
+        {selectedIdx !== null && (
+          <View style={[styles.tooltip, { backgroundColor: color + "20", borderColor: color }]}>
+            <Text style={[styles.tooltipText, { color }]}>
+              {formatFullDate(data[selectedIdx].day)}: {labelFn(data[selectedIdx].value)}
+            </Text>
+          </View>
+        )}
         <View style={styles.chartBars}>
           {data.map((d, i) => {
             const height = maxVal > 0 ? (d.value / maxVal) * 100 : 0;
+            const trendHeight = maxVal > 0 ? (trendValues[i] / maxVal) * 100 : 0;
+            const isSelected = selectedIdx === i;
             return (
-              <View key={d.day} style={styles.barColumn}>
-                <View style={[styles.barTrack, { backgroundColor: colors.border + "40" }]}>
+              <Pressable
+                key={d.day}
+                style={styles.barColumn}
+                onPress={() => {
+                  setSelectedIdx(isSelected ? null : i);
+                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              >
+                <View style={[styles.barTrack, { backgroundColor: colors.border + "30" }]}>
+                  {/* Trend line marker */}
+                  <View
+                    style={[
+                      styles.trendMarker,
+                      {
+                        bottom: `${Math.min(trendHeight, 98)}%`,
+                        backgroundColor: color + "80",
+                      },
+                    ]}
+                  />
+                  {/* Avg line */}
+                  <View
+                    style={[
+                      styles.avgLine,
+                      {
+                        bottom: `${Math.min(avgPct, 98)}%`,
+                        backgroundColor: colors.muted + "50",
+                      },
+                    ]}
+                  />
                   <View
                     style={[
                       styles.bar,
                       {
-                        backgroundColor: color,
-                        height: `${Math.max(height, 2)}%`,
+                        backgroundColor: isSelected ? color : color + "CC",
+                        height: `${Math.max(height, d.value > 0 ? 4 : 1)}%`,
+                        opacity: isSelected ? 1 : 0.85,
                       },
                     ]}
                   />
                 </View>
+                {/* Value label on tap */}
+                {isSelected && d.value > 0 && (
+                  <Text style={[styles.barValueLabel, { color }]} numberOfLines={1}>
+                    {labelFn(d.value)}
+                  </Text>
+                )}
                 {range <= 14 && (
-                  <Text style={[styles.barLabel, { color: colors.muted }]}>
+                  <Text
+                    style={[
+                      styles.barLabel,
+                      { color: isSelected ? color : colors.muted, fontWeight: isSelected ? "700" : "500" },
+                    ]}
+                  >
                     {formatDayLabel(d.day)}
                   </Text>
                 )}
-              </View>
+              </Pressable>
             );
           })}
         </View>
+        {/* Trend direction indicator */}
+        {trendValues.length >= 2 && (
+          <View style={styles.trendIndicator}>
+            <Text style={{ color: colors.muted, fontSize: 10 }}>
+              Trend: {trendValues[trendValues.length - 1] > trendValues[0] ? "↑" : trendValues[trendValues.length - 1] < trendValues[0] ? "↓" : "→"}
+            </Text>
+          </View>
+        )}
       </View>
     );
   };
+
+  const feedTrend = computeTrendLine(feedData.map((d) => d.totalMl));
+  const peeTrend = computeTrendLine(peeData.map((d) => d.value));
+  const pooTrend = computeTrendLine(pooData.map((d) => d.value));
+  const sleepTrend = computeTrendLine(sleepData.map((d) => d.totalMin));
 
   return (
     <ScreenContainer className="px-4 pt-2">
@@ -189,7 +293,7 @@ export default function TrendsScreen() {
         {/* Feed Chart */}
         <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: colors.foreground }]}>Daily Feed Intake</Text>
+            <Text style={[styles.chartTitle, { color: colors.foreground }]}>🍼 Daily Feed Intake</Text>
             <Text style={[styles.chartAvg, { color: colors.feed }]}>
               Avg: {displayAmount(avgFeed)}
             </Text>
@@ -199,43 +303,51 @@ export default function TrendsScreen() {
             maxVal={maxFeed}
             color={colors.feed}
             labelFn={displayAmount}
+            avgVal={avgFeed}
+            trendValues={feedTrend}
           />
         </View>
 
-        {/* Diaper Chart */}
+        {/* Pee Diaper Chart */}
         <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: colors.foreground }]}>Daily Diapers</Text>
-            <Text style={[styles.chartAvg, { color: colors.diaper }]}>
-              Avg: {avgDiaper.toFixed(1)}/day
+            <Text style={[styles.chartTitle, { color: colors.foreground }]}>💧 Wet Diapers (Pee)</Text>
+            <Text style={[styles.chartAvg, { color: colors.feed }]}>
+              Avg: {avgPee.toFixed(1)}/day
             </Text>
           </View>
           <BarChart
-            data={diaperData.map((d) => ({ day: d.day, value: d.total }))}
-            maxVal={maxDiaper}
-            color={colors.diaper}
+            data={peeData}
+            maxVal={maxPee}
+            color={colors.feed}
             labelFn={(v) => `${v}`}
+            avgVal={avgPee}
+            trendValues={peeTrend}
           />
-          <View style={styles.legendRow}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.feed }]} />
-              <Text style={{ color: colors.muted, fontSize: 11 }}>
-                Avg Pee: {(diaperData.reduce((s, d) => s + d.pee, 0) / range).toFixed(1)}
-              </Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.warning }]} />
-              <Text style={{ color: colors.muted, fontSize: 11 }}>
-                Avg Poo: {(diaperData.reduce((s, d) => s + d.poo, 0) / range).toFixed(1)}
-              </Text>
-            </View>
+        </View>
+
+        {/* Poo Diaper Chart */}
+        <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.chartHeader}>
+            <Text style={[styles.chartTitle, { color: colors.foreground }]}>💩 Poo Diapers</Text>
+            <Text style={[styles.chartAvg, { color: colors.warning }]}>
+              Avg: {avgPoo.toFixed(1)}/day
+            </Text>
           </View>
+          <BarChart
+            data={pooData}
+            maxVal={maxPoo}
+            color={colors.warning}
+            labelFn={(v) => `${v}`}
+            avgVal={avgPoo}
+            trendValues={pooTrend}
+          />
         </View>
 
         {/* Sleep Chart */}
         <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: colors.foreground }]}>Daily Sleep</Text>
+            <Text style={[styles.chartTitle, { color: colors.foreground }]}>😴 Daily Sleep</Text>
             <Text style={[styles.chartAvg, { color: colors.sleep }]}>
               Avg: {formatDuration(avgSleep)}
             </Text>
@@ -245,6 +357,8 @@ export default function TrendsScreen() {
             maxVal={maxSleep}
             color={colors.sleep}
             labelFn={(v) => formatDuration(v)}
+            avgVal={avgSleep}
+            trendValues={sleepTrend}
           />
         </View>
 
@@ -258,7 +372,6 @@ export default function TrendsScreen() {
 }
 
 function GrowthChart({ entries, colors }: { entries: GrowthEntry[]; colors: any }) {
-  // Sort entries by date ascending
   const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
   const weightEntries = sorted.filter((e) => e.weight != null);
   const heightEntries = sorted.filter((e) => e.height != null);
@@ -284,7 +397,6 @@ function GrowthChart({ entries, colors }: { entries: GrowthEntry[]; colors: any 
 
     return (
       <View style={growthStyles.lineChartContainer}>
-        {/* Y axis labels */}
         <View style={growthStyles.yAxis}>
           <Text style={[growthStyles.yLabel, { color: colors.muted }]}>
             {maxVal.toFixed(1)}
@@ -296,13 +408,10 @@ function GrowthChart({ entries, colors }: { entries: GrowthEntry[]; colors: any 
             {minVal.toFixed(1)}
           </Text>
         </View>
-        {/* Chart area */}
         <View style={growthStyles.chartArea}>
-          {/* Grid lines */}
           <View style={[growthStyles.gridLine, { backgroundColor: colors.border + "40", top: 0 }]} />
           <View style={[growthStyles.gridLine, { backgroundColor: colors.border + "40", top: "50%" }]} />
           <View style={[growthStyles.gridLine, { backgroundColor: colors.border + "40", bottom: 0 }]} />
-          {/* Data points */}
           <View style={growthStyles.pointsRow}>
             {data.map((d, i) => {
               const yPct = data.length === 1 ? 50 : ((d.value - minVal) / range) * 80 + 10;
@@ -333,7 +442,7 @@ function GrowthChart({ entries, colors }: { entries: GrowthEntry[]; colors: any 
       {weightEntries.length > 0 && (
         <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: colors.foreground }]}>Weight Over Time</Text>
+            <Text style={[styles.chartTitle, { color: colors.foreground }]}>⚖️ Weight Over Time</Text>
             <Text style={[styles.chartAvg, { color: colors.success }]}>
               Latest: {weightEntries[weightEntries.length - 1].weight} {weightEntries[weightEntries.length - 1].weightUnit || "kg"}
             </Text>
@@ -348,7 +457,7 @@ function GrowthChart({ entries, colors }: { entries: GrowthEntry[]; colors: any 
       {heightEntries.length > 0 && (
         <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: colors.foreground }]}>Height Over Time</Text>
+            <Text style={[styles.chartTitle, { color: colors.foreground }]}>📏 Height Over Time</Text>
             <Text style={[styles.chartAvg, { color: colors.primary }]}>
               Latest: {heightEntries[heightEntries.length - 1].height} {heightEntries[heightEntries.length - 1].heightUnit || "cm"}
             </Text>
@@ -448,13 +557,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   chartContainer: {
-    height: 120,
+    minHeight: 130,
   },
   chartBars: {
     flex: 1,
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 3,
+    minHeight: 100,
   },
   barColumn: {
     flex: 1,
@@ -467,6 +577,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     justifyContent: "flex-end",
     overflow: "hidden",
+    position: "relative",
   },
   bar: {
     width: "100%",
@@ -477,19 +588,40 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "500",
   },
-  legendRow: {
-    flexDirection: "row",
-    gap: 16,
-    marginTop: 10,
+  barValueLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    marginTop: 2,
   },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
+  tooltip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 6,
+    alignSelf: "center",
   },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  tooltipText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  trendMarker: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 2,
+    borderRadius: 1,
+    zIndex: 1,
+  },
+  avgLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+    zIndex: 1,
+  },
+  trendIndicator: {
+    alignItems: "flex-end",
+    marginTop: 4,
   },
 });

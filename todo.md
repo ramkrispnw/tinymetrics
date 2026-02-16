@@ -35,3 +35,10 @@
 - [x] Add PDF upload for importing prior baby logs via AI parsing
 - [x] Ensure all imported/uploaded logs show up in Trends tab
 - [x] Update PDF import to handle daily aggregated format (date, intake, wet/poo counts) and expand into individual events
+- [x] Cloud sync: store events in database for cross-device access
+- [x] Cloud sync: shared accounts see the same event data
+- [x] Trends: add trend lines to all charts
+- [x] Trends: add clickable data labels on charts
+- [x] Trends: split diaper chart into separate pee and poo charts
+- [x] Trends: both diaper counts as 1 pee + 1 poo
+- [x] Activity: make every event editable by the user
