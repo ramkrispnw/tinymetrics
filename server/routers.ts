@@ -531,6 +531,91 @@ Be thorough — extract every day/row mentioned. If amounts are in oz, convert t
         }
       }),
 
+    // Weekly digest summary
+    weeklyDigest: publicProcedure
+      .input(
+        z.object({
+          eventsJson: z.string().max(50000),
+          babyProfile: z.object({
+            name: z.string().optional(),
+            ageLabel: z.string().optional(),
+            weight: z.number().optional(),
+            weightUnit: z.string().optional(),
+            height: z.number().optional(),
+            heightUnit: z.string().optional(),
+          }).optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        let systemPrompt = `You are a baby care assistant generating a weekly digest summary for parents.
+Analyze the provided baby care events from the past week and create a comprehensive but concise summary.
+Include:
+1. Feeding summary (total feeds, average intake, any patterns)
+2. Sleep summary (total sleep, average naps, longest stretch)
+3. Diaper summary (total changes, pee/poo ratio)
+4. Any observations or concerns noted
+5. Encouraging note for the parents
+6. Any recommendations based on the patterns
+
+Format the response as a well-structured summary with clear sections. Keep it warm and supportive.`;
+
+        if (input.babyProfile) {
+          const bp = input.babyProfile;
+          const parts: string[] = [];
+          if (bp.name) parts.push(`Name: ${bp.name}`);
+          if (bp.ageLabel) parts.push(`Age: ${bp.ageLabel}`);
+          if (bp.weight != null) parts.push(`Weight: ${bp.weight} ${bp.weightUnit || "kg"}`);
+          if (bp.height != null) parts.push(`Height: ${bp.height} ${bp.heightUnit || "cm"}`);
+          if (parts.length > 0) {
+            systemPrompt += `\n\nBaby profile:\n${parts.join("\n")}`;
+          }
+        }
+
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Here are the baby care events from the past week:\n${input.eventsJson}\n\nPlease generate a weekly digest summary.` },
+          ],
+        });
+        const raw = response?.choices?.[0]?.message?.content;
+        const summary = typeof raw === "string" ? raw : "Could not generate weekly digest.";
+        return { summary };
+      }),
+
+    // Chart summary - short AI insight for a specific chart
+    chartSummary: publicProcedure
+      .input(
+        z.object({
+          chartType: z.string(),
+          dataJson: z.string().max(10000),
+          babyProfile: z.object({
+            name: z.string().optional(),
+            ageLabel: z.string().optional(),
+          }).optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const babyName = input.babyProfile?.name || "your baby";
+        const ageLabel = input.babyProfile?.ageLabel || "";
+        const ageContext = ageLabel ? ` (${ageLabel} old)` : "";
+
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are a baby care data analyst. Given chart data for a baby tracker app, write a 2-3 sentence insight summary. Be specific with numbers. Be warm and supportive. Do not use markdown formatting. Baby: ${babyName}${ageContext}.`,
+            },
+            {
+              role: "user",
+              content: `Chart type: ${input.chartType}\nData: ${input.dataJson}\n\nWrite a brief 2-3 sentence insight.`,
+            },
+          ],
+        });
+        const raw = response?.choices?.[0]?.message?.content;
+        const insight = typeof raw === "string" ? raw : "";
+        return { insight };
+      }),
+
     // General photo analysis (premium)
     analyzePhoto: publicProcedure
       .input(

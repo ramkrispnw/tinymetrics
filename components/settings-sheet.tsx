@@ -25,9 +25,10 @@ interface Props {
   onClose: () => void;
   onOpenShare: () => void;
   onEditProfile: () => void;
+  onOpenDigest: () => void;
 }
 
-export function SettingsSheet({ onClose, onOpenShare, onEditProfile }: Props) {
+export function SettingsSheet({ onClose, onOpenShare, onEditProfile, onOpenDigest }: Props) {
   const colors = useColors();
   const { state, updateSettings } = useStore();
   const { user, isAuthenticated, loading: authLoading, logout, refresh } = useAuth();
@@ -378,6 +379,31 @@ export function SettingsSheet({ onClose, onOpenShare, onEditProfile }: Props) {
             ))}
           </View>
         </View>
+
+        {/* Weekly Digest */}
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Weekly Digest</Text>
+        <Pressable
+          onPress={() => {
+            onOpenDigest();
+            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          style={({ pressed }) => [
+            styles.settingRow,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <View style={[styles.exportIcon, { backgroundColor: colors.primary + "15" }]}>
+            <IconSymbol name="envelope.fill" size={18} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={[styles.settingTitle, { color: colors.foreground }]}>View Weekly Summary</Text>
+            <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>
+              AI-generated digest of your baby's week
+            </Text>
+          </View>
+          <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+        </Pressable>
 
         {/* Data & Export */}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>Data & Export</Text>

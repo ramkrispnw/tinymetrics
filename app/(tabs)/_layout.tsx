@@ -56,6 +56,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="milestones"
+        options={{
+          title: "Milestones",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="star.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="assistant"
         options={{
           title: "AI",

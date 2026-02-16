@@ -35,8 +35,9 @@ import { SettingsSheet } from "@/components/settings-sheet";
 import { ShareSheet } from "@/components/share-sheet";
 import { LogGrowthSheet } from "@/components/log-growth-sheet";
 import { ImportLogsSheet } from "@/components/import-logs-sheet";
+import { WeeklyDigestSheet } from "@/components/weekly-digest-sheet";
 
-type SheetType = "feed" | "sleep" | "diaper" | "observation" | "profile" | "settings" | "share" | "growth" | "import" | null;
+type SheetType = "feed" | "sleep" | "diaper" | "observation" | "profile" | "settings" | "share" | "growth" | "import" | "digest" | null;
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -370,7 +371,7 @@ export default function HomeScreen() {
         <SetupProfileSheet onClose={closeSheet} />
       </Modal>
       <Modal visible={activeSheet === "settings"} animationType="slide" presentationStyle="pageSheet">
-        <SettingsSheet onClose={closeSheet} onOpenShare={() => setActiveSheet("share")} onEditProfile={() => setActiveSheet("profile")} />
+        <SettingsSheet onClose={closeSheet} onOpenShare={() => setActiveSheet("share")} onEditProfile={() => setActiveSheet("profile")} onOpenDigest={() => setActiveSheet("digest")} />
       </Modal>
       <Modal visible={activeSheet === "share"} animationType="slide" presentationStyle="pageSheet">
         <ShareSheet onClose={closeSheet} />
@@ -380,6 +381,9 @@ export default function HomeScreen() {
       </Modal>
       <Modal visible={activeSheet === "import"} animationType="slide" presentationStyle="pageSheet">
         <ImportLogsSheet onClose={closeSheet} />
+      </Modal>
+      <Modal visible={activeSheet === "digest"} animationType="slide" presentationStyle="pageSheet">
+        <WeeklyDigestSheet onClose={closeSheet} />
       </Modal>
     </ScreenContainer>
   );

@@ -52,3 +52,7 @@
 - [x] Add image-based import (photos from phone) with AI parsing
 - [x] Imported poo diapers default to yellow color
 - [x] Ensure all imported events show up correctly in Trends charts
+- [x] Add milestone tracker screen with logging, dates, and optional photos
+- [x] Add weekly in-app digest with AI-generated summary (accessible from Settings)
+- [x] Update Activity date range: Today, Yesterday, Week, 3 Months, Custom
+- [x] Add AI-generated 2-3 line summaries under each Trends chart (premium feature)

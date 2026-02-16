@@ -26,6 +26,7 @@ import {
   type HeightUnit,
 } from "@/lib/store";
 import * as Haptics from "expo-haptics";
+import { ChartAISummary } from "@/components/chart-ai-summary";
 import {
   getWHOWeightData,
   getWHOHeightData,
@@ -495,6 +496,10 @@ export default function TrendsScreen() {
             avgVal={avgFeed}
             trendValues={feedTrend}
           />
+          <ChartAISummary
+            chartType="Daily Feed Intake"
+            dataJson={JSON.stringify(feedData.map(d => ({ day: d.day, value: d.value, unit: feedUnit })))}
+          />
         </View>
 
         {/* Pee Diaper Chart */}
@@ -519,6 +524,10 @@ export default function TrendsScreen() {
             labelFn={(v) => `${v}`}
             avgVal={avgPee}
             trendValues={peeTrend}
+          />
+          <ChartAISummary
+            chartType="Wet Diapers (Pee) per Day"
+            dataJson={JSON.stringify(peeData.map(d => ({ day: d.day, count: d.value })))}
           />
         </View>
 
@@ -545,6 +554,10 @@ export default function TrendsScreen() {
             avgVal={avgPoo}
             trendValues={pooTrend}
           />
+          <ChartAISummary
+            chartType="Poo Diapers per Day"
+            dataJson={JSON.stringify(pooData.map(d => ({ day: d.day, count: d.value })))}
+          />
         </View>
 
         {/* Sleep Chart */}
@@ -569,6 +582,10 @@ export default function TrendsScreen() {
             labelFn={(v) => formatDuration(v)}
             avgVal={avgSleep}
             trendValues={sleepTrend}
+          />
+          <ChartAISummary
+            chartType="Daily Sleep Duration"
+            dataJson={JSON.stringify(sleepData.map(d => ({ day: d.day, minutes: d.value })))}
           />
         </View>
 
@@ -611,6 +628,10 @@ export default function TrendsScreen() {
               whoConvert={weightUnit === "lbs" ? kgToLbs : undefined}
               birthDate={state.profile?.birthDate}
             />
+            <ChartAISummary
+              chartType="Weight Over Time"
+              dataJson={JSON.stringify(weightData.map(d => ({ date: d.date, value: d.value, unit: weightUnit })))}
+            />
           </View>
         )}
 
@@ -652,6 +673,10 @@ export default function TrendsScreen() {
               whoData={getWHOHeightData(state.profile?.sex)}
               whoConvert={heightUnit === "in" ? cmToIn : undefined}
               birthDate={state.profile?.birthDate}
+            />
+            <ChartAISummary
+              chartType="Height Over Time"
+              dataJson={JSON.stringify(heightData.map(d => ({ date: d.date, value: d.value, unit: heightUnit })))}
             />
           </View>
         )}

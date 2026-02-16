@@ -5,6 +5,7 @@ import {
   type BabyProfile,
   type AppSettings,
   type GrowthEntry,
+  type Milestone,
   DEFAULT_STATE,
   StoreContext,
   generateId,
@@ -14,6 +15,7 @@ import {
   saveProfile,
   saveSettings,
   saveGrowthHistory,
+  saveMilestones,
 } from "./store";
 import { trpc } from "./trpc";
 
@@ -214,6 +216,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const addMilestone = useCallback(async (milestone: Omit<Milestone, "id" | "createdAt">) => {
+    const newMilestone: Milestone = {
+      ...milestone,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+    };
+    setState((prev) => {
+      const updated = [newMilestone, ...prev.milestones].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      saveMilestones(updated);
+      return { ...prev, milestones: updated };
+    });
+  }, []);
+
+  const deleteMilestone = useCallback(async (id: string) => {
+    setState((prev) => {
+      const updated = prev.milestones.filter((m) => m.id !== id);
+      saveMilestones(updated);
+      return { ...prev, milestones: updated };
+    });
+  }, []);
+
   const importEvents = useCallback(
     async (events: Omit<BabyEvent, "id" | "createdAt">[]): Promise<number> => {
       const newEvents: BabyEvent[] = events.map((e) => ({
@@ -378,6 +403,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         stopSleep,
         addGrowthEntry,
         deleteGrowthEntry,
+        addMilestone,
+        deleteMilestone,
         importEvents,
         syncToCloud,
         loadFromCloud,

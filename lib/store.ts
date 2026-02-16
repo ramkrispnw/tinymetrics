@@ -77,6 +77,27 @@ export interface AppSettings {
   theme: "auto" | "light" | "dark";
 }
 
+export interface Milestone {
+  id: string;
+  title: string;
+  date: string; // ISO date YYYY-MM-DD
+  category: MilestoneCategory;
+  notes?: string;
+  photoUri?: string;
+  createdAt: string;
+}
+
+export type MilestoneCategory = "motor" | "social" | "language" | "cognitive" | "feeding" | "other";
+
+export const MILESTONE_CATEGORIES: { key: MilestoneCategory; label: string; icon: string }[] = [
+  { key: "motor", label: "Motor", icon: "🏃" },
+  { key: "social", label: "Social", icon: "😊" },
+  { key: "language", label: "Language", icon: "🗣" },
+  { key: "cognitive", label: "Cognitive", icon: "🧠" },
+  { key: "feeding", label: "Feeding", icon: "🍼" },
+  { key: "other", label: "Other", icon: "⭐" },
+];
+
 export interface GrowthEntry {
   id: string;
   date: string; // ISO date YYYY-MM-DD
@@ -93,6 +114,7 @@ export interface AppState {
   settings: AppSettings;
   activeSleep: { startTime: string } | null;
   growthHistory: GrowthEntry[];
+  milestones: Milestone[];
 }
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
@@ -109,6 +131,7 @@ export const DEFAULT_STATE: AppState = {
   settings: DEFAULT_SETTINGS,
   activeSleep: null,
   growthHistory: [],
+  milestones: [],
 };
 
 // ─── Storage Keys ────────────────────────────────────────────────────────────
@@ -119,18 +142,20 @@ const KEYS = {
   SETTINGS: "@baby_tracker_settings",
   ACTIVE_SLEEP: "@baby_tracker_active_sleep",
   GROWTH_HISTORY: "@baby_tracker_growth_history",
+  MILESTONES: "@baby_tracker_milestones",
 };
 
 // ─── Persistence Helpers ─────────────────────────────────────────────────────
 
 export async function loadState(): Promise<AppState> {
   try {
-    const [profileStr, eventsStr, settingsStr, activeSleepStr, growthStr] = await AsyncStorage.multiGet([
+    const [profileStr, eventsStr, settingsStr, activeSleepStr, growthStr, milestonesStr] = await AsyncStorage.multiGet([
       KEYS.PROFILE,
       KEYS.EVENTS,
       KEYS.SETTINGS,
       KEYS.ACTIVE_SLEEP,
       KEYS.GROWTH_HISTORY,
+      KEYS.MILESTONES,
     ]);
     return {
       profile: profileStr[1] ? JSON.parse(profileStr[1]) : null,
@@ -138,6 +163,7 @@ export async function loadState(): Promise<AppState> {
       settings: settingsStr[1] ? JSON.parse(settingsStr[1]) : DEFAULT_SETTINGS,
       activeSleep: activeSleepStr[1] ? JSON.parse(activeSleepStr[1]) : null,
       growthHistory: growthStr[1] ? JSON.parse(growthStr[1]) : [],
+      milestones: milestonesStr[1] ? JSON.parse(milestonesStr[1]) : [],
     };
   } catch {
     return DEFAULT_STATE;
@@ -166,6 +192,10 @@ export async function saveActiveSleep(activeSleep: { startTime: string } | null)
 
 export async function saveGrowthHistory(entries: GrowthEntry[]) {
   await AsyncStorage.setItem(KEYS.GROWTH_HISTORY, JSON.stringify(entries));
+}
+
+export async function saveMilestones(milestones: Milestone[]) {
+  await AsyncStorage.setItem(KEYS.MILESTONES, JSON.stringify(milestones));
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
@@ -300,6 +330,8 @@ export interface StoreContextValue {
   stopSleep: () => Promise<BabyEvent | null>;
   addGrowthEntry: (entry: Omit<GrowthEntry, "id" | "createdAt">) => Promise<void>;
   deleteGrowthEntry: (id: string) => Promise<void>;
+  addMilestone: (milestone: Omit<Milestone, "id" | "createdAt">) => Promise<void>;
+  deleteMilestone: (id: string) => Promise<void>;
   importEvents: (events: Omit<BabyEvent, "id" | "createdAt">[]) => Promise<number>;
   syncToCloud: () => Promise<void>;
   loadFromCloud: () => Promise<void>;

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -8,6 +8,8 @@ import {
   Alert,
   Platform,
   ScrollView,
+  Modal,
+  TextInput,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -30,44 +32,55 @@ import { EditEventSheet } from "@/components/edit-event-sheet";
 import * as Haptics from "expo-haptics";
 
 type FilterType = "all" | EventType;
-type DateRange = "today" | "yesterday" | "3days" | "week" | "2weeks" | "month" | "all";
+type DateRange = "today" | "yesterday" | "week" | "3months" | "custom";
 
 export default function ActivityScreen() {
   const colors = useColors();
   const { state, deleteEvent } = useStore();
   const [filter, setFilter] = useState<FilterType>("all");
-  const [dateRange, setDateRange] = useState<DateRange>("all");
+  const [dateRange, setDateRange] = useState<DateRange>("today");
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
+  const [showCustomPicker, setShowCustomPicker] = useState(false);
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [appliedCustomStart, setAppliedCustomStart] = useState<Date | null>(null);
+  const [appliedCustomEnd, setAppliedCustomEnd] = useState<Date | null>(null);
 
   // Calculate date range bounds
   const dateRangeBounds = useMemo(() => {
-    if (dateRange === "all") return { start: null, end: null };
     const now = new Date();
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
     switch (dateRange) {
       case "today":
-        break;
-      case "yesterday":
-        start.setDate(start.getDate() - 1);
-        end.setDate(end.getDate() - 1);
-        break;
-      case "3days":
-        start.setDate(start.getDate() - 2);
-        break;
-      case "week":
-        start.setDate(start.getDate() - 6);
-        break;
-      case "2weeks":
-        start.setDate(start.getDate() - 13);
-        break;
-      case "month":
-        start.setDate(start.getDate() - 29);
-        break;
+        return { start: startOfToday, end: endOfToday };
+      case "yesterday": {
+        const s = new Date(startOfToday);
+        s.setDate(s.getDate() - 1);
+        const e = new Date(endOfToday);
+        e.setDate(e.getDate() - 1);
+        return { start: s, end: e };
+      }
+      case "week": {
+        const s = new Date(startOfToday);
+        s.setDate(s.getDate() - 6);
+        return { start: s, end: endOfToday };
+      }
+      case "3months": {
+        const s = new Date(startOfToday);
+        s.setMonth(s.getMonth() - 3);
+        return { start: s, end: endOfToday };
+      }
+      case "custom":
+        if (appliedCustomStart && appliedCustomEnd) {
+          return { start: appliedCustomStart, end: appliedCustomEnd };
+        }
+        return { start: null, end: null };
+      default:
+        return { start: null, end: null };
     }
-    return { start, end };
-  }, [dateRange]);
+  }, [dateRange, appliedCustomStart, appliedCustomEnd]);
 
   const filteredEvents = useMemo(() => {
     let events = state.events;
@@ -196,6 +209,31 @@ export default function ActivityScreen() {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  const handleApplyCustomRange = () => {
+    const startDate = new Date(customStart + "T00:00:00");
+    const endDate = new Date(customEnd + "T23:59:59.999");
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      if (Platform.OS === "web") {
+        alert("Please enter valid dates in YYYY-MM-DD format");
+      } else {
+        Alert.alert("Invalid Date", "Please enter valid dates in YYYY-MM-DD format");
+      }
+      return;
+    }
+    if (startDate > endDate) {
+      if (Platform.OS === "web") {
+        alert("Start date must be before end date");
+      } else {
+        Alert.alert("Invalid Range", "Start date must be before end date");
+      }
+      return;
+    }
+    setAppliedCustomStart(startDate);
+    setAppliedCustomEnd(endDate);
+    setDateRange("custom");
+    setShowCustomPicker(false);
+  };
+
   const typeFilters: { key: FilterType; label: string }[] = [
     { key: "all", label: "All" },
     { key: "feed", label: "Feed" },
@@ -208,12 +246,14 @@ export default function ActivityScreen() {
   const dateRanges: { key: DateRange; label: string }[] = [
     { key: "today", label: "Today" },
     { key: "yesterday", label: "Yesterday" },
-    { key: "3days", label: "3 Days" },
     { key: "week", label: "Week" },
-    { key: "2weeks", label: "2 Weeks" },
-    { key: "month", label: "Month" },
-    { key: "all", label: "All Time" },
+    { key: "3months", label: "3 Months" },
+    { key: "custom", label: "Custom" },
   ];
+
+  const customRangeLabel = appliedCustomStart && appliedCustomEnd
+    ? `${appliedCustomStart.toLocaleDateString([], { month: "short", day: "numeric" })} - ${appliedCustomEnd.toLocaleDateString([], { month: "short", day: "numeric" })}`
+    : null;
 
   const renderItem = useCallback(
     ({ item }: { item: BabyEvent }) => (
@@ -295,7 +335,16 @@ export default function ActivityScreen() {
           <Pressable
             key={d.key}
             onPress={() => {
-              setDateRange(d.key);
+              if (d.key === "custom") {
+                const now = new Date();
+                const weekAgo = new Date(now);
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                if (!customStart) setCustomStart(weekAgo.toISOString().split("T")[0]);
+                if (!customEnd) setCustomEnd(now.toISOString().split("T")[0]);
+                setShowCustomPicker(true);
+              } else {
+                setDateRange(d.key);
+              }
               if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
             style={({ pressed }) => [
@@ -314,7 +363,9 @@ export default function ActivityScreen() {
                 fontSize: 12,
               }}
             >
-              {d.label}
+              {d.key === "custom" && dateRange === "custom" && customRangeLabel
+                ? customRangeLabel
+                : d.label}
             </Text>
           </Pressable>
         ))}
@@ -388,6 +439,66 @@ export default function ActivityScreen() {
         event={editingEvent}
         onClose={() => setEditingEvent(null)}
       />
+
+      {/* Custom Date Range Picker Modal */}
+      <Modal visible={showCustomPicker} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.customPickerCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <Text style={[styles.customPickerTitle, { color: colors.foreground }]}>
+              Custom Date Range
+            </Text>
+
+            <Text style={[styles.customPickerLabel, { color: colors.muted }]}>START DATE</Text>
+            <TextInput
+              value={customStart}
+              onChangeText={setCustomStart}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.muted}
+              style={[
+                styles.customPickerInput,
+                { backgroundColor: colors.surface, color: colors.foreground, borderColor: colors.border },
+              ]}
+              returnKeyType="done"
+            />
+
+            <Text style={[styles.customPickerLabel, { color: colors.muted }]}>END DATE</Text>
+            <TextInput
+              value={customEnd}
+              onChangeText={setCustomEnd}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.muted}
+              style={[
+                styles.customPickerInput,
+                { backgroundColor: colors.surface, color: colors.foreground, borderColor: colors.border },
+              ]}
+              returnKeyType="done"
+            />
+
+            <View style={styles.customPickerButtons}>
+              <Pressable
+                onPress={() => setShowCustomPicker(false)}
+                style={({ pressed }) => [
+                  styles.customPickerBtn,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text style={{ color: colors.muted, fontWeight: "600", fontSize: 15 }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleApplyCustomRange}
+                style={({ pressed }) => [
+                  styles.customPickerBtn,
+                  { backgroundColor: colors.primary },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Apply</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -500,5 +611,53 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     marginTop: 32,
+  },
+  // Custom date range picker modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  customPickerCard: {
+    width: "100%",
+    maxWidth: 340,
+    borderRadius: 18,
+    padding: 24,
+    borderWidth: 1,
+  },
+  customPickerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  customPickerLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  customPickerInput: {
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    borderWidth: 0.5,
+  },
+  customPickerButtons: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 20,
+  },
+  customPickerBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
   },
 });

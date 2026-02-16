@@ -43,6 +43,11 @@ const MAPPING = {
   "person.fill": "person",
   "person.2.fill": "people",
   "doc.on.doc.fill": "content-copy",
+  "star.fill": "star",
+  "flag.fill": "flag",
+  "calendar": "calendar-today",
+  "chart.line.uptrend.xyaxis": "trending-up",
+  "envelope.fill": "email",
 } as IconMapping;
 
 export function IconSymbol({
