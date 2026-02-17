@@ -24,6 +24,7 @@ import {
   type GrowthEntry,
   type WeightUnit,
   type HeightUnit,
+  type PumpData,
 } from "@/lib/store";
 import * as Haptics from "expo-haptics";
 import { ChartAISummary } from "@/components/chart-ai-summary";
@@ -122,6 +123,22 @@ export default function TrendsScreen() {
     });
   }, [dateRange, state.events]);
 
+  // Pump data with unit conversion
+  const pumpData = useMemo(() => {
+    return dateRange.map((day) => {
+      const dayEvents = state.events.filter(
+        (e) => e.type === "pump" && getDayKey(e.timestamp) === day
+      );
+      const totalMl = dayEvents.reduce(
+        (sum, e) => sum + ((e.data as PumpData).amountMl || 0),
+        0
+      );
+      const displayValue =
+        feedUnit === "oz" ? mlToOz(totalMl) : Math.round(totalMl);
+      return { day, value: displayValue, count: dayEvents.length };
+    });
+  }, [dateRange, state.events, feedUnit]);
+
   // Growth data from both growthHistory and growth events, with unit conversion
   const weightData = useMemo(() => {
     // Collect from growthHistory
@@ -188,11 +205,13 @@ export default function TrendsScreen() {
   const maxPee = Math.max(...peeData.map((d) => d.value), 1);
   const maxPoo = Math.max(...pooData.map((d) => d.value), 1);
   const maxSleep = Math.max(...sleepData.map((d) => d.value), 1);
+  const maxPump = Math.max(...pumpData.map((d) => d.value), 1);
 
   const avgFeed = feedData.reduce((s, d) => s + d.value, 0) / range;
   const avgPee = peeData.reduce((s, d) => s + d.value, 0) / range;
   const avgPoo = pooData.reduce((s, d) => s + d.value, 0) / range;
   const avgSleep = sleepData.reduce((s, d) => s + d.value, 0) / range;
+  const avgPump = pumpData.reduce((s, d) => s + d.value, 0) / range;
 
   const displayFeedAmount = (v: number) => {
     return feedUnit === "oz" ? `${v.toFixed(1)} oz` : `${Math.round(v)} ml`;
@@ -417,6 +436,7 @@ export default function TrendsScreen() {
   const peeTrend = computeTrendLine(peeData.map((d) => d.value));
   const pooTrend = computeTrendLine(pooData.map((d) => d.value));
   const sleepTrend = computeTrendLine(sleepData.map((d) => d.value));
+  const pumpTrend = computeTrendLine(pumpData.map((d) => d.value));
 
   return (
     <ScreenContainer className="px-4 pt-2">
@@ -586,6 +606,43 @@ export default function TrendsScreen() {
           <ChartAISummary
             chartType="Daily Sleep Duration"
             dataJson={JSON.stringify(sleepData.map(d => ({ day: d.day, minutes: d.value })))}
+          />
+        </View>
+
+        {/* Pump Output Chart */}
+        <View
+          style={[
+            styles.chartCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.chartHeader}>
+            <Text style={[styles.chartTitle, { color: colors.foreground }]}>
+              🤱 Pump Output
+            </Text>
+            <Text style={[styles.chartAvg, { color: colors.pump }]}>
+              Avg: {displayFeedAmount(avgPump)}
+            </Text>
+          </View>
+          <UnitToggle
+            options={[
+              { key: "ml", label: "ml" },
+              { key: "oz", label: "oz" },
+            ]}
+            selected={feedUnit}
+            onSelect={(k) => setFeedUnit(k as FeedUnit)}
+          />
+          <BarChart
+            data={pumpData}
+            maxVal={maxPump}
+            color={colors.pump}
+            labelFn={displayFeedAmount}
+            avgVal={avgPump}
+            trendValues={pumpTrend}
+          />
+          <ChartAISummary
+            chartType="Daily Pump Output"
+            dataJson={JSON.stringify(pumpData.map(d => ({ day: d.day, value: d.value, unit: feedUnit })))}
           />
         </View>
 

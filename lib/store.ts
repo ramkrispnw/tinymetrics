@@ -3,7 +3,9 @@ import { createContext, useContext } from "react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type EventType = "feed" | "sleep" | "diaper" | "observation" | "growth";
+export type EventType = "feed" | "sleep" | "diaper" | "observation" | "growth" | "pump";
+
+export type PumpSide = "left" | "right" | "both";
 
 export type FeedMethod = "bottle" | "breast_left" | "breast_right" | "solid";
 export type DiaperType = "pee" | "poo" | "both";
@@ -40,6 +42,13 @@ export interface ObservationData {
   notes?: string;
 }
 
+export interface PumpData {
+  amountMl?: number;
+  side: PumpSide;
+  durationMin?: number;
+  notes?: string;
+}
+
 export interface GrowthData {
   weight?: number;
   weightUnit?: WeightUnit;
@@ -52,7 +61,7 @@ export interface BabyEvent {
   id: string;
   type: EventType;
   timestamp: string; // ISO
-  data: FeedData | SleepData | DiaperData | ObservationData | GrowthData;
+  data: FeedData | SleepData | DiaperData | ObservationData | GrowthData | PumpData;
   imageUrl?: string;
   createdAt: string; // ISO
 }

@@ -26,6 +26,7 @@ import {
   type SleepData,
   type DiaperData,
   type ObservationData,
+  type PumpData,
 } from "@/lib/store";
 import { LogFeedSheet } from "@/components/log-feed-sheet";
 import { LogSleepSheet } from "@/components/log-sleep-sheet";
@@ -37,8 +38,9 @@ import { ShareSheet } from "@/components/share-sheet";
 import { LogGrowthSheet } from "@/components/log-growth-sheet";
 import { ImportLogsSheet } from "@/components/import-logs-sheet";
 import { WeeklyDigestSheet } from "@/components/weekly-digest-sheet";
+import { LogPumpSheet } from "@/components/log-pump-sheet";
 
-type SheetType = "feed" | "sleep" | "diaper" | "observation" | "profile" | "settings" | "share" | "growth" | "import" | "digest" | null;
+type SheetType = "feed" | "sleep" | "diaper" | "observation" | "pump" | "profile" | "settings" | "share" | "growth" | "import" | "digest" | null;
 
 function formatRelativeTime(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -110,6 +112,12 @@ export default function HomeScreen() {
       .reduce((sum, e) => sum + ((e.data as SleepData).durationMin || 0), 0);
   }, [todayEvents]);
 
+  const todayPumpMl = useMemo(() => {
+    return todayEvents
+      .filter((e) => e.type === "pump")
+      .reduce((sum, e) => sum + ((e.data as PumpData).amountMl || 0), 0);
+  }, [todayEvents]);
+
   const recentEvents = useMemo(() => todayEvents.slice(0, 8), [todayEvents]);
 
   const ageInfo = useMemo(() => {
@@ -144,6 +152,7 @@ export default function HomeScreen() {
       case "sleep": return "moon.fill" as const;
       case "diaper": return "drop.fill" as const;
       case "observation": return "eye.fill" as const;
+      case "pump": return "drop.triangle.fill" as const;
       default: return "info.circle.fill" as const;
     }
   };
@@ -154,6 +163,7 @@ export default function HomeScreen() {
       case "sleep": return colors.sleep;
       case "diaper": return colors.diaper;
       case "observation": return colors.observation;
+      case "pump": return colors.pump;
       default: return colors.muted;
     }
   };
@@ -178,6 +188,13 @@ export default function HomeScreen() {
       case "observation": {
         const d = event.data as ObservationData;
         return `${d.category.replace("_", " ")} · ${d.severity}`;
+      }
+      case "pump": {
+        const d = event.data as PumpData;
+        const amt = d.amountMl ? displayAmount(d.amountMl) : "";
+        const dur = d.durationMin ? formatDuration(d.durationMin) : "";
+        const sideLabel = d.side === "both" ? "Both sides" : d.side === "left" ? "Left" : "Right";
+        return [sideLabel, amt, dur].filter(Boolean).join(" · ");
       }
       default:
         return "";
@@ -308,6 +325,7 @@ export default function HomeScreen() {
             { type: "sleep" as const, label: "Sleep", icon: "moon.fill" as const, color: colors.sleep },
             { type: "diaper" as const, label: "Diaper", icon: "drop.fill" as const, color: colors.diaper },
             { type: "observation" as const, label: "Note", icon: "eye.fill" as const, color: colors.observation },
+            { type: "pump" as const, label: "Pump", icon: "drop.triangle.fill" as const, color: colors.pump },
           ].map((action) => (
             <Pressable
               key={action.type}
@@ -328,6 +346,19 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
           ))}
+        </View>
+
+        {/* Pump Summary Card */}
+        <View className="flex-row gap-3 mb-5">
+          <View
+            style={[styles.summaryCard, { backgroundColor: colors.pump + "15", borderColor: colors.pump + "30", flex: 1 }]}
+          >
+            <IconSymbol name="drop.triangle.fill" size={20} color={colors.pump} />
+            <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+              {displayAmount(todayPumpMl)}
+            </Text>
+            <Text style={[styles.summaryLabel, { color: colors.muted }]}>Pumped</Text>
+          </View>
         </View>
 
         {/* Growth Tracking Button */}
@@ -427,6 +458,9 @@ export default function HomeScreen() {
       </Modal>
       <Modal visible={activeSheet === "digest"} animationType="slide" presentationStyle="pageSheet">
         <WeeklyDigestSheet onClose={closeSheet} />
+      </Modal>
+      <Modal visible={activeSheet === "pump"} animationType="slide" presentationStyle="pageSheet">
+        <LogPumpSheet onClose={closeSheet} />
       </Modal>
     </ScreenContainer>
   );

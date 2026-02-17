@@ -13,6 +13,7 @@ const themeColors = {
   sleep: { light: '#8B5CF6', dark: '#A78BFA' },
   diaper: { light: '#F97316', dark: '#FB923C' },
   observation: { light: '#EC4899', dark: '#F472B6' },
+  pump: { light: '#E879A0', dark: '#F0A0B8' },
 };
 
 module.exports = { themeColors };

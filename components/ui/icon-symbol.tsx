@@ -49,6 +49,7 @@ const MAPPING = {
   "chart.line.uptrend.xyaxis": "trending-up",
   "envelope.fill": "email",
   "arrow.clockwise": "sync",
+  "drop.triangle.fill": "water-drop",
 } as IconMapping;
 
 export function IconSymbol({

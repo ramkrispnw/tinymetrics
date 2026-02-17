@@ -70,3 +70,10 @@
 - [x] Add sleep timer: start/stop tracking with minute counting
 - [x] Add sleep timer: overnight sleep tracking across 2 calendar days
 - [x] Add last synced timestamp on Home screen for linked accounts
+- [x] Add Pump event type: PumpData model with amountMl, side (left/right/both), durationMin
+- [x] Create LogPumpSheet component for logging pump sessions
+- [x] Add pump quick action button and summary card on Home screen
+- [x] Add pump output chart to Trends tab
+- [x] Update Activity tab to display pump events
+- [x] Ensure pump events sync across linked accounts
+- [x] Update AI assistant context to include pump data

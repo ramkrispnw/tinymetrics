@@ -12,6 +12,7 @@ export const themeColors: {
   sleep: { light: string; dark: string };
   diaper: { light: string; dark: string };
   observation: { light: string; dark: string };
+  pump: { light: string; dark: string };
 };
 
 declare const themeConfig: {

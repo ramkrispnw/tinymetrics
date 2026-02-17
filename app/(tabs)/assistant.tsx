@@ -30,6 +30,7 @@ import {
   type GrowthData,
   type GrowthEntry,
   type Milestone,
+  type PumpData,
 } from "@/lib/store";
 import * as Haptics from "expo-haptics";
 import { pickImage } from "@/lib/image-utils";
@@ -153,6 +154,19 @@ export default function AssistantScreen() {
           parts.push(`  - ${time}: ${d.category} (${d.severity})${d.description ? ` - ${d.description}` : ""}${d.notes ? ` (${d.notes})` : ""}`);
         });
       }
+
+      const pumps = todayEvents.filter((e) => e.type === "pump");
+      if (pumps.length > 0) {
+        const totalMl = pumps.reduce((s, e) => s + ((e.data as PumpData).amountMl || 0), 0);
+        const totalMin = pumps.reduce((s, e) => s + ((e.data as PumpData).durationMin || 0), 0);
+        parts.push(`Pumping: ${pumps.length} sessions, ${totalMl}ml total, ${totalMin}min total`);
+        pumps.forEach((e) => {
+          const d = e.data as PumpData;
+          const time = new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          const sideLabel = d.side === "both" ? "Both" : d.side === "left" ? "Left" : "Right";
+          parts.push(`  - ${time}: ${sideLabel}${d.amountMl ? ` ${d.amountMl}ml` : ""}${d.durationMin ? ` ${d.durationMin}min` : ""}${d.notes ? ` (${d.notes})` : ""}`);
+        });
+      }
     }
 
     // ── Weekly summary (last 7 days) ──
@@ -167,9 +181,11 @@ export default function AssistantScreen() {
       const feeds = dayEvents.filter((e) => e.type === "feed");
       const sleeps = dayEvents.filter((e) => e.type === "sleep");
       const diapers = dayEvents.filter((e) => e.type === "diaper");
+      const pumps = dayEvents.filter((e) => e.type === "pump");
       const feedMl = feeds.reduce((s, e) => s + ((e.data as FeedData).amountMl || 0), 0);
       const sleepMin = sleeps.reduce((s, e) => s + ((e.data as SleepData).durationMin || 0), 0);
-      parts.push(`${dk}: ${feeds.length} feeds (${feedMl}ml), ${sleeps.length} sleeps (${formatDuration(sleepMin)}), ${diapers.length} diapers`);
+      const pumpMl = pumps.reduce((s, e) => s + ((e.data as PumpData).amountMl || 0), 0);
+      parts.push(`${dk}: ${feeds.length} feeds (${feedMl}ml), ${sleeps.length} sleeps (${formatDuration(sleepMin)}), ${diapers.length} diapers${pumps.length > 0 ? `, ${pumps.length} pumps (${pumpMl}ml)` : ""}`);
     }
 
     // ── Growth history ──

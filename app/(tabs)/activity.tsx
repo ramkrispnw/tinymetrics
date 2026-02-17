@@ -27,6 +27,7 @@ import {
   type SleepData,
   type DiaperData,
   type ObservationData,
+  type PumpData,
 } from "@/lib/store";
 import { EditEventSheet } from "@/components/edit-event-sheet";
 import * as Haptics from "expo-haptics";
@@ -130,6 +131,7 @@ export default function ActivityScreen() {
       case "diaper": return "drop.fill" as const;
       case "observation": return "eye.fill" as const;
       case "growth": return "chart.line.uptrend.xyaxis" as const;
+      case "pump": return "drop.triangle.fill" as const;
       default: return "info.circle.fill" as const;
     }
   };
@@ -141,6 +143,7 @@ export default function ActivityScreen() {
       case "diaper": return colors.diaper;
       case "observation": return colors.observation;
       case "growth": return colors.success;
+      case "pump": return colors.pump;
       default: return colors.muted;
     }
   };
@@ -180,6 +183,17 @@ export default function ActivityScreen() {
         if (d.weightKg) parts.push(`${d.weightKg} kg`);
         if (d.heightCm) parts.push(`${d.heightCm} cm`);
         return parts.join(" · ") || "Growth logged";
+      }
+      case "pump": {
+        const d = event.data as PumpData;
+        const amt = d.amountMl
+          ? state.settings.units === "oz"
+            ? `${mlToOz(d.amountMl)} oz`
+            : `${d.amountMl} ml`
+          : "";
+        const dur = d.durationMin ? formatDuration(d.durationMin) : "";
+        const sideLabel = d.side === "both" ? "Both sides" : d.side === "left" ? "Left" : "Right";
+        return [sideLabel, amt, dur].filter(Boolean).join(" · ");
       }
       default:
         return "";
@@ -241,6 +255,7 @@ export default function ActivityScreen() {
     { key: "diaper", label: "Diaper" },
     { key: "observation", label: "Notes" },
     { key: "growth", label: "Growth" },
+    { key: "pump", label: "Pump" },
   ];
 
   const dateRanges: { key: DateRange; label: string }[] = [
