@@ -48,6 +48,7 @@ const MAPPING = {
   "calendar": "calendar-today",
   "chart.line.uptrend.xyaxis": "trending-up",
   "envelope.fill": "email",
+  "arrow.clockwise": "sync",
 } as IconMapping;
 
 export function IconSymbol({

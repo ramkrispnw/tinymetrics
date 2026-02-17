@@ -8,12 +8,12 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/hooks/use-auth";
+import { useStore } from "@/lib/store";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
@@ -25,10 +25,12 @@ interface Props {
 export function ShareSheet({ onClose }: Props) {
   const colors = useColors();
   const { isAuthenticated } = useAuth();
+  const { syncToCloud, loadFromCloud } = useStore();
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -49,10 +51,32 @@ export function ShareSheet({ onClose }: Props) {
     }
   }, [pendingQuery.data]);
 
+  /** After linking, push local data to cloud then pull partner's data */
+  const performFullSync = async () => {
+    setSyncing(true);
+    try {
+      // First push all local data to cloud
+      await syncToCloud();
+      // Then pull cloud data (which now includes partner's data)
+      await loadFromCloud();
+      console.log("[ShareSheet] Full sync completed after linking");
+    } catch (err) {
+      console.warn("[ShareSheet] Sync after linking failed:", err);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleGenerateCode = async () => {
     setLoading(true);
     setError(null);
     try {
+      // Push local data to cloud first so partner will get it when they link
+      try {
+        await syncToCloud();
+      } catch {
+        // Continue even if sync fails — code generation is more important
+      }
       const result = await createInvite.mutateAsync();
       setInviteCode(result.code);
       if (Platform.OS !== "web") {
@@ -85,12 +109,15 @@ export function ShareSheet({ onClose }: Props) {
     try {
       const result = await acceptInvite.mutateAsync({ code: joinCode.trim().toUpperCase() });
       if (result.success) {
-        setSuccessMsg(`Connected with ${(result as any).ownerName || "your partner"}!`);
+        setSuccessMsg(`Connected with ${(result as any).ownerName || "your partner"}! Syncing data...`);
         setJoinCode("");
         partnerQuery.refetch();
         if (Platform.OS !== "web") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
+        // Trigger full sync after successful linking
+        await performFullSync();
+        setSuccessMsg(`Connected with ${(result as any).ownerName || "your partner"}! Data synced.`);
       } else {
         setError((result as any).error || "Invalid invite code");
         if (Platform.OS !== "web") {
@@ -118,6 +145,23 @@ export function ShareSheet({ onClose }: Props) {
       setError("Failed to remove sharing.");
     }
     setLoading(false);
+  };
+
+  const handleManualSync = async () => {
+    setSyncing(true);
+    setError(null);
+    try {
+      await syncToCloud();
+      await loadFromCloud();
+      setSuccessMsg("Data synced successfully!");
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch {
+      setError("Sync failed. Please try again.");
+    }
+    setSyncing(false);
   };
 
   const partner = partnerQuery.data;
@@ -215,9 +259,29 @@ export function ShareSheet({ onClose }: Props) {
               </Pressable>
             </View>
 
+            {/* Sync Button */}
+            <Pressable
+              onPress={handleManualSync}
+              disabled={syncing}
+              style={({ pressed }) => [
+                styles.syncBtn,
+                { backgroundColor: colors.primary, opacity: syncing ? 0.7 : 1 },
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              {syncing ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <IconSymbol name="arrow.clockwise" size={18} color="#FFFFFF" />
+              )}
+              <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>
+                {syncing ? "Syncing..." : "Sync Now"}
+              </Text>
+            </Pressable>
+
             <View style={[styles.infoCard, { backgroundColor: colors.primary + "08", borderColor: colors.primary + "20" }]}>
               <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 20 }}>
-                Both parents can log events and view the same data. Data is stored locally on each device — share your invite code so your partner can track alongside you.
+                Both parents can log events and view the same data. All events, growth records, milestones, and baby profile are synced to the cloud. Tap "Sync Now" to manually refresh data from your partner.
               </Text>
             </View>
           </>
@@ -473,6 +537,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
+  },
+  syncBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
   },
   successBanner: {
     flexDirection: "row",

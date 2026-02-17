@@ -1,6 +1,6 @@
 import { eq, and, or, desc, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, shareInvites, babyEvents } from "../drizzle/schema";
+import { InsertUser, users, shareInvites, babyEvents, householdData } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -401,6 +401,69 @@ export async function deleteCloudEvent(eventId: number, householdId: number) {
     );
 
   return { success: true };
+}
+
+// ─── Household Shared Data CRUD ──────────────────────────────────────────────
+
+/** Save or update household shared data (profile, growth, milestones) */
+export async function saveHouseholdData(
+  householdId: number,
+  dataKey: string,
+  dataValue: string
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Check if entry exists
+  const existing = await db
+    .select()
+    .from(householdData)
+    .where(
+      and(
+        eq(householdData.householdId, householdId),
+        eq(householdData.dataKey, dataKey)
+      )
+    )
+    .limit(1);
+
+  if (existing.length > 0) {
+    // Update existing
+    await db
+      .update(householdData)
+      .set({ dataValue })
+      .where(eq(householdData.id, existing[0].id));
+    return { success: true, action: "updated" as const };
+  } else {
+    // Insert new
+    await db.insert(householdData).values({
+      householdId,
+      dataKey,
+      dataValue,
+    });
+    return { success: true, action: "created" as const };
+  }
+}
+
+/** Get household shared data by key */
+export async function getHouseholdData(
+  householdId: number,
+  dataKey: string
+): Promise<{ dataValue: string } | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .select()
+    .from(householdData)
+    .where(
+      and(
+        eq(householdData.householdId, householdId),
+        eq(householdData.dataKey, dataKey)
+      )
+    )
+    .limit(1);
+
+  return result.length > 0 ? { dataValue: result[0].dataValue } : null;
 }
 
 /** Delete a cloud event by clientId */

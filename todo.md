@@ -56,3 +56,6 @@
 - [x] Add weekly in-app digest with AI-generated summary (accessible from Settings)
 - [x] Update Activity date range: Today, Yesterday, Week, 3 Months, Custom
 - [x] Add AI-generated 2-3 line summaries under each Trends chart (premium feature)
+- [x] Fix account linking: invite code generation by main account
+- [x] Fix account linking: code entry and acceptance by second account
+- [x] Fix cloud sync: shared data (events, growth, milestones) visible to both linked accounts

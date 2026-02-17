@@ -1,0 +1,37 @@
+{
+  "query": "SELECT * FROM share_invites ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2HKvgfrvx1zfe69.root --database oVL42HeCbPz4daVMoqMJcT --execute SELECT * FROM share_invites ORDER BY id DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "30002",
+      "ownerUserId": "1",
+      "code": "VCZ7EV",
+      "partnerUserId": "180001",
+      "status": "accepted",
+      "createdAt": "2026-02-16 23:56:35",
+      "acceptedAt": "2026-02-16 23:56:56"
+    },
+    {
+      "id": "30001",
+      "ownerUserId": "1",
+      "code": "8QY8LE",
+      "partnerUserId": "180001",
+      "status": "revoked",
+      "createdAt": "2026-02-16 23:53:04",
+      "acceptedAt": "2026-02-16 23:53:20"
+    },
+    {
+      "id": "1",
+      "ownerUserId": "1",
+      "code": "8GGAZF",
+      "partnerUserId": "180001",
+      "status": "revoked",
+      "createdAt": "2026-02-15 22:27:32",
+      "acceptedAt": "2026-02-16 01:50:33"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\townerUserId\tcode\tpartnerUserId\tstatus\tcreatedAt\tacceptedAt\n30002\t1\tVCZ7EV\t180001\taccepted\t2026-02-16 23:56:35\t2026-02-16 23:56:56\n30001\t1\t8QY8LE\t180001\trevoked\t2026-02-16 23:53:04\t2026-02-16 23:53:20\n1\t1\t8GGAZF\t180001\trevoked\t2026-02-15 22:27:32\t2026-02-16 01:50:33\n",
+  "stderr": "",
+  "execution_time_ms": 107
+}

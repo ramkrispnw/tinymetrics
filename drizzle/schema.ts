@@ -70,3 +70,21 @@ export const babyEvents = mysqlTable("baby_events", {
 
 export type BabyEvent = typeof babyEvents.$inferSelect;
 export type InsertBabyEvent = typeof babyEvents.$inferInsert;
+
+// ─── Household Shared Data ─────────────────────────────────────────────────
+
+/** Key-value store for household-shared data (profile, growth, milestones) */
+export const householdData = mysqlTable("household_data", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Household ID (owner's userId) */
+  householdId: int("householdId").notNull(),
+  /** Data key: 'profile', 'growthHistory', 'milestones' */
+  dataKey: varchar("dataKey", { length: 64 }).notNull(),
+  /** JSON-encoded data value */
+  dataValue: text("dataValue").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type HouseholdData = typeof householdData.$inferSelect;
+export type InsertHouseholdData = typeof householdData.$inferInsert;

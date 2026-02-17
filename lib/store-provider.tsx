@@ -18,6 +18,55 @@ import {
   saveMilestones,
 } from "./store";
 import { trpc } from "./trpc";
+import { getApiBaseUrl } from "@/constants/oauth";
+import * as Auth from "@/lib/_core/auth";
+
+/**
+ * Helper: make a raw tRPC GET call (for queries that can't use hooks inside callbacks).
+ * Returns parsed JSON result or null on failure.
+ */
+async function trpcQuery<T>(path: string): Promise<T | null> {
+  try {
+    const baseUrl = getApiBaseUrl();
+    const token = await Auth.getSessionToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const response = await fetch(`${baseUrl}/api/trpc/${path}`, {
+      method: "GET",
+      credentials: "include",
+      headers,
+    });
+    if (!response.ok) return null;
+    const json = await response.json();
+    // tRPC returns { result: { data: ... } }
+    return json?.result?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Helper: make a raw tRPC POST call (for mutations that can't use hooks inside callbacks).
+ */
+async function trpcMutate<T>(path: string, input: unknown): Promise<T | null> {
+  try {
+    const baseUrl = getApiBaseUrl();
+    const token = await Auth.getSessionToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const response = await fetch(`${baseUrl}/api/trpc/${path}`, {
+      method: "POST",
+      credentials: "include",
+      headers,
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) return null;
+    const json = await response.json();
+    return json?.result?.data ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(DEFAULT_STATE);
@@ -25,6 +74,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const syncMutation = trpc.events.sync.useMutation();
   const deleteMutation = trpc.events.delete.useMutation();
   const updateMutation = trpc.events.update.useMutation();
+
+  // Household data sync mutations
+  const syncProfileMutation = trpc.household.syncProfile.useMutation();
+  const syncGrowthMutation = trpc.household.syncGrowth.useMutation();
+  const syncMilestonesMutation = trpc.household.syncMilestones.useMutation();
+
+  const syncInProgressRef = useRef(false);
 
   const reload = useCallback(async () => {
     const s = await loadState();
@@ -35,6 +91,161 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // ─── Cloud Sync: Push all local data to cloud ─────────────────────────────
+
+  const syncToCloud = useCallback(async () => {
+    if (syncInProgressRef.current) return;
+    syncInProgressRef.current = true;
+    try {
+      const currentState = await loadState();
+
+      // 1. Sync events in batches of 100
+      const eventsToSync = currentState.events.map((e) => ({
+        clientId: e.id,
+        type: e.type,
+        eventTimestamp: e.timestamp,
+        data: JSON.stringify(e.data),
+      }));
+      for (let i = 0; i < eventsToSync.length; i += 100) {
+        const batch = eventsToSync.slice(i, i + 100);
+        await syncMutation.mutateAsync({ events: batch });
+      }
+
+      // 2. Sync profile
+      if (currentState.profile) {
+        await syncProfileMutation.mutateAsync({
+          profile: JSON.stringify(currentState.profile),
+        });
+      }
+
+      // 3. Sync growth history
+      if (currentState.growthHistory.length > 0) {
+        await syncGrowthMutation.mutateAsync({
+          growthHistory: JSON.stringify(currentState.growthHistory),
+        });
+      }
+
+      // 4. Sync milestones
+      if (currentState.milestones.length > 0) {
+        await syncMilestonesMutation.mutateAsync({
+          milestones: JSON.stringify(currentState.milestones),
+        });
+      }
+
+      console.log("[CloudSync] Push complete");
+    } catch (err) {
+      console.warn("[CloudSync] Push failed:", err);
+      throw err;
+    } finally {
+      syncInProgressRef.current = false;
+    }
+  }, [syncMutation, syncProfileMutation, syncGrowthMutation, syncMilestonesMutation]);
+
+  // ─── Cloud Sync: Pull all cloud data and merge with local ─────────────────
+
+  const loadFromCloud = useCallback(async () => {
+    if (syncInProgressRef.current) return;
+    syncInProgressRef.current = true;
+    try {
+      // 1. Pull events
+      const cloudEvents = await trpcQuery<
+        Array<{
+          id: number;
+          clientId: string;
+          type: string;
+          eventTimestamp: string;
+          data: string;
+          userId: number;
+          createdAt: string;
+        }>
+      >("events.list");
+
+      if (cloudEvents && Array.isArray(cloudEvents)) {
+        const parsedEvents: BabyEvent[] = cloudEvents.map((ce) => ({
+          id: ce.clientId,
+          type: ce.type as BabyEvent["type"],
+          timestamp: ce.eventTimestamp,
+          data: typeof ce.data === "string" ? JSON.parse(ce.data) : ce.data,
+          createdAt: ce.createdAt || new Date().toISOString(),
+        }));
+
+        setState((prev) => {
+          // Merge: cloud wins for same clientId, keep local-only events
+          const mergedMap = new Map<string, BabyEvent>();
+          for (const e of prev.events) mergedMap.set(e.id, e);
+          for (const e of parsedEvents) mergedMap.set(e.id, e);
+          const merged = Array.from(mergedMap.values()).sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+          saveEvents(merged);
+          return { ...prev, events: merged };
+        });
+      }
+
+      // 2. Pull profile
+      const cloudProfile = await trpcQuery<{ dataValue: string }>("household.getProfile");
+      if (cloudProfile?.dataValue) {
+        try {
+          const profile = JSON.parse(cloudProfile.dataValue) as BabyProfile;
+          setState((prev) => {
+            // Cloud profile wins if it has a name (i.e., it's been set up)
+            if (profile.name) {
+              saveProfile(profile);
+              return { ...prev, profile };
+            }
+            return prev;
+          });
+        } catch { /* ignore parse errors */ }
+      }
+
+      // 3. Pull growth history
+      const cloudGrowth = await trpcQuery<{ dataValue: string }>("household.getGrowth");
+      if (cloudGrowth?.dataValue) {
+        try {
+          const cloudGrowthEntries = JSON.parse(cloudGrowth.dataValue) as GrowthEntry[];
+          setState((prev) => {
+            // Merge: keep unique entries by id
+            const mergedMap = new Map<string, GrowthEntry>();
+            for (const e of prev.growthHistory) mergedMap.set(e.id, e);
+            for (const e of cloudGrowthEntries) mergedMap.set(e.id, e);
+            const merged = Array.from(mergedMap.values()).sort(
+              (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+            saveGrowthHistory(merged);
+            return { ...prev, growthHistory: merged };
+          });
+        } catch { /* ignore parse errors */ }
+      }
+
+      // 4. Pull milestones
+      const cloudMilestones = await trpcQuery<{ dataValue: string }>("household.getMilestones");
+      if (cloudMilestones?.dataValue) {
+        try {
+          const cloudMilestoneEntries = JSON.parse(cloudMilestones.dataValue) as Milestone[];
+          setState((prev) => {
+            // Merge: keep unique milestones by id
+            const mergedMap = new Map<string, Milestone>();
+            for (const m of prev.milestones) mergedMap.set(m.id, m);
+            for (const m of cloudMilestoneEntries) mergedMap.set(m.id, m);
+            const merged = Array.from(mergedMap.values()).sort(
+              (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+            saveMilestones(merged);
+            return { ...prev, milestones: merged };
+          });
+        } catch { /* ignore parse errors */ }
+      }
+
+      console.log("[CloudSync] Pull complete");
+    } catch (err) {
+      console.warn("[CloudSync] Pull failed:", err);
+    } finally {
+      syncInProgressRef.current = false;
+    }
+  }, []);
+
+  // ─── Event CRUD (with cloud sync) ─────────────────────────────────────────
 
   const addEvent = useCallback(
     async (event: Omit<BabyEvent, "id" | "createdAt">) => {
@@ -48,7 +259,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         saveEvents(updated);
         return { ...prev, events: updated };
       });
-      // Try to sync to cloud in background
+      // Sync to cloud in background
       try {
         await syncMutation.mutateAsync({
           events: [
@@ -74,7 +285,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         saveEvents(updated);
         return { ...prev, events: updated };
       });
-      // Try to delete from cloud
       try {
         await deleteMutation.mutateAsync({ clientId: id });
       } catch {
@@ -94,7 +304,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         saveEvents(updated);
         return { ...prev, events: updated };
       });
-      // Try to update in cloud
       try {
         const cloudUpdates: any = {};
         if (updates.type) cloudUpdates.type = updates.type;
@@ -109,8 +318,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [updateMutation]
   );
 
+  // ─── Profile (with cloud sync) ────────────────────────────────────────────
+
   const updateProfile = useCallback(async (profile: BabyProfile) => {
-    // Check if weight or height changed — if so, log a growth event
     setState((prev) => {
       const oldProfile = prev.profile;
       const weightChanged = profile.weight != null && (oldProfile?.weight !== profile.weight || oldProfile?.weightUnit !== profile.weightUnit);
@@ -145,9 +355,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
 
       saveProfile(profile);
+      // Sync profile to cloud
+      syncProfileMutation.mutateAsync({
+        profile: JSON.stringify(profile),
+      }).catch(() => {});
+
       return { ...prev, profile, events: updatedEvents };
     });
-  }, [syncMutation]);
+  }, [syncMutation, syncProfileMutation]);
+
+  // ─── Settings ─────────────────────────────────────────────────────────────
 
   const updateSettings = useCallback(async (partial: Partial<AppSettings>) => {
     setState((prev) => {
@@ -157,192 +374,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // ─── Sleep Timer ──────────────────────────────────────────────────────────
+
   const startSleep = useCallback(async () => {
     const activeSleep = { startTime: new Date().toISOString() };
     setState((prev) => ({ ...prev, activeSleep }));
     await saveActiveSleep(activeSleep);
-  }, []);
-
-  const addGrowthEntry = useCallback(
-    async (entry: Omit<GrowthEntry, "id" | "createdAt">) => {
-      const newEntry: GrowthEntry = {
-        ...entry,
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-      };
-      // Also log as a growth event for Trends tracking
-      const growthEvent: BabyEvent = {
-        id: generateId(),
-        type: "growth",
-        timestamp: new Date(entry.date + "T12:00:00").toISOString(),
-        data: {
-          weight: entry.weight,
-          weightUnit: entry.weightUnit || "kg",
-          height: entry.height,
-          heightUnit: entry.heightUnit || "cm",
-          notes: "Growth log entry",
-        },
-        createdAt: new Date().toISOString(),
-      };
-      setState((prev) => {
-        const updatedGrowth = [newEntry, ...prev.growthHistory];
-        const updatedEvents = [growthEvent, ...prev.events];
-        saveGrowthHistory(updatedGrowth);
-        saveEvents(updatedEvents);
-        return { ...prev, growthHistory: updatedGrowth, events: updatedEvents };
-      });
-      // Sync growth event to cloud
-      try {
-        await syncMutation.mutateAsync({
-          events: [{
-            clientId: growthEvent.id,
-            type: growthEvent.type,
-            eventTimestamp: growthEvent.timestamp,
-            data: JSON.stringify(growthEvent.data),
-          }],
-        });
-      } catch {
-        // Offline or not logged in
-      }
-    },
-    [syncMutation]
-  );
-
-  const deleteGrowthEntry = useCallback(async (id: string) => {
-    setState((prev) => {
-      const updated = prev.growthHistory.filter((e) => e.id !== id);
-      saveGrowthHistory(updated);
-      return { ...prev, growthHistory: updated };
-    });
-  }, []);
-
-  const addMilestone = useCallback(async (milestone: Omit<Milestone, "id" | "createdAt">) => {
-    const newMilestone: Milestone = {
-      ...milestone,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-    };
-    setState((prev) => {
-      const updated = [newMilestone, ...prev.milestones].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-      saveMilestones(updated);
-      return { ...prev, milestones: updated };
-    });
-  }, []);
-
-  const deleteMilestone = useCallback(async (id: string) => {
-    setState((prev) => {
-      const updated = prev.milestones.filter((m) => m.id !== id);
-      saveMilestones(updated);
-      return { ...prev, milestones: updated };
-    });
-  }, []);
-
-  const importEvents = useCallback(
-    async (events: Omit<BabyEvent, "id" | "createdAt">[]): Promise<number> => {
-      const newEvents: BabyEvent[] = events.map((e) => ({
-        ...e,
-        id: generateId() + Math.random().toString(36).slice(2, 4),
-        createdAt: new Date().toISOString(),
-      }));
-      return new Promise((resolve) => {
-        setState((prev) => {
-          const merged = [...newEvents, ...prev.events].sort(
-            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          );
-          saveEvents(merged);
-          resolve(newEvents.length);
-          return { ...prev, events: merged };
-        });
-      }).then(async (count) => {
-        // Sync imported events to cloud in background
-        try {
-          await syncMutation.mutateAsync({
-            events: newEvents.map((e) => ({
-              clientId: e.id,
-              type: e.type,
-              eventTimestamp: e.timestamp,
-              data: JSON.stringify(e.data),
-            })),
-          });
-        } catch {
-          // Offline or not logged in
-        }
-        return count as number;
-      });
-    },
-    [syncMutation]
-  );
-
-  const syncToCloud = useCallback(async () => {
-    try {
-      // Get current state and sync all events
-      const currentState = await loadState();
-      const eventsToSync = currentState.events.map((e) => ({
-        clientId: e.id,
-        type: e.type,
-        eventTimestamp: e.timestamp,
-        data: JSON.stringify(e.data),
-      }));
-      if (eventsToSync.length > 0) {
-        // Batch in chunks of 100
-        for (let i = 0; i < eventsToSync.length; i += 100) {
-          const batch = eventsToSync.slice(i, i + 100);
-          await syncMutation.mutateAsync({ events: batch });
-        }
-      }
-    } catch (err) {
-      console.warn("Cloud sync failed:", err);
-      throw err;
-    }
-  }, [syncMutation]);
-
-  const loadFromCloud = useCallback(async () => {
-    // This is called via trpc query in the component that needs it
-    // We'll implement it as a direct fetch
-    try {
-      const response = await fetch(
-        `${require("@/constants/oauth").getApiBaseUrl()}/api/trpc/events.list`,
-        {
-          method: "GET",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${await require("@/lib/_core/auth").getSessionToken()}`,
-          },
-        }
-      );
-      if (!response.ok) throw new Error("Failed to fetch cloud events");
-      const json = await response.json();
-      // tRPC batch response format
-      const result = json?.result?.data;
-      if (!result || !Array.isArray(result)) return;
-
-      // Convert cloud events to local format
-      const cloudEvents: BabyEvent[] = result.map((ce: any) => ({
-        id: ce.clientId,
-        type: ce.type,
-        timestamp: ce.eventTimestamp,
-        data: typeof ce.data === "string" ? JSON.parse(ce.data) : ce.data,
-        createdAt: ce.createdAt || new Date().toISOString(),
-      }));
-
-      // Merge with local events (cloud wins for same clientId)
-      setState((prev) => {
-        const localMap = new Map(prev.events.map((e) => [e.id, e]));
-        for (const ce of cloudEvents) {
-          localMap.set(ce.id, ce);
-        }
-        const merged = Array.from(localMap.values()).sort(
-          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
-        saveEvents(merged);
-        return { ...prev, events: merged };
-      });
-    } catch (err) {
-      console.warn("Load from cloud failed:", err);
-    }
   }, []);
 
   const stopSleep = useCallback(async (): Promise<BabyEvent | null> => {
@@ -387,6 +424,144 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       });
     });
   }, [syncMutation]);
+
+  // ─── Growth History (with cloud sync) ─────────────────────────────────────
+
+  const addGrowthEntry = useCallback(
+    async (entry: Omit<GrowthEntry, "id" | "createdAt">) => {
+      const newEntry: GrowthEntry = {
+        ...entry,
+        id: generateId(),
+        createdAt: new Date().toISOString(),
+      };
+      const growthEvent: BabyEvent = {
+        id: generateId(),
+        type: "growth",
+        timestamp: new Date(entry.date + "T12:00:00").toISOString(),
+        data: {
+          weight: entry.weight,
+          weightUnit: entry.weightUnit || "kg",
+          height: entry.height,
+          heightUnit: entry.heightUnit || "cm",
+          notes: "Growth log entry",
+        },
+        createdAt: new Date().toISOString(),
+      };
+      setState((prev) => {
+        const updatedGrowth = [newEntry, ...prev.growthHistory];
+        const updatedEvents = [growthEvent, ...prev.events];
+        saveGrowthHistory(updatedGrowth);
+        saveEvents(updatedEvents);
+
+        // Sync growth history to cloud
+        syncGrowthMutation.mutateAsync({
+          growthHistory: JSON.stringify(updatedGrowth),
+        }).catch(() => {});
+
+        return { ...prev, growthHistory: updatedGrowth, events: updatedEvents };
+      });
+      // Sync growth event to cloud
+      try {
+        await syncMutation.mutateAsync({
+          events: [{
+            clientId: growthEvent.id,
+            type: growthEvent.type,
+            eventTimestamp: growthEvent.timestamp,
+            data: JSON.stringify(growthEvent.data),
+          }],
+        });
+      } catch {
+        // Offline or not logged in
+      }
+    },
+    [syncMutation, syncGrowthMutation]
+  );
+
+  const deleteGrowthEntry = useCallback(async (id: string) => {
+    setState((prev) => {
+      const updated = prev.growthHistory.filter((e) => e.id !== id);
+      saveGrowthHistory(updated);
+      // Sync updated growth history to cloud
+      syncGrowthMutation.mutateAsync({
+        growthHistory: JSON.stringify(updated),
+      }).catch(() => {});
+      return { ...prev, growthHistory: updated };
+    });
+  }, [syncGrowthMutation]);
+
+  // ─── Milestones (with cloud sync) ─────────────────────────────────────────
+
+  const addMilestone = useCallback(async (milestone: Omit<Milestone, "id" | "createdAt">) => {
+    const newMilestone: Milestone = {
+      ...milestone,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+    };
+    setState((prev) => {
+      const updated = [newMilestone, ...prev.milestones].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      saveMilestones(updated);
+      // Sync milestones to cloud
+      syncMilestonesMutation.mutateAsync({
+        milestones: JSON.stringify(updated),
+      }).catch(() => {});
+      return { ...prev, milestones: updated };
+    });
+  }, [syncMilestonesMutation]);
+
+  const deleteMilestone = useCallback(async (id: string) => {
+    setState((prev) => {
+      const updated = prev.milestones.filter((m) => m.id !== id);
+      saveMilestones(updated);
+      // Sync updated milestones to cloud
+      syncMilestonesMutation.mutateAsync({
+        milestones: JSON.stringify(updated),
+      }).catch(() => {});
+      return { ...prev, milestones: updated };
+    });
+  }, [syncMilestonesMutation]);
+
+  // ─── Import Events (with cloud sync) ──────────────────────────────────────
+
+  const importEvents = useCallback(
+    async (events: Omit<BabyEvent, "id" | "createdAt">[]): Promise<number> => {
+      const newEvents: BabyEvent[] = events.map((e) => ({
+        ...e,
+        id: generateId() + Math.random().toString(36).slice(2, 4),
+        createdAt: new Date().toISOString(),
+      }));
+      return new Promise((resolve) => {
+        setState((prev) => {
+          const merged = [...newEvents, ...prev.events].sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+          saveEvents(merged);
+          resolve(newEvents.length);
+          return { ...prev, events: merged };
+        });
+      }).then(async (count) => {
+        // Sync imported events to cloud in background
+        try {
+          for (let i = 0; i < newEvents.length; i += 100) {
+            const batch = newEvents.slice(i, i + 100);
+            await syncMutation.mutateAsync({
+              events: batch.map((e) => ({
+                clientId: e.id,
+                type: e.type,
+                eventTimestamp: e.timestamp,
+                data: JSON.stringify(e.data),
+              })),
+            });
+          }
+        } catch {
+          // Offline or not logged in
+        }
+        return count as number;
+      });
+    },
+    [syncMutation]
+  );
 
   if (!loaded) return null;
 

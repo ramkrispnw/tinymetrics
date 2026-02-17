@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -13,6 +13,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { useAuth } from "@/hooks/use-auth";
 import { useStore } from "@/lib/store";
 import {
   isToday,
@@ -41,8 +42,24 @@ type SheetType = "feed" | "sleep" | "diaper" | "observation" | "profile" | "sett
 
 export default function HomeScreen() {
   const colors = useColors();
-  const { state } = useStore();
+  const { isAuthenticated } = useAuth();
+  const { state, syncToCloud, loadFromCloud } = useStore();
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
+  const hasSyncedRef = useRef(false);
+
+  // Auto-sync on app load when authenticated
+  useEffect(() => {
+    if (isAuthenticated && !hasSyncedRef.current) {
+      hasSyncedRef.current = true;
+      // Push local data first, then pull cloud data
+      syncToCloud()
+        .then(() => loadFromCloud())
+        .catch(() => {
+          // Try just pulling if push fails
+          loadFromCloud().catch(() => {});
+        });
+    }
+  }, [isAuthenticated, syncToCloud, loadFromCloud]);
 
   const todayEvents = useMemo(
     () => state.events.filter((e) => isToday(e.timestamp)),

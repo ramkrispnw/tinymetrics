@@ -1,0 +1,109 @@
+{
+  "query": "SHOW TABLES; DESCRIBE baby_events; DESCRIBE share_invites; DESCRIBE users;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2HKvgfrvx1zfe69.root --database oVL42HeCbPz4daVMoqMJcT --execute SHOW TABLES; DESCRIBE baby_events; DESCRIBE share_invites; DESCRIBE users;",
+  "rows": [
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "__drizzle_migrations"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "baby_events"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "share_invites"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "users"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "Field\tType\tNull\tKey\tDefault\tExtra"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "id\tint\tNO\tPRI\tNULL\tauto_increment"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "userId\tint\tNO\t\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "householdId\tint\tNO\t\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "clientId\tvarchar(64)\tNO\t\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "type\tvarchar(32)\tNO\t\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "eventTimestamp\tvarchar(64)\tNO\t\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "data\ttext\tNO\t\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "deleted\tint\tNO\t\t0\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "createdAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "updatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "Field\tType\tNull\tKey\tDefault\tExtra"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "id\tint\tNO\tPRI\tNULL\tauto_increment"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "ownerUserId\tint\tNO\t\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "code\tvarchar(10)\tNO\tUNI\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "partnerUserId\tint\tYES\t\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "status\tenum('pending','accepted','revoked')\tNO\t\tpending\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "createdAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "acceptedAt\ttimestamp\tYES\t\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "Field\tType\tNull\tKey\tDefault\tExtra"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "id\tint\tNO\tPRI\tNULL\tauto_increment"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "openId\tvarchar(64)\tNO\tUNI\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "name\ttext\tYES\t\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "email\tvarchar(320)\tYES\t\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "loginMethod\tvarchar(64)\tYES\t\tNULL\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "role\tenum('user','admin')\tNO\t\tuser\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "createdAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "updatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+    },
+    {
+      "Tables_in_oVL42HeCbPz4daVMoqMJcT": "lastSignedIn\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_oVL42HeCbPz4daVMoqMJcT\n__drizzle_migrations\nbaby_events\nshare_invites\nusers\nField\tType\tNull\tKey\tDefault\tExtra\nid\tint\tNO\tPRI\tNULL\tauto_increment\nuserId\tint\tNO\t\tNULL\t\nhouseholdId\tint\tNO\t\tNULL\t\nclientId\tvarchar(64)\tNO\t\tNULL\t\ntype\tvarchar(32)\tNO\t\tNULL\t\neventTimestamp\tvarchar(64)\tNO\t\tNULL\t\ndata\ttext\tNO\t\tNULL\t\ndeleted\tint\tNO\t\t0\t\ncreatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t\nupdatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP\nField\tType\tNull\tKey\tDefault\tExtra\nid\tint\tNO\tPRI\tNULL\tauto_increment\nownerUserId\tint\tNO\t\tNULL\t\ncode\tvarchar(10)\tNO\tUNI\tNULL\t\npartnerUserId\tint\tYES\t\tNULL\t\nstatus\tenum('pending','accepted','revoked')\tNO\t\tpending\t\ncreatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t\nacceptedAt\ttimestamp\tYES\t\tNULL\t\nField\tType\tNull\tKey\tDefault\tExtra\nid\tint\tNO\tPRI\tNULL\tauto_increment\nopenId\tvarchar(64)\tNO\tUNI\tNULL\t\nname\ttext\tYES\t\tNULL\t\nemail\tvarchar(320)\tYES\t\tNULL\t\nloginMethod\tvarchar(64)\tYES\t\tNULL\t\nrole\tenum('user','admin')\tNO\t\tuser\t\ncreatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t\nupdatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP\nlastSignedIn\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t\n",
+  "stderr": "",
+  "execution_time_ms": 173
+}

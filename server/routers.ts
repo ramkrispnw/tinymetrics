@@ -52,6 +52,63 @@ export const appRouter = router({
     }),
   }),
 
+  // Household shared data (profile, growth, milestones)
+  household: router({
+    // Sync baby profile to cloud (shared across linked accounts)
+    syncProfile: protectedProcedure
+      .input(
+        z.object({
+          profile: z.string().max(10000), // JSON-encoded BabyProfile
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const householdId = await db.getHouseholdId(ctx.user.id);
+        return db.saveHouseholdData(householdId, "profile", input.profile);
+      }),
+
+    // Get baby profile from cloud
+    getProfile: protectedProcedure.query(async ({ ctx }) => {
+      const householdId = await db.getHouseholdId(ctx.user.id);
+      return db.getHouseholdData(householdId, "profile");
+    }),
+
+    // Sync growth history to cloud
+    syncGrowth: protectedProcedure
+      .input(
+        z.object({
+          growthHistory: z.string().max(100000), // JSON-encoded GrowthEntry[]
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const householdId = await db.getHouseholdId(ctx.user.id);
+        return db.saveHouseholdData(householdId, "growthHistory", input.growthHistory);
+      }),
+
+    // Get growth history from cloud
+    getGrowth: protectedProcedure.query(async ({ ctx }) => {
+      const householdId = await db.getHouseholdId(ctx.user.id);
+      return db.getHouseholdData(householdId, "growthHistory");
+    }),
+
+    // Sync milestones to cloud
+    syncMilestones: protectedProcedure
+      .input(
+        z.object({
+          milestones: z.string().max(100000), // JSON-encoded Milestone[]
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const householdId = await db.getHouseholdId(ctx.user.id);
+        return db.saveHouseholdData(householdId, "milestones", input.milestones);
+      }),
+
+    // Get milestones from cloud
+    getMilestones: protectedProcedure.query(async ({ ctx }) => {
+      const householdId = await db.getHouseholdId(ctx.user.id);
+      return db.getHouseholdData(householdId, "milestones");
+    }),
+  }),
+
   events: router({
     // Sync events to cloud
     sync: protectedProcedure
