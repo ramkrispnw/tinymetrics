@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   FlatList,
   Pressable,
   ScrollView,
@@ -60,7 +61,7 @@ function formatRelativeTime(isoString: string): string {
 export default function HomeScreen() {
   const colors = useColors();
   const { isAuthenticated } = useAuth();
-  const { state, syncToCloud, loadFromCloud } = useStore();
+  const { state, deleteEvent, syncToCloud, loadFromCloud } = useStore();
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
   const hasSyncedRef = useRef(false);
@@ -121,6 +122,24 @@ export default function HomeScreen() {
       .filter((e) => e.type === "pump")
       .reduce((sum, e) => sum + ((e.data as PumpData).amountMl || 0), 0);
   }, [todayEvents]);
+
+  const handleDeleteEvent = useCallback((event: BabyEvent) => {
+    if (Platform.OS === "web") {
+      deleteEvent(event.id);
+      return;
+    }
+    Alert.alert("Delete Event", "Are you sure you want to delete this event?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          deleteEvent(event.id);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        },
+      },
+    ]);
+  }, [deleteEvent]);
 
   // Show all today's events (no limit)
 
@@ -416,9 +435,20 @@ export default function HomeScreen() {
                   {getEventSummary(event)}
                 </Text>
               </View>
-              <Text style={[styles.eventTime, { color: colors.muted }]}>
-                {formatTime(event.timestamp)}
-              </Text>
+              <View style={{ alignItems: "center", gap: 4 }}>
+                <Text style={[styles.eventTime, { color: colors.muted }]}>
+                  {formatTime(event.timestamp)}
+                </Text>
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    handleDeleteEvent(event);
+                  }}
+                  style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.5 }]}
+                >
+                  <IconSymbol name="trash.fill" size={14} color={colors.error + "80"} />
+                </Pressable>
+              </View>
             </Pressable>
           ))
         )}
@@ -550,6 +580,9 @@ const styles = StyleSheet.create({
   eventTime: {
     fontSize: 12,
     fontWeight: "500",
+  },
+  deleteBtn: {
+    padding: 4,
   },
   headerAvatar: {
     width: 44,

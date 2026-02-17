@@ -83,3 +83,4 @@
 - [x] Add event editing capability on Home screen
 - [x] Fix Activity tab: increase filter spacing so they are clearly visible
 - [x] Sync baby photo across linked accounts when one user updates it
+- [x] Add delete event functionality on Home screen Today's Activity (matching Activity tab)
