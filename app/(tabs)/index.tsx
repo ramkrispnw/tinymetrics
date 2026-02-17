@@ -48,16 +48,20 @@ export default function HomeScreen() {
   const hasSyncedRef = useRef(false);
 
   // Auto-sync on app load when authenticated
+  // Small delay ensures auth token is fully ready after login
   useEffect(() => {
     if (isAuthenticated && !hasSyncedRef.current) {
       hasSyncedRef.current = true;
-      // Push local data first, then pull cloud data
-      syncToCloud()
-        .then(() => loadFromCloud())
-        .catch(() => {
-          // Try just pulling if push fails
-          loadFromCloud().catch(() => {});
-        });
+      const timer = setTimeout(() => {
+        // Pull cloud data first (to get partner's events), then push local
+        loadFromCloud()
+          .then(() => syncToCloud())
+          .catch(() => {
+            // If pull fails, try push anyway
+            syncToCloud().catch(() => {});
+          });
+      }, 500); // Small delay for auth token readiness
+      return () => clearTimeout(timer);
     }
   }, [isAuthenticated, syncToCloud, loadFromCloud]);
 

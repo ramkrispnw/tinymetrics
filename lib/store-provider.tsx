@@ -17,56 +17,7 @@ import {
   saveGrowthHistory,
   saveMilestones,
 } from "./store";
-import { trpc } from "./trpc";
-import { getApiBaseUrl } from "@/constants/oauth";
-import * as Auth from "@/lib/_core/auth";
-
-/**
- * Helper: make a raw tRPC GET call (for queries that can't use hooks inside callbacks).
- * Returns parsed JSON result or null on failure.
- */
-async function trpcQuery<T>(path: string): Promise<T | null> {
-  try {
-    const baseUrl = getApiBaseUrl();
-    const token = await Auth.getSessionToken();
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    const response = await fetch(`${baseUrl}/api/trpc/${path}`, {
-      method: "GET",
-      credentials: "include",
-      headers,
-    });
-    if (!response.ok) return null;
-    const json = await response.json();
-    // tRPC returns { result: { data: ... } }
-    return json?.result?.data ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Helper: make a raw tRPC POST call (for mutations that can't use hooks inside callbacks).
- */
-async function trpcMutate<T>(path: string, input: unknown): Promise<T | null> {
-  try {
-    const baseUrl = getApiBaseUrl();
-    const token = await Auth.getSessionToken();
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    const response = await fetch(`${baseUrl}/api/trpc/${path}`, {
-      method: "POST",
-      credentials: "include",
-      headers,
-      body: JSON.stringify(input),
-    });
-    if (!response.ok) return null;
-    const json = await response.json();
-    return json?.result?.data ?? null;
-  } catch {
-    return null;
-  }
-}
+import { trpc, getVanillaClient } from "./trpc";
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(DEFAULT_STATE);
@@ -148,27 +99,45 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (syncInProgressRef.current) return;
     syncInProgressRef.current = true;
     try {
-      // 1. Pull events
-      const cloudEvents = await trpcQuery<
-        Array<{
-          id: number;
-          clientId: string;
-          type: string;
-          eventTimestamp: string;
-          data: string;
-          userId: number;
-          createdAt: string;
-        }>
-      >("events.list");
+      const client = getVanillaClient();
 
-      if (cloudEvents && Array.isArray(cloudEvents)) {
-        const parsedEvents: BabyEvent[] = cloudEvents.map((ce) => ({
-          id: ce.clientId,
-          type: ce.type as BabyEvent["type"],
-          timestamp: ce.eventTimestamp,
-          data: typeof ce.data === "string" ? JSON.parse(ce.data) : ce.data,
-          createdAt: ce.createdAt || new Date().toISOString(),
-        }));
+      // 1. Pull events using vanilla tRPC client (proper superjson deserialization)
+      let cloudEvents: Array<{
+        id: number;
+        clientId: string;
+        type: string;
+        eventTimestamp: string;
+        data: string;
+        userId: number;
+        createdAt: Date | string;
+      }> | null = null;
+
+      try {
+        cloudEvents = await client.events.list.query();
+      } catch (err) {
+        console.warn("[CloudSync] Failed to fetch events:", err);
+      }
+
+      if (cloudEvents && Array.isArray(cloudEvents) && cloudEvents.length > 0) {
+        const parsedEvents: BabyEvent[] = cloudEvents.map((ce) => {
+          let parsedData: any;
+          try {
+            parsedData = typeof ce.data === "string" ? JSON.parse(ce.data) : ce.data;
+          } catch {
+            parsedData = {};
+          }
+          return {
+            id: ce.clientId,
+            type: ce.type as BabyEvent["type"],
+            timestamp: ce.eventTimestamp,
+            data: parsedData,
+            createdAt: ce.createdAt
+              ? typeof ce.createdAt === "string"
+                ? ce.createdAt
+                : (ce.createdAt as Date).toISOString()
+              : new Date().toISOString(),
+          };
+        });
 
         setState((prev) => {
           // Merge: cloud wins for same clientId, keep local-only events
@@ -181,12 +150,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           saveEvents(merged);
           return { ...prev, events: merged };
         });
+        console.log(`[CloudSync] Pulled ${parsedEvents.length} events from cloud`);
       }
 
       // 2. Pull profile
-      const cloudProfile = await trpcQuery<{ dataValue: string }>("household.getProfile");
-      if (cloudProfile?.dataValue) {
-        try {
+      try {
+        const cloudProfile = await client.household.getProfile.query();
+        if (cloudProfile?.dataValue) {
           const profile = JSON.parse(cloudProfile.dataValue) as BabyProfile;
           setState((prev) => {
             // Cloud profile wins if it has a name (i.e., it's been set up)
@@ -196,13 +166,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             }
             return prev;
           });
-        } catch { /* ignore parse errors */ }
+        }
+      } catch (err) {
+        console.warn("[CloudSync] Failed to fetch profile:", err);
       }
 
       // 3. Pull growth history
-      const cloudGrowth = await trpcQuery<{ dataValue: string }>("household.getGrowth");
-      if (cloudGrowth?.dataValue) {
-        try {
+      try {
+        const cloudGrowth = await client.household.getGrowth.query();
+        if (cloudGrowth?.dataValue) {
           const cloudGrowthEntries = JSON.parse(cloudGrowth.dataValue) as GrowthEntry[];
           setState((prev) => {
             // Merge: keep unique entries by id
@@ -215,13 +187,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             saveGrowthHistory(merged);
             return { ...prev, growthHistory: merged };
           });
-        } catch { /* ignore parse errors */ }
+        }
+      } catch (err) {
+        console.warn("[CloudSync] Failed to fetch growth:", err);
       }
 
       // 4. Pull milestones
-      const cloudMilestones = await trpcQuery<{ dataValue: string }>("household.getMilestones");
-      if (cloudMilestones?.dataValue) {
-        try {
+      try {
+        const cloudMilestones = await client.household.getMilestones.query();
+        if (cloudMilestones?.dataValue) {
           const cloudMilestoneEntries = JSON.parse(cloudMilestones.dataValue) as Milestone[];
           setState((prev) => {
             // Merge: keep unique milestones by id
@@ -234,7 +208,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             saveMilestones(merged);
             return { ...prev, milestones: merged };
           });
-        } catch { /* ignore parse errors */ }
+        }
+      } catch (err) {
+        console.warn("[CloudSync] Failed to fetch milestones:", err);
       }
 
       console.log("[CloudSync] Pull complete");

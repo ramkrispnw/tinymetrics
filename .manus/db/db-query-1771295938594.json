@@ -1,0 +1,20 @@
+{
+  "query": "SELECT COUNT(*) as total, householdId, userId FROM baby_events WHERE deleted = 0 GROUP BY householdId, userId ORDER BY householdId;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2HKvgfrvx1zfe69.root --database oVL42HeCbPz4daVMoqMJcT --execute SELECT COUNT(*) as total, householdId, userId FROM baby_events WHERE deleted = 0 GROUP BY householdId, userId ORDER BY householdId;",
+  "rows": [
+    {
+      "total": "108",
+      "householdId": "1",
+      "userId": "1"
+    },
+    {
+      "total": "1",
+      "householdId": "1",
+      "userId": "180001"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\thouseholdId\tuserId\n108\t1\t1\n1\t1\t180001\n",
+  "stderr": "",
+  "execution_time_ms": 68
+}

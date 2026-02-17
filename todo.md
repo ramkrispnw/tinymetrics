@@ -59,3 +59,6 @@
 - [x] Fix account linking: invite code generation by main account
 - [x] Fix account linking: code entry and acceptance by second account
 - [x] Fix cloud sync: shared data (events, growth, milestones) visible to both linked accounts
+- [x] Fix event sync: all events must be visible across linked household accounts
+- [x] Ensure push/pull sync covers all event types (feed, sleep, diaper, observation, growth)
+- [x] Verify server event queries use household ID for shared access
