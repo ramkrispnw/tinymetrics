@@ -115,6 +115,7 @@ export interface AppState {
   activeSleep: { startTime: string } | null;
   growthHistory: GrowthEntry[];
   milestones: Milestone[];
+  lastSyncedAt: string | null;
 }
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
@@ -132,6 +133,7 @@ export const DEFAULT_STATE: AppState = {
   activeSleep: null,
   growthHistory: [],
   milestones: [],
+  lastSyncedAt: null,
 };
 
 // ─── Storage Keys ────────────────────────────────────────────────────────────
@@ -143,19 +145,21 @@ const KEYS = {
   ACTIVE_SLEEP: "@baby_tracker_active_sleep",
   GROWTH_HISTORY: "@baby_tracker_growth_history",
   MILESTONES: "@baby_tracker_milestones",
+  LAST_SYNCED: "@baby_tracker_last_synced",
 };
 
 // ─── Persistence Helpers ─────────────────────────────────────────────────────
 
 export async function loadState(): Promise<AppState> {
   try {
-    const [profileStr, eventsStr, settingsStr, activeSleepStr, growthStr, milestonesStr] = await AsyncStorage.multiGet([
+    const [profileStr, eventsStr, settingsStr, activeSleepStr, growthStr, milestonesStr, lastSyncedStr] = await AsyncStorage.multiGet([
       KEYS.PROFILE,
       KEYS.EVENTS,
       KEYS.SETTINGS,
       KEYS.ACTIVE_SLEEP,
       KEYS.GROWTH_HISTORY,
       KEYS.MILESTONES,
+      KEYS.LAST_SYNCED,
     ]);
     return {
       profile: profileStr[1] ? JSON.parse(profileStr[1]) : null,
@@ -164,6 +168,7 @@ export async function loadState(): Promise<AppState> {
       activeSleep: activeSleepStr[1] ? JSON.parse(activeSleepStr[1]) : null,
       growthHistory: growthStr[1] ? JSON.parse(growthStr[1]) : [],
       milestones: milestonesStr[1] ? JSON.parse(milestonesStr[1]) : [],
+      lastSyncedAt: lastSyncedStr[1] || null,
     };
   } catch {
     return DEFAULT_STATE;
@@ -172,6 +177,14 @@ export async function loadState(): Promise<AppState> {
 
 export async function saveProfile(profile: BabyProfile | null) {
   await AsyncStorage.setItem(KEYS.PROFILE, JSON.stringify(profile));
+}
+
+export async function saveLastSynced(timestamp: string | null) {
+  if (timestamp) {
+    await AsyncStorage.setItem(KEYS.LAST_SYNCED, timestamp);
+  } else {
+    await AsyncStorage.removeItem(KEYS.LAST_SYNCED);
+  }
 }
 
 export async function saveEvents(events: BabyEvent[]) {

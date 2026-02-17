@@ -16,6 +16,7 @@ import {
   saveSettings,
   saveGrowthHistory,
   saveMilestones,
+  saveLastSynced,
 } from "./store";
 import { trpc, getVanillaClient } from "./trpc";
 
@@ -84,6 +85,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
+      const now = new Date().toISOString();
+      setState((prev) => ({ ...prev, lastSyncedAt: now }));
+      await saveLastSynced(now);
       console.log("[CloudSync] Push complete");
     } catch (err) {
       console.warn("[CloudSync] Push failed:", err);
@@ -213,6 +217,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         console.warn("[CloudSync] Failed to fetch milestones:", err);
       }
 
+      const now = new Date().toISOString();
+      setState((prev) => ({ ...prev, lastSyncedAt: now }));
+      await saveLastSynced(now);
       console.log("[CloudSync] Pull complete");
     } catch (err) {
       console.warn("[CloudSync] Pull failed:", err);

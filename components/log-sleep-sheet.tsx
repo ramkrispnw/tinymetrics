@@ -13,6 +13,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
+import { getDayKey } from "@/lib/store";
 import * as Haptics from "expo-haptics";
 import { DateTimePicker } from "@/components/date-time-picker";
 
@@ -31,6 +32,26 @@ export function LogSleepSheet({ onClose }: Props) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isActive = !!state.activeSleep;
+
+  // Compute whether the active sleep spans midnight (overnight)
+  const isOvernight = useMemo(() => {
+    if (!state.activeSleep) return false;
+    const startDay = getDayKey(state.activeSleep.startTime);
+    const nowDay = getDayKey(new Date().toISOString());
+    return startDay !== nowDay;
+  }, [state.activeSleep, elapsed]); // elapsed triggers re-check
+
+  const startTimeLabel = useMemo(() => {
+    if (!state.activeSleep) return "";
+    const d = new Date(state.activeSleep.startTime);
+    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }, [state.activeSleep]);
+
+  const startDateLabel = useMemo(() => {
+    if (!state.activeSleep) return "";
+    const d = new Date(state.activeSleep.startTime);
+    return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+  }, [state.activeSleep]);
 
   useEffect(() => {
     if (state.activeSleep) {
@@ -55,6 +76,8 @@ export function LogSleepSheet({ onClose }: Props) {
     }
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
+
+  const elapsedMinutes = Math.floor(elapsed / 60);
 
   const handleStartSleep = async () => {
     await startSleep();
@@ -132,6 +155,40 @@ export function LogSleepSheet({ onClose }: Props) {
             </Text>
           </View>
 
+          {/* Active sleep info */}
+          {isActive && (
+            <View style={styles.sleepInfoContainer}>
+              <View style={[styles.sleepInfoRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={styles.sleepInfoItem}>
+                  <Text style={[styles.sleepInfoLabel, { color: colors.muted }]}>Started</Text>
+                  <Text style={[styles.sleepInfoValue, { color: colors.foreground }]}>{startTimeLabel}</Text>
+                  {isOvernight && (
+                    <Text style={[styles.sleepInfoDate, { color: colors.muted }]}>{startDateLabel}</Text>
+                  )}
+                </View>
+                <View style={[styles.sleepInfoDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.sleepInfoItem}>
+                  <Text style={[styles.sleepInfoLabel, { color: colors.muted }]}>Duration</Text>
+                  <Text style={[styles.sleepInfoValue, { color: colors.foreground }]}>
+                    {elapsedMinutes >= 60
+                      ? `${Math.floor(elapsedMinutes / 60)}h ${elapsedMinutes % 60}m`
+                      : `${elapsedMinutes}m`}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Overnight badge */}
+              {isOvernight && (
+                <View style={[styles.overnightBadge, { backgroundColor: colors.sleep + "20" }]}>
+                  <Text style={{ fontSize: 14 }}>🌙</Text>
+                  <Text style={[styles.overnightText, { color: colors.sleep }]}>
+                    Overnight sleep — tracking across midnight
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
           {isActive ? (
             <Pressable
               onPress={handleStopSleep}
@@ -148,7 +205,9 @@ export function LogSleepSheet({ onClose }: Props) {
                 <>
                   <IconSymbol name="stop.fill" size={20} color={colors.error} />
                   <Text style={{ color: colors.error, fontWeight: "700", fontSize: 16 }}>
-                    Stop Sleep
+                    Stop Sleep · {elapsedMinutes >= 60
+                      ? `${Math.floor(elapsedMinutes / 60)}h ${elapsedMinutes % 60}m`
+                      : `${elapsedMinutes}m`}
                   </Text>
                 </>
               )}
@@ -164,7 +223,7 @@ export function LogSleepSheet({ onClose }: Props) {
             >
               <IconSymbol name="play.fill" size={20} color={colors.sleep} />
               <Text style={{ color: colors.sleep, fontWeight: "700", fontSize: 16 }}>
-                Start Sleep
+                Start Sleep Timer
               </Text>
             </Pressable>
           )}
@@ -309,6 +368,53 @@ const styles = StyleSheet.create({
     fontWeight: "200",
     fontVariant: ["tabular-nums"],
   },
+  sleepInfoContainer: {
+    width: "100%",
+    gap: 10,
+  },
+  sleepInfoRow: {
+    flexDirection: "row",
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  sleepInfoItem: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  sleepInfoLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  sleepInfoValue: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  sleepInfoDate: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  sleepInfoDivider: {
+    width: 1,
+  },
+  overnightBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignSelf: "center",
+  },
+  overnightText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
   actionBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -319,7 +425,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1.5,
     width: "100%",
-    maxWidth: 280,
+    maxWidth: 320,
   },
   divider: {
     flexDirection: "row",

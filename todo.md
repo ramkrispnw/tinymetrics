@@ -65,3 +65,8 @@
 - [x] Fix timezone handling: ensure all event timestamps use device timezone
 - [x] Fix timezone handling: ensure date filtering (Today, Yesterday, etc.) uses local timezone
 - [x] Fix timezone handling: ensure event display times show in local timezone
+- [x] Improve AI tab: rich formatting with bullets, emojis, tables in responses
+- [x] Improve AI tab: pass full baby data context (events, profile, growth) to AI
+- [x] Add sleep timer: start/stop tracking with minute counting
+- [x] Add sleep timer: overnight sleep tracking across 2 calendar days
+- [x] Add last synced timestamp on Home screen for linked accounts

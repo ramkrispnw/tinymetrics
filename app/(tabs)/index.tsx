@@ -40,6 +40,18 @@ import { WeeklyDigestSheet } from "@/components/weekly-digest-sheet";
 
 type SheetType = "feed" | "sleep" | "diaper" | "observation" | "profile" | "settings" | "share" | "growth" | "import" | "digest" | null;
 
+function formatRelativeTime(isoString: string): string {
+  const diff = Date.now() - new Date(isoString).getTime();
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export default function HomeScreen() {
   const colors = useColors();
   const { isAuthenticated } = useAuth();
@@ -229,6 +241,16 @@ export default function HomeScreen() {
             <IconSymbol name="gearshape.fill" size={20} color={colors.muted} />
           </Pressable>
         </View>
+
+        {/* Last Synced Indicator */}
+        {isAuthenticated && state.lastSyncedAt && (
+          <View style={[styles.syncRow, { backgroundColor: colors.success + "10" }]}>
+            <IconSymbol name="arrow.clockwise" size={12} color={colors.success} />
+            <Text style={{ color: colors.success, fontSize: 11, fontWeight: "500" }}>
+              Synced {formatRelativeTime(state.lastSyncedAt)}
+            </Text>
+          </View>
+        )}
 
         {/* Active Sleep Banner */}
         {state.activeSleep && (
@@ -525,5 +547,15 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     marginBottom: 20,
+  },
+  syncRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+    marginBottom: 12,
   },
 });

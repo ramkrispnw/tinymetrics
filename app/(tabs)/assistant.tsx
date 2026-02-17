@@ -21,13 +21,19 @@ import {
   mlToOz,
   getDayKey,
   calculateAge,
+  getProfileSummary,
+  type BabyEvent,
   type FeedData,
   type SleepData,
   type DiaperData,
   type ObservationData,
+  type GrowthData,
+  type GrowthEntry,
+  type Milestone,
 } from "@/lib/store";
 import * as Haptics from "expo-haptics";
 import { pickImage } from "@/lib/image-utils";
+import { MarkdownText } from "@/components/markdown-text";
 
 interface Message {
   id: string;
@@ -59,53 +65,143 @@ export default function AssistantScreen() {
     };
   };
 
+  /**
+   * Build comprehensive context with ALL baby data for the AI.
+   * Includes: profile, events (last 14 days with daily breakdown),
+   * growth history, milestones, and current patterns.
+   */
   const buildContext = () => {
-    const today = getDayKey(new Date().toISOString());
-    const last7Days: string[] = [];
-    for (let i = 0; i < 7; i++) {
+    const parts: string[] = [];
+
+    // ── Profile ──
+    parts.push("## BABY PROFILE");
+    parts.push(getProfileSummary(state.profile));
+    if (state.profile?.sex) parts.push(`Sex: ${state.profile.sex}`);
+
+    // ── Date range: last 14 days ──
+    const dayKeys: string[] = [];
+    for (let i = 0; i < 14; i++) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      last7Days.push(getDayKey(d.toISOString()));
+      dayKeys.push(getDayKey(d.toISOString()));
+    }
+    const todayKey = dayKeys[0];
+
+    // ── Events by day ──
+    const recentEvents = state.events.filter((e) =>
+      dayKeys.includes(getDayKey(e.timestamp))
+    );
+
+    // Group by day
+    const byDay = new Map<string, BabyEvent[]>();
+    for (const e of recentEvents) {
+      const dk = getDayKey(e.timestamp);
+      if (!byDay.has(dk)) byDay.set(dk, []);
+      byDay.get(dk)!.push(e);
     }
 
-    const recentEvents = state.events.filter((e) =>
-      last7Days.includes(getDayKey(e.timestamp))
-    );
+    // ── Today's detailed breakdown ──
+    const todayEvents = byDay.get(todayKey) || [];
+    parts.push("\n## TODAY'S EVENTS (" + todayKey + ")");
+    if (todayEvents.length === 0) {
+      parts.push("No events logged today yet.");
+    } else {
+      const feeds = todayEvents.filter((e) => e.type === "feed");
+      const sleeps = todayEvents.filter((e) => e.type === "sleep");
+      const diapers = todayEvents.filter((e) => e.type === "diaper");
+      const observations = todayEvents.filter((e) => e.type === "observation");
 
-    const feedEvents = recentEvents.filter((e) => e.type === "feed");
-    const sleepEvents = recentEvents.filter((e) => e.type === "sleep");
-    const diaperEvents = recentEvents.filter((e) => e.type === "diaper");
-    const obsEvents = recentEvents.filter((e) => e.type === "observation");
+      if (feeds.length > 0) {
+        const totalMl = feeds.reduce((s, e) => s + ((e.data as FeedData).amountMl || 0), 0);
+        const totalMin = feeds.reduce((s, e) => s + ((e.data as FeedData).durationMin || 0), 0);
+        parts.push(`Feeding: ${feeds.length} sessions, ${totalMl}ml total, ${totalMin}min total nursing`);
+        feeds.forEach((e) => {
+          const d = e.data as FeedData;
+          const time = new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          const method = d.method === "bottle" ? "Bottle" : d.method === "solid" ? "Solid" : "Breast";
+          parts.push(`  - ${time}: ${method}${d.amountMl ? ` ${d.amountMl}ml` : ""}${d.durationMin ? ` ${d.durationMin}min` : ""}${d.notes ? ` (${d.notes})` : ""}`);
+        });
+      }
 
-    const totalFeedMl = feedEvents.reduce(
-      (s, e) => s + ((e.data as FeedData).amountMl || 0),
-      0
-    );
-    const totalSleepMin = sleepEvents.reduce(
-      (s, e) => s + ((e.data as SleepData).durationMin || 0),
-      0
-    );
-    const totalDiapers = diaperEvents.length;
+      if (sleeps.length > 0) {
+        const totalMin = sleeps.reduce((s, e) => s + ((e.data as SleepData).durationMin || 0), 0);
+        parts.push(`Sleep: ${sleeps.length} sessions, ${formatDuration(totalMin)} total`);
+        sleeps.forEach((e) => {
+          const d = e.data as SleepData;
+          const time = new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          parts.push(`  - ${time}: ${d.durationMin ? formatDuration(d.durationMin) : "in progress"}${d.notes ? ` (${d.notes})` : ""}`);
+        });
+      }
 
-    const profileInfo = state.profile
-      ? `Baby: ${state.profile.name || "Unknown"}, Birth: ${state.profile.birthDate || "Unknown"}` +
-        (state.profile.weight != null ? `, Weight: ${state.profile.weight} ${state.profile.weightUnit || "kg"}` : "") +
-        (state.profile.height != null ? `, Height: ${state.profile.height} ${state.profile.heightUnit || "cm"}` : "")
-      : "Baby: Unknown";
+      if (diapers.length > 0) {
+        const pee = diapers.filter((e) => (e.data as DiaperData).type === "pee").length;
+        const poo = diapers.filter((e) => (e.data as DiaperData).type === "poo").length;
+        const both = diapers.filter((e) => (e.data as DiaperData).type === "both").length;
+        parts.push(`Diapers: ${diapers.length} changes (${pee} pee, ${poo} poo, ${both} both)`);
+        diapers.forEach((e) => {
+          const d = e.data as DiaperData;
+          const time = new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          parts.push(`  - ${time}: ${d.type}${d.pooColor ? ` color:${d.pooColor}` : ""}${d.pooConsistency ? ` consistency:${d.pooConsistency}` : ""}${d.notes ? ` (${d.notes})` : ""}`);
+        });
+      }
 
-    return `${profileInfo}
-Last 7 days summary:
-- Feed events: ${feedEvents.length}, total intake: ${totalFeedMl}ml
-- Sleep events: ${sleepEvents.length}, total: ${formatDuration(totalSleepMin)}
-- Diaper changes: ${totalDiapers}
-- Observations: ${obsEvents.map((e) => {
-      const d = e.data as ObservationData;
-      return `${d.category} (${d.severity})`;
-    }).join(", ") || "none"}
-Recent events (last 24h): ${recentEvents
-      .filter((e) => isToday(e.timestamp))
-      .map((e) => `${e.type} at ${new Date(e.timestamp).toLocaleTimeString()}`)
-      .join(", ") || "none today"}`;
+      if (observations.length > 0) {
+        parts.push(`Observations: ${observations.length}`);
+        observations.forEach((e) => {
+          const d = e.data as ObservationData;
+          const time = new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          parts.push(`  - ${time}: ${d.category} (${d.severity})${d.description ? ` - ${d.description}` : ""}${d.notes ? ` (${d.notes})` : ""}`);
+        });
+      }
+    }
+
+    // ── Weekly summary (last 7 days) ──
+    parts.push("\n## LAST 7 DAYS SUMMARY");
+    const last7Keys = dayKeys.slice(0, 7);
+    for (const dk of last7Keys) {
+      const dayEvents = byDay.get(dk) || [];
+      if (dayEvents.length === 0) {
+        parts.push(`${dk}: No events`);
+        continue;
+      }
+      const feeds = dayEvents.filter((e) => e.type === "feed");
+      const sleeps = dayEvents.filter((e) => e.type === "sleep");
+      const diapers = dayEvents.filter((e) => e.type === "diaper");
+      const feedMl = feeds.reduce((s, e) => s + ((e.data as FeedData).amountMl || 0), 0);
+      const sleepMin = sleeps.reduce((s, e) => s + ((e.data as SleepData).durationMin || 0), 0);
+      parts.push(`${dk}: ${feeds.length} feeds (${feedMl}ml), ${sleeps.length} sleeps (${formatDuration(sleepMin)}), ${diapers.length} diapers`);
+    }
+
+    // ── Growth history ──
+    if (state.growthHistory.length > 0) {
+      parts.push("\n## GROWTH HISTORY");
+      const recent = state.growthHistory.slice(0, 10);
+      recent.forEach((g: GrowthEntry) => {
+        const items: string[] = [];
+        if (g.weight != null) items.push(`${g.weight} ${g.weightUnit || "kg"}`);
+        if (g.height != null) items.push(`${g.height} ${g.heightUnit || "cm"}`);
+        parts.push(`${g.date}: ${items.join(", ")}`);
+      });
+    }
+
+    // ── Milestones ──
+    if (state.milestones.length > 0) {
+      parts.push("\n## MILESTONES ACHIEVED");
+      state.milestones.slice(0, 15).forEach((m: Milestone) => {
+        parts.push(`${m.date}: ${m.title} (${m.category})${m.notes ? ` - ${m.notes}` : ""}`);
+      });
+    }
+
+    // ── Active sleep ──
+    if (state.activeSleep) {
+      const start = new Date(state.activeSleep.startTime);
+      const elapsedMin = Math.round((Date.now() - start.getTime()) / 60000);
+      parts.push(`\n## ACTIVE SLEEP: Baby has been sleeping for ${formatDuration(elapsedMin)} (started at ${start.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})`);
+    }
+
+    // Truncate to stay within limits
+    const full = parts.join("\n");
+    return full.length > 14000 ? full.slice(0, 14000) + "\n...(truncated)" : full;
   };
 
   const askAI = trpc.ai.ask.useMutation();
@@ -213,7 +309,7 @@ Recent events (last 24h): ${recentEvents
     try {
       const context = buildContext();
       const result = await askAI.mutateAsync({
-        question: "Generate a comprehensive daily summary of the baby's feeding, sleeping, diaper changes, and any health observations. Include any patterns or concerns. Tailor your advice to the baby's age, weight, and height.",
+        question: "Generate a comprehensive daily summary of the baby's feeding, sleeping, diaper changes, and any health observations. Include trends compared to previous days. Use a table for the daily breakdown. Highlight any patterns or concerns. Tailor your advice to the baby's age, weight, and height.",
         context,
         babyProfile: getBabyProfilePayload(),
       });
@@ -246,18 +342,26 @@ Recent events (last 24h): ${recentEvents
             alignSelf: isUser ? "flex-end" : "flex-start",
             backgroundColor: isUser ? colors.primary : colors.surface,
             borderColor: isUser ? colors.primary : colors.border,
+            maxWidth: isUser ? "80%" : "92%",
           },
         ]}
       >
-        <Text
-          style={{
-            color: isUser ? "#FFFFFF" : colors.foreground,
-            fontSize: 15,
-            lineHeight: 22,
-          }}
-        >
-          {item.content}
-        </Text>
+        {isUser ? (
+          <Text
+            style={{
+              color: "#FFFFFF",
+              fontSize: 15,
+              lineHeight: 22,
+            }}
+          >
+            {item.content}
+          </Text>
+        ) : (
+          <MarkdownText
+            content={item.content}
+            baseColor={colors.foreground}
+          />
+        )}
       </View>
     );
   };
@@ -306,7 +410,9 @@ Recent events (last 24h): ${recentEvents
       >
         {/* Header */}
         <View style={styles.headerRow}>
-          <Text className="text-2xl font-bold text-foreground">AI Assistant</Text>
+          <Text style={{ fontSize: 22, fontWeight: "700", color: colors.foreground }}>
+            AI Assistant
+          </Text>
           <Pressable
             onPress={handleGenerateSummary}
             disabled={loading}
@@ -335,6 +441,7 @@ Recent events (last 24h): ${recentEvents
                 "How much did my baby eat today?",
                 "Is the sleep pattern normal?",
                 "Summarize this week's activities",
+                "Any concerns based on recent data?",
               ].map((suggestion, i) => (
                 <Pressable
                   key={i}
@@ -484,7 +591,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   messageBubble: {
-    maxWidth: "80%",
     padding: 12,
     borderRadius: 16,
     borderWidth: 1,

@@ -183,7 +183,7 @@ export const appRouter = router({
       .input(
         z.object({
           question: z.string().min(1).max(2000),
-          context: z.string().max(5000).optional(),
+          context: z.string().max(15000).optional(),
           babyProfile: z.object({
             name: z.string().optional(),
             ageLabel: z.string().optional(),
@@ -195,10 +195,20 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
-        let systemPrompt = `You are a helpful baby care assistant. You help new parents track and understand their baby's health patterns. 
+        let systemPrompt = `You are a helpful baby care assistant. You help new parents track and understand their baby's health patterns.
 You provide evidence-based advice about feeding, sleeping, diaper changes, and general baby health.
 Always be supportive and reassuring while being accurate. If something seems concerning, recommend consulting a pediatrician.
-Keep responses concise and practical. Use simple language.`;
+
+FORMATTING RULES (ALWAYS follow these):
+- Use **bold** for key terms, numbers, and important points
+- Use emojis to make responses friendly and scannable (🍼 feeding, 😴 sleep, 🧷 diapers, 📊 trends, ⚠️ concerns, ✅ good, 💡 tips)
+- Use bullet points (- ) for lists
+- Use numbered lists (1. 2. 3.) for step-by-step instructions
+- Use markdown tables (| Header | Header |) when comparing data or showing schedules
+- Use ## headers to organize sections in longer responses
+- Keep paragraphs short (2-3 sentences max)
+- Always start with a brief direct answer, then elaborate with details
+- End with a 💡 tip or reassuring note when appropriate`;
 
         if (input.babyProfile) {
           const bp = input.babyProfile;
