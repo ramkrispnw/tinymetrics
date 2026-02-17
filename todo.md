@@ -77,3 +77,5 @@
 - [x] Update Activity tab to display pump events
 - [x] Ensure pump events sync across linked accounts
 - [x] Update AI assistant context to include pump data
+- [x] Make sleep timer minimizable: timer runs in background while navigating other tabs
+- [x] Move pump summary card to top row alongside feed, diaper, sleep summaries

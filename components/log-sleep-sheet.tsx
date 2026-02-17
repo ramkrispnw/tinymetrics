@@ -129,10 +129,12 @@ export function LogSleepSheet({ onClose }: Props) {
         {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={onClose} style={({ pressed }) => [pressed && { opacity: 0.6 }]}>
-            <Text style={[styles.cancelText, { color: colors.muted }]}>Cancel</Text>
+            <Text style={[styles.cancelText, { color: colors.muted }]}>
+              {isActive ? "Minimize" : "Cancel"}
+            </Text>
           </Pressable>
           <Text style={[styles.title, { color: colors.foreground }]}>Log Sleep</Text>
-          <View style={{ width: 50 }} />
+          <View style={{ width: 60 }} />
         </View>
 
         {/* Timer Section */}

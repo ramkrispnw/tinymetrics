@@ -269,29 +269,12 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Active Sleep Banner */}
-        {state.activeSleep && (
-          <Pressable
-            onPress={() => setActiveSheet("sleep")}
-            style={({ pressed }) => [
-              styles.sleepBanner,
-              { backgroundColor: colors.sleep + "20", borderColor: colors.sleep },
-              pressed && { opacity: 0.8 },
-            ]}
-          >
-            <IconSymbol name="moon.fill" size={18} color={colors.sleep} />
-            <Text style={[styles.sleepBannerText, { color: colors.sleep }]}>
-              Sleep in progress — tap to stop
-            </Text>
-          </Pressable>
-        )}
-
         {/* Summary Cards */}
-        <View className="flex-row gap-3 mb-5">
+        <View className="flex-row gap-2 mb-3">
           <View
             style={[styles.summaryCard, { backgroundColor: colors.feed + "15", borderColor: colors.feed + "30" }]}
           >
-            <IconSymbol name="fork.knife" size={20} color={colors.feed} />
+            <IconSymbol name="fork.knife" size={18} color={colors.feed} />
             <Text style={[styles.summaryValue, { color: colors.foreground }]}>
               {displayAmount(todayFeedMl)}
             </Text>
@@ -300,7 +283,7 @@ export default function HomeScreen() {
           <View
             style={[styles.summaryCard, { backgroundColor: colors.diaper + "15", borderColor: colors.diaper + "30" }]}
           >
-            <IconSymbol name="drop.fill" size={20} color={colors.diaper} />
+            <IconSymbol name="drop.fill" size={18} color={colors.diaper} />
             <Text style={[styles.summaryValue, { color: colors.foreground }]}>
               {todayDiapers.pee}P / {todayDiapers.poo}💩
             </Text>
@@ -309,11 +292,20 @@ export default function HomeScreen() {
           <View
             style={[styles.summaryCard, { backgroundColor: colors.sleep + "15", borderColor: colors.sleep + "30" }]}
           >
-            <IconSymbol name="moon.fill" size={20} color={colors.sleep} />
+            <IconSymbol name="moon.fill" size={18} color={colors.sleep} />
             <Text style={[styles.summaryValue, { color: colors.foreground }]}>
               {formatDuration(todaySleepMin)}
             </Text>
             <Text style={[styles.summaryLabel, { color: colors.muted }]}>Sleep</Text>
+          </View>
+          <View
+            style={[styles.summaryCard, { backgroundColor: colors.pump + "15", borderColor: colors.pump + "30" }]}
+          >
+            <IconSymbol name="drop.triangle.fill" size={18} color={colors.pump} />
+            <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+              {displayAmount(todayPumpMl)}
+            </Text>
+            <Text style={[styles.summaryLabel, { color: colors.muted }]}>Pumped</Text>
           </View>
         </View>
 
@@ -346,19 +338,6 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
           ))}
-        </View>
-
-        {/* Pump Summary Card */}
-        <View className="flex-row gap-3 mb-5">
-          <View
-            style={[styles.summaryCard, { backgroundColor: colors.pump + "15", borderColor: colors.pump + "30", flex: 1 }]}
-          >
-            <IconSymbol name="drop.triangle.fill" size={20} color={colors.pump} />
-            <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-              {displayAmount(todayPumpMl)}
-            </Text>
-            <Text style={[styles.summaryLabel, { color: colors.muted }]}>Pumped</Text>
-          </View>
         </View>
 
         {/* Growth Tracking Button */}
@@ -474,29 +453,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  sleepBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  sleepBannerText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
   summaryCard: {
     flex: 1,
     alignItems: "center",
-    padding: 12,
-    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: 12,
     borderWidth: 1,
-    gap: 4,
+    gap: 3,
   },
   summaryValue: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "700",
   },
   summaryLabel: {
