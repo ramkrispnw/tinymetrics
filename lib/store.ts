@@ -361,6 +361,7 @@ export interface StoreContextValue {
   state: AppState;
   addEvent: (event: Omit<BabyEvent, "id" | "createdAt">) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
+  deleteEvents: (ids: string[]) => Promise<void>;
   updateEvent: (id: string, updates: Partial<Omit<BabyEvent, "id" | "createdAt">>) => Promise<void>;
   updateProfile: (profile: BabyProfile) => Promise<void>;
   updateSettings: (settings: Partial<AppSettings>) => Promise<void>;

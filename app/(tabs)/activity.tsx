@@ -37,7 +37,7 @@ type DateRange = "today" | "yesterday" | "week" | "3months" | "custom";
 
 export default function ActivityScreen() {
   const colors = useColors();
-  const { state, deleteEvent } = useStore();
+  const { state, deleteEvent, deleteEvents } = useStore();
   const [filter, setFilter] = useState<FilterType>("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
@@ -46,6 +46,68 @@ export default function ActivityScreen() {
   const [customEnd, setCustomEnd] = useState("");
   const [appliedCustomStart, setAppliedCustomStart] = useState<Date | null>(null);
   const [appliedCustomEnd, setAppliedCustomEnd] = useState<Date | null>(null);
+
+  // Batch select state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelectMode = () => {
+    if (selectMode) {
+      // Exiting select mode — clear selections
+      setSelectedIds(new Set());
+    }
+    setSelectMode(!selectMode);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const selectAll = () => {
+    const allIds = filteredEvents.map((e) => e.id);
+    setSelectedIds(new Set(allIds));
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const deselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBatchDelete = () => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+
+    if (Platform.OS === "web") {
+      deleteEvents(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      setSelectMode(false);
+      return;
+    }
+    Alert.alert(
+      "Delete Events",
+      `Are you sure you want to delete ${count} event${count !== 1 ? "s" : ""}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deleteEvents(Array.from(selectedIds));
+            setSelectedIds(new Set());
+            setSelectMode(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+      ]
+    );
+  };
 
   // Calculate date range bounds
   const dateRangeBounds = useMemo(() => {
@@ -270,49 +332,87 @@ export default function ActivityScreen() {
     ? `${appliedCustomStart.toLocaleDateString([], { month: "short", day: "numeric" })} - ${appliedCustomEnd.toLocaleDateString([], { month: "short", day: "numeric" })}`
     : null;
 
+  const allSelected = filteredEvents.length > 0 && selectedIds.size === filteredEvents.length;
+
   const renderItem = useCallback(
-    ({ item }: { item: BabyEvent }) => (
-      <Pressable
-        onPress={() => handleEdit(item)}
-        style={({ pressed }) => [
-          styles.eventRow,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-          pressed && { opacity: 0.7 },
-        ]}
-      >
-        <View style={[styles.eventIcon, { backgroundColor: getEventColor(item.type) + "20" }]}>
-          <IconSymbol name={getEventIcon(item.type)} size={18} color={getEventColor(item.type)} />
-        </View>
-        <View style={styles.eventContent}>
-          <View style={styles.eventTitleRow}>
-            <Text style={[styles.eventTitle, { color: colors.foreground }]}>
-              {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
-            </Text>
-            <View style={[styles.editBadge, { backgroundColor: colors.primary + "15" }]}>
-              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "600" }}>Edit</Text>
-            </View>
+    ({ item }: { item: BabyEvent }) => {
+      const isSelected = selectedIds.has(item.id);
+
+      return (
+        <Pressable
+          onPress={() => {
+            if (selectMode) {
+              toggleSelect(item.id);
+            } else {
+              handleEdit(item);
+            }
+          }}
+          onLongPress={() => {
+            if (!selectMode) {
+              setSelectMode(true);
+              setSelectedIds(new Set([item.id]));
+              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            }
+          }}
+          style={({ pressed }) => [
+            styles.eventRow,
+            {
+              backgroundColor: isSelected ? colors.primary + "10" : colors.surface,
+              borderColor: isSelected ? colors.primary + "40" : colors.border,
+            },
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          {selectMode && (
+            <IconSymbol
+              name={isSelected ? "checkmark.square.fill" : "square"}
+              size={22}
+              color={isSelected ? colors.primary : colors.muted}
+            />
+          )}
+          <View style={[styles.eventIcon, { backgroundColor: getEventColor(item.type) + "20" }]}>
+            <IconSymbol name={getEventIcon(item.type)} size={18} color={getEventColor(item.type)} />
           </View>
-          <Text style={[styles.eventSummary, { color: colors.muted }]}>
-            {getEventSummary(item)}
-          </Text>
-        </View>
-        <View style={styles.eventRight}>
-          <Text style={[styles.eventTime, { color: colors.muted }]}>
-            {formatTime(item.timestamp)}
-          </Text>
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation?.();
-              handleDelete(item);
-            }}
-            style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.5 }]}
-          >
-            <IconSymbol name="trash.fill" size={16} color={colors.error + "80"} />
-          </Pressable>
-        </View>
-      </Pressable>
-    ),
-    [colors, state.settings.units]
+          <View style={styles.eventContent}>
+            <View style={styles.eventTitleRow}>
+              <Text style={[styles.eventTitle, { color: colors.foreground }]}>
+                {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+              </Text>
+              {!selectMode && (
+                <View style={[styles.editBadge, { backgroundColor: colors.primary + "15" }]}>
+                  <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "600" }}>EDIT</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.eventSummary, { color: colors.muted }]}>
+              {getEventSummary(item)}
+            </Text>
+          </View>
+          {!selectMode && (
+            <View style={styles.eventRight}>
+              <Text style={[styles.eventTime, { color: colors.muted }]}>
+                {formatTime(item.timestamp)}
+              </Text>
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  handleDelete(item);
+                }}
+                style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.5 }]}
+              >
+                <IconSymbol name="trash.fill" size={16} color={colors.error + "80"} />
+              </Pressable>
+            </View>
+          )}
+          {selectMode && (
+            <Text style={[styles.eventTime, { color: colors.muted }]}>
+              {formatTime(item.timestamp)}
+            </Text>
+          )}
+        </Pressable>
+      );
+    },
+    [colors, state.settings.units, selectMode, selectedIds]
   );
 
   const flatData = useMemo(() => {
@@ -331,97 +431,137 @@ export default function ActivityScreen() {
       {/* Header */}
       <View style={styles.headerRow}>
         <Text className="text-2xl font-bold text-foreground">Activity</Text>
-        <View style={[styles.countBadge, { backgroundColor: colors.primary + "15" }]}>
-          <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700" }}>
-            {eventCount} event{eventCount !== 1 ? "s" : ""}
-          </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Pressable
+            onPress={toggleSelectMode}
+            style={({ pressed }) => [
+              styles.selectBtn,
+              {
+                backgroundColor: selectMode ? colors.primary + "15" : colors.surface,
+                borderColor: selectMode ? colors.primary : colors.border,
+              },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Text style={{ color: selectMode ? colors.primary : colors.muted, fontWeight: "600", fontSize: 13 }}>
+              {selectMode ? "Cancel" : "Select"}
+            </Text>
+          </Pressable>
+          <View style={[styles.countBadge, { backgroundColor: colors.primary + "15" }]}>
+            <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700" }}>
+              {eventCount} event{eventCount !== 1 ? "s" : ""}
+            </Text>
+          </View>
         </View>
       </View>
 
-      {/* Date Range Filter */}
-      <Text style={[styles.filterLabel, { color: colors.muted }]}>Date Range</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.dateFilterScroll}
-        contentContainerStyle={styles.dateFilterRow}
-      >
-        {dateRanges.map((d) => (
-          <Pressable
-            key={d.key}
-            onPress={() => {
-              if (d.key === "custom") {
-                const now = new Date();
-                const weekAgo = new Date(now);
-                weekAgo.setDate(weekAgo.getDate() - 7);
-                if (!customStart) setCustomStart(getDayKey(weekAgo.toISOString()));
-                if (!customEnd) setCustomEnd(getDayKey(now.toISOString()));
-                setShowCustomPicker(true);
-              } else {
-                setDateRange(d.key);
-              }
-              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            style={({ pressed }) => [
-              styles.dateFilterBtn,
-              {
-                backgroundColor: dateRange === d.key ? colors.primary : colors.surface,
-                borderColor: dateRange === d.key ? colors.primary : colors.border,
-              },
-              pressed && { opacity: 0.8 },
-            ]}
-          >
-            <Text
-              style={{
-                color: dateRange === d.key ? "#fff" : colors.muted,
-                fontWeight: dateRange === d.key ? "700" : "500",
-                fontSize: 14,
-              }}
+      {/* Select All / Deselect All bar */}
+      {selectMode && (
+        <View style={[styles.selectBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 14 }}>
+            {selectedIds.size} selected
+          </Text>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <Pressable
+              onPress={allSelected ? deselectAll : selectAll}
+              style={({ pressed }) => pressed && { opacity: 0.6 }}
             >
-              {d.key === "custom" && dateRange === "custom" && customRangeLabel
-                ? customRangeLabel
-                : d.label}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+              <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 14 }}>
+                {allSelected ? "Deselect All" : "Select All"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
 
-      {/* Type Filters */}
-      <Text style={[styles.filterLabel, { color: colors.muted }]}>Event Type</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.typeFilterScroll}
-        contentContainerStyle={styles.filterRow}
-      >
-        {typeFilters.map((f) => (
-          <Pressable
-            key={f.key}
-            onPress={() => {
-              setFilter(f.key);
-              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            style={({ pressed }) => [
-              styles.filterBtn,
-              {
-                backgroundColor: filter === f.key ? colors.primary + "20" : colors.surface,
-                borderColor: filter === f.key ? colors.primary : colors.border,
-              },
-              pressed && { opacity: 0.8 },
-            ]}
+      {/* Date Range Filter */}
+      {!selectMode && (
+        <>
+          <Text style={[styles.filterLabel, { color: colors.muted }]}>Date Range</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.dateFilterScroll}
+            contentContainerStyle={styles.dateFilterRow}
           >
-            <Text
-              style={{
-                color: filter === f.key ? colors.primary : colors.muted,
-                fontWeight: filter === f.key ? "700" : "500",
-                fontSize: 14,
-              }}
-            >
-              {f.label}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+            {dateRanges.map((d) => (
+              <Pressable
+                key={d.key}
+                onPress={() => {
+                  if (d.key === "custom") {
+                    const now = new Date();
+                    const weekAgo = new Date(now);
+                    weekAgo.setDate(weekAgo.getDate() - 7);
+                    if (!customStart) setCustomStart(getDayKey(weekAgo.toISOString()));
+                    if (!customEnd) setCustomEnd(getDayKey(now.toISOString()));
+                    setShowCustomPicker(true);
+                  } else {
+                    setDateRange(d.key);
+                  }
+                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                style={({ pressed }) => [
+                  styles.dateFilterBtn,
+                  {
+                    backgroundColor: dateRange === d.key ? colors.primary : colors.surface,
+                    borderColor: dateRange === d.key ? colors.primary : colors.border,
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: dateRange === d.key ? "#fff" : colors.muted,
+                    fontWeight: dateRange === d.key ? "700" : "500",
+                    fontSize: 14,
+                  }}
+                >
+                  {d.key === "custom" && dateRange === "custom" && customRangeLabel
+                    ? customRangeLabel
+                    : d.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          {/* Type Filters */}
+          <Text style={[styles.filterLabel, { color: colors.muted }]}>Event Type</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.typeFilterScroll}
+            contentContainerStyle={styles.filterRow}
+          >
+            {typeFilters.map((f) => (
+              <Pressable
+                key={f.key}
+                onPress={() => {
+                  setFilter(f.key);
+                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                style={({ pressed }) => [
+                  styles.filterBtn,
+                  {
+                    backgroundColor: filter === f.key ? colors.primary + "20" : colors.surface,
+                    borderColor: filter === f.key ? colors.primary : colors.border,
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: filter === f.key ? colors.primary : colors.muted,
+                    fontWeight: filter === f.key ? "700" : "500",
+                    fontSize: 14,
+                  }}
+                >
+                  {f.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </>
+      )}
 
       {/* Event List */}
       <FlatList
@@ -438,7 +578,7 @@ export default function ActivityScreen() {
           return renderItem({ item });
         }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: selectMode ? 80 : 32 }}
         ListEmptyComponent={
           <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={{ color: colors.muted, textAlign: "center" }}>
@@ -447,6 +587,22 @@ export default function ActivityScreen() {
           </View>
         }
       />
+
+      {/* Batch Delete Floating Bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <View style={[styles.batchBar, { backgroundColor: colors.error, shadowColor: "#000" }]}>
+          <Text style={styles.batchBarText}>
+            Delete {selectedIds.size} event{selectedIds.size !== 1 ? "s" : ""}
+          </Text>
+          <Pressable
+            onPress={handleBatchDelete}
+            style={({ pressed }) => [styles.batchDeleteBtn, pressed && { opacity: 0.8 }]}
+          >
+            <IconSymbol name="trash.fill" size={18} color="#fff" />
+            <Text style={styles.batchDeleteBtnText}>Delete</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Edit Event Sheet */}
       <EditEventSheet
@@ -529,6 +685,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+  },
+  selectBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  selectBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
   },
   filterLabel: {
     fontSize: 12,
@@ -627,6 +799,41 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     marginTop: 32,
+  },
+  batchBar: {
+    position: "absolute",
+    bottom: 16,
+    left: 16,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  batchBarText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  batchDeleteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  batchDeleteBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
   },
   // Custom date range picker modal
   modalOverlay: {

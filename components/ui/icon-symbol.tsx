@@ -50,6 +50,8 @@ const MAPPING = {
   "envelope.fill": "email",
   "arrow.clockwise": "sync",
   "drop.triangle.fill": "water-drop",
+  "checkmark.square.fill": "check-box",
+  "square": "check-box-outline-blank",
 } as IconMapping;
 
 export function IconSymbol({

@@ -277,6 +277,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [deleteMutation]
   );
 
+  const deleteEvents = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
+      const idSet = new Set(ids);
+      setState((prev) => {
+        const updated = prev.events.filter((e) => !idSet.has(e.id));
+        saveEvents(updated);
+        return { ...prev, events: updated };
+      });
+      // Delete from cloud one by one (server doesn't have batch endpoint)
+      for (const id of ids) {
+        try {
+          await deleteMutation.mutateAsync({ clientId: id });
+        } catch {
+          // Offline or not logged in
+        }
+      }
+    },
+    [deleteMutation]
+  );
+
   const updateEvent = useCallback(
     async (id: string, updates: Partial<Omit<BabyEvent, "id" | "createdAt">>) => {
       setState((prev) => {
@@ -554,6 +575,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         state,
         addEvent,
         deleteEvent,
+        deleteEvents,
         updateEvent,
         updateProfile,
         updateSettings,

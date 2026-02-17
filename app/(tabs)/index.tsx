@@ -61,10 +61,63 @@ function formatRelativeTime(isoString: string): string {
 export default function HomeScreen() {
   const colors = useColors();
   const { isAuthenticated } = useAuth();
-  const { state, deleteEvent, syncToCloud, loadFromCloud } = useStore();
+  const { state, deleteEvent, deleteEvents, syncToCloud, loadFromCloud } = useStore();
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
   const hasSyncedRef = useRef(false);
+
+  // Batch select state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelectMode = () => {
+    if (selectMode) setSelectedIds(new Set());
+    setSelectMode(!selectMode);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const selectAllToday = () => {
+    setSelectedIds(new Set(todayEvents.map((e) => e.id)));
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleBatchDelete = () => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+    if (Platform.OS === "web") {
+      deleteEvents(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      setSelectMode(false);
+      return;
+    }
+    Alert.alert(
+      "Delete Events",
+      `Are you sure you want to delete ${count} event${count !== 1 ? "s" : ""}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deleteEvents(Array.from(selectedIds));
+            setSelectedIds(new Set());
+            setSelectMode(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+      ]
+    );
+  };
 
   // Auto-sync on app load when authenticated
   // Small delay ensures auth token is fully ready after login
@@ -398,7 +451,41 @@ export default function HomeScreen() {
         </Pressable>
 
         {/* Recent Activity */}
-        <Text className="text-lg font-semibold text-foreground mb-3">Today's Activity</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <Text className="text-lg font-semibold text-foreground">Today's Activity</Text>
+          {todayEvents.length > 0 && (
+            <Pressable
+              onPress={toggleSelectMode}
+              style={({ pressed }) => [
+                styles.selectBtn,
+                {
+                  backgroundColor: selectMode ? colors.primary + "15" : colors.surface,
+                  borderColor: selectMode ? colors.primary : colors.border,
+                },
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Text style={{ color: selectMode ? colors.primary : colors.muted, fontWeight: "600", fontSize: 13 }}>
+                {selectMode ? "Cancel" : "Select"}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+        {selectMode && (
+          <View style={[styles.selectBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 14 }}>
+              {selectedIds.size} selected
+            </Text>
+            <Pressable
+              onPress={selectedIds.size === todayEvents.length ? () => setSelectedIds(new Set()) : selectAllToday}
+              style={({ pressed }) => pressed && { opacity: 0.6 }}
+            >
+              <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 14 }}>
+                {selectedIds.size === todayEvents.length ? "Deselect All" : "Select All"}
+              </Text>
+            </Pressable>
+          </View>
+        )}
         {todayEvents.length === 0 ? (
           <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={{ color: colors.muted, textAlign: "center" }}>
@@ -406,53 +493,105 @@ export default function HomeScreen() {
             </Text>
           </View>
         ) : (
-          todayEvents.map((event) => (
-            <Pressable
-              key={event.id}
-              onPress={() => {
-                setEditingEvent(event);
-                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }}
-              style={({ pressed }) => [
-                styles.eventRow,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <View style={[styles.eventIcon, { backgroundColor: getEventColor(event.type) + "20" }]}>
-                <IconSymbol name={getEventIcon(event.type)} size={18} color={getEventColor(event.type)} />
-              </View>
-              <View style={styles.eventContent}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Text style={[styles.eventTitle, { color: colors.foreground }]}>
-                    {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
-                  </Text>
-                  <View style={{ backgroundColor: colors.primary + "15", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
-                    <Text style={{ color: colors.primary, fontSize: 9, fontWeight: "600" }}>EDIT</Text>
-                  </View>
+          todayEvents.map((event) => {
+            const isSelected = selectedIds.has(event.id);
+            return (
+              <Pressable
+                key={event.id}
+                onPress={() => {
+                  if (selectMode) {
+                    toggleSelect(event.id);
+                  } else {
+                    setEditingEvent(event);
+                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                }}
+                onLongPress={() => {
+                  if (!selectMode) {
+                    setSelectMode(true);
+                    setSelectedIds(new Set([event.id]));
+                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  }
+                }}
+                style={({ pressed }) => [
+                  styles.eventRow,
+                  {
+                    backgroundColor: isSelected ? colors.primary + "10" : colors.surface,
+                    borderColor: isSelected ? colors.primary + "40" : colors.border,
+                  },
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                {selectMode && (
+                  <IconSymbol
+                    name={isSelected ? "checkmark.square.fill" : "square"}
+                    size={22}
+                    color={isSelected ? colors.primary : colors.muted}
+                  />
+                )}
+                <View style={[styles.eventIcon, { backgroundColor: getEventColor(event.type) + "20" }]}>
+                  <IconSymbol name={getEventIcon(event.type)} size={18} color={getEventColor(event.type)} />
                 </View>
-                <Text style={[styles.eventSummary, { color: colors.muted }]}>
-                  {getEventSummary(event)}
-                </Text>
-              </View>
-              <View style={{ alignItems: "center", gap: 4 }}>
-                <Text style={[styles.eventTime, { color: colors.muted }]}>
-                  {formatTime(event.timestamp)}
-                </Text>
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation?.();
-                    handleDeleteEvent(event);
-                  }}
-                  style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.5 }]}
-                >
-                  <IconSymbol name="trash.fill" size={14} color={colors.error + "80"} />
-                </Pressable>
-              </View>
-            </Pressable>
-          ))
+                <View style={styles.eventContent}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={[styles.eventTitle, { color: colors.foreground }]}>
+                      {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
+                    </Text>
+                    {!selectMode && (
+                      <View style={{ backgroundColor: colors.primary + "15", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                        <Text style={{ color: colors.primary, fontSize: 9, fontWeight: "600" }}>EDIT</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.eventSummary, { color: colors.muted }]}>
+                    {getEventSummary(event)}
+                  </Text>
+                </View>
+                {!selectMode && (
+                  <View style={{ alignItems: "center", gap: 4 }}>
+                    <Text style={[styles.eventTime, { color: colors.muted }]}>
+                      {formatTime(event.timestamp)}
+                    </Text>
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        handleDeleteEvent(event);
+                      }}
+                      style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.5 }]}
+                    >
+                      <IconSymbol name="trash.fill" size={14} color={colors.error + "80"} />
+                    </Pressable>
+                  </View>
+                )}
+                {selectMode && (
+                  <Text style={[styles.eventTime, { color: colors.muted }]}>
+                    {formatTime(event.timestamp)}
+                  </Text>
+                )}
+              </Pressable>
+            );
+          })
         )}
       </ScrollView>
+
+      {/* Batch Delete Bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <View style={[styles.batchDeleteBar, { backgroundColor: colors.error }]}>
+          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+            {selectedIds.size} event{selectedIds.size !== 1 ? "s" : ""} selected
+          </Text>
+          <Pressable
+            onPress={handleBatchDelete}
+            style={({ pressed }) => [
+              styles.batchDeleteBtn,
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <IconSymbol name="trash.fill" size={16} color="#fff" />
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Delete</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Modals */}
       <Modal visible={activeSheet === "feed"} animationType="slide" presentationStyle="pageSheet">
@@ -615,5 +754,40 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignSelf: "flex-start",
     marginBottom: 12,
+  },
+  selectBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  selectBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  batchDeleteBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  batchDeleteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
 });

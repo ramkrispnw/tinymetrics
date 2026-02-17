@@ -84,3 +84,5 @@
 - [x] Fix Activity tab: increase filter spacing so they are clearly visible
 - [x] Sync baby photo across linked accounts when one user updates it
 - [x] Add delete event functionality on Home screen Today's Activity (matching Activity tab)
+- [x] Add batch delete to Activity tab: select mode with checkboxes and bulk delete
+- [x] Add batch delete to Home screen Today's Activity: select mode with checkboxes and bulk delete
