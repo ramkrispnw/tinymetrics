@@ -339,8 +339,8 @@ export default function ActivityScreen() {
                 const now = new Date();
                 const weekAgo = new Date(now);
                 weekAgo.setDate(weekAgo.getDate() - 7);
-                if (!customStart) setCustomStart(weekAgo.toISOString().split("T")[0]);
-                if (!customEnd) setCustomEnd(now.toISOString().split("T")[0]);
+                if (!customStart) setCustomStart(getDayKey(weekAgo.toISOString()));
+                if (!customEnd) setCustomEnd(getDayKey(now.toISOString()));
                 setShowCustomPicker(true);
               } else {
                 setDateRange(d.key);

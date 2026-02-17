@@ -62,3 +62,6 @@
 - [x] Fix event sync: all events must be visible across linked household accounts
 - [x] Ensure push/pull sync covers all event types (feed, sleep, diaper, observation, growth)
 - [x] Verify server event queries use household ID for shared access
+- [x] Fix timezone handling: ensure all event timestamps use device timezone
+- [x] Fix timezone handling: ensure date filtering (Today, Yesterday, etc.) uses local timezone
+- [x] Fix timezone handling: ensure event display times show in local timezone

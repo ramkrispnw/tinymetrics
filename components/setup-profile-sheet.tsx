@@ -69,7 +69,7 @@ export function SetupProfileSheet({ onClose }: Props) {
     setSaving(true);
     await updateProfile({
       name: name.trim(),
-      birthDate: birthDate || new Date().toISOString().split("T")[0],
+      birthDate: birthDate || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })(),
       sex,
       weight: weight ? parseFloat(weight) : undefined,
       weightUnit,

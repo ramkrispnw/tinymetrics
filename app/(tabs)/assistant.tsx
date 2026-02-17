@@ -60,7 +60,7 @@ export default function AssistantScreen() {
   };
 
   const buildContext = () => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getDayKey(new Date().toISOString());
     const last7Days: string[] = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date();

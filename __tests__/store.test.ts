@@ -70,6 +70,29 @@ describe("getDayKey", () => {
     const key = getDayKey("2026-02-15T14:30:00.000Z");
     expect(key).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
+
+  it("uses local timezone, not UTC", () => {
+    // Create a date at a known local time
+    const localDate = new Date(2026, 5, 15, 10, 30, 0); // June 15, 2026 10:30 AM local
+    const key = getDayKey(localDate.toISOString());
+    // Should always be 2026-06-15 in local timezone regardless of UTC offset
+    expect(key).toBe("2026-06-15");
+  });
+
+  it("groups late-night events to the correct local day", () => {
+    // Create a date at 11:30 PM local time
+    const lateNight = new Date(2026, 0, 20, 23, 30, 0); // Jan 20, 2026 11:30 PM local
+    const key = getDayKey(lateNight.toISOString());
+    // Should be Jan 20 in local timezone, not Jan 21 (which it would be in UTC for western timezones)
+    expect(key).toBe("2026-01-20");
+  });
+
+  it("groups early-morning events to the correct local day", () => {
+    // Create a date at 1:00 AM local time
+    const earlyMorning = new Date(2026, 2, 10, 1, 0, 0); // Mar 10, 2026 1:00 AM local
+    const key = getDayKey(earlyMorning.toISOString());
+    expect(key).toBe("2026-03-10");
+  });
 });
 
 describe("calculateAge", () => {

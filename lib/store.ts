@@ -313,8 +313,24 @@ export function isToday(isoString: string): boolean {
   );
 }
 
+/**
+ * Returns a YYYY-MM-DD string in the user's **local** timezone.
+ * This is critical for grouping events by day — using UTC would shift
+ * events to the wrong day for users west of GMT.
+ */
 export function getDayKey(isoString: string): string {
-  return new Date(isoString).toISOString().split("T")[0];
+  const d = new Date(isoString);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Returns a YYYY-MM-DD string for today in the user's local timezone.
+ */
+export function getTodayKey(): string {
+  return getDayKey(new Date().toISOString());
 }
 
 // ─── Context ─────────────────────────────────────────────────────────────────
