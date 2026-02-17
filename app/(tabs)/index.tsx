@@ -10,6 +10,7 @@ import {
   Platform,
   Image,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -39,8 +40,10 @@ import { LogGrowthSheet } from "@/components/log-growth-sheet";
 import { ImportLogsSheet } from "@/components/import-logs-sheet";
 import { WeeklyDigestSheet } from "@/components/weekly-digest-sheet";
 import { LogPumpSheet } from "@/components/log-pump-sheet";
+import { EditEventSheet } from "@/components/edit-event-sheet";
 
 type SheetType = "feed" | "sleep" | "diaper" | "observation" | "pump" | "profile" | "settings" | "share" | "growth" | "import" | "digest" | null;
+
 
 function formatRelativeTime(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -59,6 +62,7 @@ export default function HomeScreen() {
   const { isAuthenticated } = useAuth();
   const { state, syncToCloud, loadFromCloud } = useStore();
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
+  const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
   const hasSyncedRef = useRef(false);
 
   // Auto-sync on app load when authenticated
@@ -118,7 +122,7 @@ export default function HomeScreen() {
       .reduce((sum, e) => sum + ((e.data as PumpData).amountMl || 0), 0);
   }, [todayEvents]);
 
-  const recentEvents = useMemo(() => todayEvents.slice(0, 8), [todayEvents]);
+  // Show all today's events (no limit)
 
   const ageInfo = useMemo(() => {
     if (!state.profile?.birthDate) return null;
@@ -376,25 +380,38 @@ export default function HomeScreen() {
 
         {/* Recent Activity */}
         <Text className="text-lg font-semibold text-foreground mb-3">Today's Activity</Text>
-        {recentEvents.length === 0 ? (
+        {todayEvents.length === 0 ? (
           <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={{ color: colors.muted, textAlign: "center" }}>
               No events logged today.{"\n"}Tap a button above to start tracking!
             </Text>
           </View>
         ) : (
-          recentEvents.map((event) => (
-            <View
+          todayEvents.map((event) => (
+            <Pressable
               key={event.id}
-              style={[styles.eventRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => {
+                setEditingEvent(event);
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              style={({ pressed }) => [
+                styles.eventRow,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                pressed && { opacity: 0.7 },
+              ]}
             >
               <View style={[styles.eventIcon, { backgroundColor: getEventColor(event.type) + "20" }]}>
                 <IconSymbol name={getEventIcon(event.type)} size={18} color={getEventColor(event.type)} />
               </View>
               <View style={styles.eventContent}>
-                <Text style={[styles.eventTitle, { color: colors.foreground }]}>
-                  {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={[styles.eventTitle, { color: colors.foreground }]}>
+                    {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
+                  </Text>
+                  <View style={{ backgroundColor: colors.primary + "15", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                    <Text style={{ color: colors.primary, fontSize: 9, fontWeight: "600" }}>EDIT</Text>
+                  </View>
+                </View>
                 <Text style={[styles.eventSummary, { color: colors.muted }]}>
                   {getEventSummary(event)}
                 </Text>
@@ -402,7 +419,7 @@ export default function HomeScreen() {
               <Text style={[styles.eventTime, { color: colors.muted }]}>
                 {formatTime(event.timestamp)}
               </Text>
-            </View>
+            </Pressable>
           ))
         )}
       </ScrollView>
@@ -441,6 +458,13 @@ export default function HomeScreen() {
       <Modal visible={activeSheet === "pump"} animationType="slide" presentationStyle="pageSheet">
         <LogPumpSheet onClose={closeSheet} />
       </Modal>
+
+      {/* Edit Event Sheet */}
+      <EditEventSheet
+        visible={editingEvent !== null}
+        event={editingEvent}
+        onClose={() => setEditingEvent(null)}
+      />
     </ScreenContainer>
   );
 }

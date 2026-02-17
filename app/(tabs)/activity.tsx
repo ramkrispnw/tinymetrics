@@ -375,7 +375,7 @@ export default function ActivityScreen() {
               style={{
                 color: dateRange === d.key ? "#fff" : colors.muted,
                 fontWeight: dateRange === d.key ? "700" : "500",
-                fontSize: 12,
+                fontSize: 14,
               }}
             >
               {d.key === "custom" && dateRange === "custom" && customRangeLabel
@@ -414,7 +414,7 @@ export default function ActivityScreen() {
               style={{
                 color: filter === f.key ? colors.primary : colors.muted,
                 fontWeight: filter === f.key ? "700" : "500",
-                fontSize: 13,
+                fontSize: 14,
               }}
             >
               {f.label}
@@ -531,40 +531,41 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   filterLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginBottom: 6,
+    marginBottom: 8,
+    marginTop: 4,
   },
   dateFilterScroll: {
-    marginBottom: 10,
+    marginBottom: 14,
     flexGrow: 0,
   },
   dateFilterRow: {
     flexDirection: "row",
-    gap: 6,
-    paddingRight: 8,
+    gap: 10,
+    paddingRight: 12,
   },
   dateFilterBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
     borderWidth: 1,
   },
   typeFilterScroll: {
-    marginBottom: 12,
+    marginBottom: 16,
     flexGrow: 0,
   },
   filterRow: {
     flexDirection: "row",
-    gap: 6,
-    paddingRight: 8,
+    gap: 10,
+    paddingRight: 12,
   },
   filterBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 22,
     borderWidth: 1,
   },
   dayHeader: {

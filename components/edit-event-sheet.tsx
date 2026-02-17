@@ -18,6 +18,7 @@ import {
   type SleepData,
   type DiaperData,
   type ObservationData,
+  type PumpData,
   formatTime,
   formatDate,
 } from "@/lib/store";
@@ -56,6 +57,12 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
   const [obsSeverity, setObsSeverity] = useState<"mild" | "moderate" | "severe">("mild");
   const [obsNotes, setObsNotes] = useState("");
 
+  // Pump fields
+  const [pumpAmountMl, setPumpAmountMl] = useState("");
+  const [pumpSide, setPumpSide] = useState<"left" | "right" | "both">("both");
+  const [pumpDuration, setPumpDuration] = useState("");
+  const [pumpNotes, setPumpNotes] = useState("");
+
   useEffect(() => {
     if (!event) return;
     setTimestamp(new Date(event.timestamp));
@@ -86,6 +93,14 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
         setObsCategory(d.category || "general");
         setObsSeverity(d.severity || "mild");
         setObsNotes(d.notes || "");
+        break;
+      }
+      case "pump": {
+        const d = event.data as PumpData;
+        setPumpAmountMl(d.amountMl ? String(d.amountMl) : "");
+        setPumpSide(d.side || "both");
+        setPumpDuration(d.durationMin ? String(d.durationMin) : "");
+        setPumpNotes(d.notes || "");
         break;
       }
     }
@@ -128,6 +143,15 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
           notes: obsNotes || undefined,
         };
         break;
+      case "pump":
+        data = {
+          ...(event.data as PumpData),
+          amountMl: pumpAmountMl ? parseFloat(pumpAmountMl) : undefined,
+          side: pumpSide,
+          durationMin: pumpDuration ? parseInt(pumpDuration) : undefined,
+          notes: pumpNotes || undefined,
+        };
+        break;
     }
     await updateEvent(event.id, {
       timestamp: timestamp.toISOString(),
@@ -143,6 +167,7 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
       case "sleep": return colors.sleep;
       case "diaper": return colors.diaper;
       case "observation": return colors.observation;
+      case "pump": return colors.pump;
       default: return colors.primary;
     }
   };
@@ -332,6 +357,62 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
               <TextInput
                 value={diaperNotes}
                 onChangeText={setDiaperNotes}
+                multiline
+                placeholder="Optional notes..."
+                placeholderTextColor={colors.muted + "80"}
+                style={[styles.input, styles.textArea, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+              />
+            </>
+          )}
+
+          {/* Pump fields */}
+          {event.type === "pump" && (
+            <>
+              <Text style={[styles.label, { color: colors.muted }]}>SIDE</Text>
+              <View style={styles.toggleRow}>
+                {(["left", "right", "both"] as const).map((s) => (
+                  <Pressable
+                    key={s}
+                    onPress={() => setPumpSide(s)}
+                    style={[
+                      styles.toggleBtn,
+                      {
+                        backgroundColor: pumpSide === s ? typeColor : colors.surface,
+                        borderColor: pumpSide === s ? typeColor : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={{ color: pumpSide === s ? "#fff" : colors.foreground, fontWeight: "600", fontSize: 13 }}>
+                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={[styles.label, { color: colors.muted }]}>AMOUNT (ML)</Text>
+              <TextInput
+                value={pumpAmountMl}
+                onChangeText={setPumpAmountMl}
+                keyboardType="numeric"
+                placeholder="e.g. 120"
+                placeholderTextColor={colors.muted + "80"}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+              />
+
+              <Text style={[styles.label, { color: colors.muted }]}>DURATION (MIN)</Text>
+              <TextInput
+                value={pumpDuration}
+                onChangeText={setPumpDuration}
+                keyboardType="numeric"
+                placeholder="e.g. 20"
+                placeholderTextColor={colors.muted + "80"}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+              />
+
+              <Text style={[styles.label, { color: colors.muted }]}>NOTES</Text>
+              <TextInput
+                value={pumpNotes}
+                onChangeText={setPumpNotes}
                 multiline
                 placeholder="Optional notes..."
                 placeholderTextColor={colors.muted + "80"}

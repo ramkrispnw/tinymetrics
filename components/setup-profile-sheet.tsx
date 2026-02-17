@@ -17,7 +17,9 @@ import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
 import type { WeightUnit, HeightUnit } from "@/lib/store";
 import { calculateAge } from "@/lib/store";
-import { pickImage } from "@/lib/image-utils";
+import { pickImage, getBase64FromUri } from "@/lib/image-utils";
+import { useAuth } from "@/hooks/use-auth";
+import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
 
 interface Props {
@@ -27,6 +29,8 @@ interface Props {
 export function SetupProfileSheet({ onClose }: Props) {
   const colors = useColors();
   const { state, updateProfile } = useStore();
+  const { isAuthenticated } = useAuth();
+  const uploadPhotoMutation = trpc.upload.photo.useMutation();
   const [name, setName] = useState(state.profile?.name || "");
   const [birthDate, setBirthDate] = useState(state.profile?.birthDate || "");
   const [weight, setWeight] = useState(state.profile?.weight?.toString() || "");
@@ -34,8 +38,11 @@ export function SetupProfileSheet({ onClose }: Props) {
   const [height, setHeight] = useState(state.profile?.height?.toString() || "");
   const [heightUnit, setHeightUnit] = useState<HeightUnit>(state.profile?.heightUnit || "cm");
   const [photoUri, setPhotoUri] = useState(state.profile?.photoUri || "");
+  const [pendingPhotoBase64, setPendingPhotoBase64] = useState<string | null>(null);
+  const [pendingPhotoMime, setPendingPhotoMime] = useState<string>("image/jpeg");
   const [sex, setSex] = useState<"boy" | "girl" | undefined>(state.profile?.sex);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const parsedBirthDate = birthDate.match(/^\d{4}-\d{2}-\d{2}$/) ? birthDate : null;
   const ageInfo = parsedBirthDate ? calculateAge(parsedBirthDate) : null;
@@ -45,6 +52,8 @@ export function SetupProfileSheet({ onClose }: Props) {
       const result = await pickImage(source);
       if (result) {
         setPhotoUri(result.uri);
+        setPendingPhotoBase64(result.base64 || null);
+        setPendingPhotoMime(result.mimeType || "image/jpeg");
         if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     } catch (e) {
@@ -67,6 +76,43 @@ export function SetupProfileSheet({ onClose }: Props) {
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
+
+    let finalPhotoUri = photoUri;
+
+    // Upload photo to S3 if user is authenticated and has a new local photo
+    if (isAuthenticated && pendingPhotoBase64) {
+      try {
+        setUploadingPhoto(true);
+        const { url } = await uploadPhotoMutation.mutateAsync({
+          base64: pendingPhotoBase64,
+          mimeType: pendingPhotoMime,
+        });
+        finalPhotoUri = url;
+        setUploadingPhoto(false);
+      } catch (e) {
+        console.warn("Photo upload failed, using local URI:", e);
+        setUploadingPhoto(false);
+        // Fall back to local URI if upload fails
+      }
+    } else if (isAuthenticated && photoUri && !photoUri.startsWith("http") && photoUri.length > 0) {
+      // Existing local photo that hasn't been uploaded yet — try to upload
+      try {
+        setUploadingPhoto(true);
+        const base64 = await getBase64FromUri(photoUri);
+        if (base64) {
+          const { url } = await uploadPhotoMutation.mutateAsync({
+            base64,
+            mimeType: "image/jpeg",
+          });
+          finalPhotoUri = url;
+        }
+        setUploadingPhoto(false);
+      } catch (e) {
+        console.warn("Photo re-upload failed:", e);
+        setUploadingPhoto(false);
+      }
+    }
+
     await updateProfile({
       name: name.trim(),
       birthDate: birthDate || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })(),
@@ -75,12 +121,13 @@ export function SetupProfileSheet({ onClose }: Props) {
       weightUnit,
       height: height ? parseFloat(height) : undefined,
       heightUnit,
-      photoUri: photoUri || undefined,
+      photoUri: finalPhotoUri || undefined,
     });
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
     setSaving(false);
+    setPendingPhotoBase64(null);
     onClose();
   };
 
@@ -124,6 +171,11 @@ export function SetupProfileSheet({ onClose }: Props) {
                 <Image source={{ uri: photoUri }} style={styles.avatarImage} />
               ) : (
                 <Text style={{ fontSize: 40 }}>👶</Text>
+              )}
+              {uploadingPhoto && (
+                <View style={styles.uploadOverlay}>
+                  <ActivityIndicator size="small" color="#fff" />
+                </View>
               )}
             </View>
             <View style={[styles.cameraOverlay, { backgroundColor: colors.primary }]}>
@@ -333,6 +385,13 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
+  },
+  uploadOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderRadius: 50,
+    alignItems: "center",
+    justifyContent: "center",
   },
   cameraOverlay: {
     position: "absolute",

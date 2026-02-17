@@ -79,3 +79,7 @@
 - [x] Update AI assistant context to include pump data
 - [x] Make sleep timer minimizable: timer runs in background while navigating other tabs
 - [x] Move pump summary card to top row alongside feed, diaper, sleep summaries
+- [x] Fix Home screen: show ALL today's events (not just first 8) under Today's Activity
+- [x] Add event editing capability on Home screen
+- [x] Fix Activity tab: increase filter spacing so they are clearly visible
+- [x] Sync baby photo across linked accounts when one user updates it

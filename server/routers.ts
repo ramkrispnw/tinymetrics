@@ -53,6 +53,25 @@ export const appRouter = router({
   }),
 
   // Household shared data (profile, growth, milestones)
+  // Photo upload to S3
+  upload: router({
+    photo: protectedProcedure
+      .input(
+        z.object({
+          base64: z.string().max(5000000), // base64-encoded image data
+          mimeType: z.string().default("image/jpeg"),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const buffer = Buffer.from(input.base64, "base64");
+        const ext = input.mimeType === "image/png" ? "png" : "jpg";
+        const randomSuffix = Math.random().toString(36).substring(2, 10);
+        const fileKey = `baby-photos/${ctx.user.id}-${Date.now()}-${randomSuffix}.${ext}`;
+        const { url } = await storagePut(fileKey, buffer, input.mimeType);
+        return { url };
+      }),
+  }),
+
   household: router({
     // Sync baby profile to cloud (shared across linked accounts)
     syncProfile: protectedProcedure
