@@ -19,10 +19,15 @@ import {
   saveLastSynced,
 } from "./store";
 import { trpc, getVanillaClient } from "./trpc";
+import { useAuth } from "@/hooks/use-auth";
+import { sendPartnerActivityNotification } from "./notifications";
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(DEFAULT_STATE);
   const [loaded, setLoaded] = useState(false);
+  const { user } = useAuth({ autoFetch: true });
+  const currentUserId = user?.id?.toString() || undefined;
+  const currentUserName = user?.name || undefined;
   const syncMutation = trpc.events.sync.useMutation();
   const deleteMutation = trpc.events.delete.useMutation();
   const updateMutation = trpc.events.update.useMutation();
@@ -57,7 +62,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         clientId: e.id,
         type: e.type,
         eventTimestamp: e.timestamp,
-        data: JSON.stringify(e.data),
+        data: JSON.stringify({ ...e.data, _loggedBy: e.loggedBy, _loggedByName: e.loggedByName }),
       }));
       for (let i = 0; i < eventsToSync.length; i += 100) {
         const batch = eventsToSync.slice(i, i + 100);
@@ -130,6 +135,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           } catch {
             parsedData = {};
           }
+          // Extract loggedBy info from data payload
+          const loggedBy = parsedData?._loggedBy || ce.userId?.toString();
+          const loggedByName = parsedData?._loggedByName || undefined;
+          // Remove internal fields from data
+          if (parsedData?._loggedBy) delete parsedData._loggedBy;
+          if (parsedData?._loggedByName) delete parsedData._loggedByName;
           return {
             id: ce.clientId,
             type: ce.type as BabyEvent["type"],
@@ -140,6 +151,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 ? ce.createdAt
                 : (ce.createdAt as Date).toISOString()
               : new Date().toISOString(),
+            loggedBy,
+            loggedByName,
           };
         });
 
@@ -147,11 +160,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           // Merge: cloud wins for same clientId, keep local-only events
           const mergedMap = new Map<string, BabyEvent>();
           for (const e of prev.events) mergedMap.set(e.id, e);
+          // Detect new partner events for notifications
+          const existingIds = new Set(prev.events.map((e) => e.id));
+          const newPartnerEvents = parsedEvents.filter(
+            (e) => !existingIds.has(e.id) && e.loggedBy && e.loggedBy !== currentUserId
+          );
           for (const e of parsedEvents) mergedMap.set(e.id, e);
           const merged = Array.from(mergedMap.values()).sort(
             (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           );
           saveEvents(merged);
+
+          // Send partner activity notifications if enabled
+          if (prev.settings.notifications?.partnerActivity !== false && newPartnerEvents.length > 0) {
+            for (const pe of newPartnerEvents.slice(0, 5)) {
+              sendPartnerActivityNotification(
+                pe.loggedByName || "Partner",
+                pe.type,
+              ).catch(() => {});
+            }
+          }
+
           return { ...prev, events: merged };
         });
         console.log(`[CloudSync] Pulled ${parsedEvents.length} events from cloud`);
@@ -226,7 +255,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } finally {
       syncInProgressRef.current = false;
     }
-  }, []);
+  }, [currentUserId]);
 
   // ─── Event CRUD (with cloud sync) ─────────────────────────────────────────
 
@@ -236,6 +265,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...event,
         id: generateId(),
         createdAt: new Date().toISOString(),
+        loggedBy: currentUserId,
+        loggedByName: currentUserName,
       };
       setState((prev) => {
         const updated = [newEvent, ...prev.events];
@@ -250,7 +281,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               clientId: newEvent.id,
               type: newEvent.type,
               eventTimestamp: newEvent.timestamp,
-              data: JSON.stringify(newEvent.data),
+              data: JSON.stringify({ ...newEvent.data, _loggedBy: newEvent.loggedBy, _loggedByName: newEvent.loggedByName }),
             },
           ],
         });
@@ -258,7 +289,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // Offline or not logged in — event is saved locally
       }
     },
-    [syncMutation]
+    [syncMutation, currentUserId, currentUserName]
   );
 
   const deleteEvent = useCallback(
@@ -344,6 +375,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             notes: "Profile updated",
           },
           createdAt: new Date().toISOString(),
+          loggedBy: currentUserId,
+          loggedByName: currentUserName,
         };
         updatedEvents = [growthEvent, ...prev.events];
         saveEvents(updatedEvents);
@@ -353,7 +386,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             clientId: growthEvent.id,
             type: growthEvent.type,
             eventTimestamp: growthEvent.timestamp,
-            data: JSON.stringify(growthEvent.data),
+            data: JSON.stringify({ ...growthEvent.data, _loggedBy: growthEvent.loggedBy, _loggedByName: growthEvent.loggedByName }),
           }],
         }).catch(() => {});
       }
@@ -406,6 +439,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             durationMin,
           },
           createdAt: new Date().toISOString(),
+          loggedBy: currentUserId,
+          loggedByName: currentUserName,
         };
         const updatedEvents = [newEvent, ...prev.events];
         saveEvents(updatedEvents);
@@ -418,7 +453,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 clientId: newEvent.id,
                 type: newEvent.type,
                 eventTimestamp: newEvent.timestamp,
-                data: JSON.stringify(newEvent.data),
+                data: JSON.stringify({ ...newEvent.data, _loggedBy: newEvent.loggedBy, _loggedByName: newEvent.loggedByName }),
               },
             ],
           })
@@ -427,7 +462,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return { ...prev, events: updatedEvents, activeSleep: null };
       });
     });
-  }, [syncMutation]);
+  }, [syncMutation, currentUserId, currentUserName]);
 
   // ─── Growth History (with cloud sync) ─────────────────────────────────────
 
@@ -437,6 +472,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...entry,
         id: generateId(),
         createdAt: new Date().toISOString(),
+        loggedBy: currentUserId,
+        loggedByName: currentUserName,
       };
       const growthEvent: BabyEvent = {
         id: generateId(),
@@ -450,6 +487,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           notes: "Growth log entry",
         },
         createdAt: new Date().toISOString(),
+        loggedBy: currentUserId,
+        loggedByName: currentUserName,
       };
       setState((prev) => {
         const updatedGrowth = [newEntry, ...prev.growthHistory];
@@ -471,14 +510,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             clientId: growthEvent.id,
             type: growthEvent.type,
             eventTimestamp: growthEvent.timestamp,
-            data: JSON.stringify(growthEvent.data),
+            data: JSON.stringify({ ...growthEvent.data, _loggedBy: growthEvent.loggedBy, _loggedByName: growthEvent.loggedByName }),
           }],
         });
       } catch {
         // Offline or not logged in
       }
     },
-    [syncMutation, syncGrowthMutation]
+    [syncMutation, syncGrowthMutation, currentUserId, currentUserName]
   );
 
   const deleteGrowthEntry = useCallback(async (id: string) => {
@@ -500,6 +539,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ...milestone,
       id: generateId(),
       createdAt: new Date().toISOString(),
+      loggedBy: currentUserId,
+      loggedByName: currentUserName,
     };
     setState((prev) => {
       const updated = [newMilestone, ...prev.milestones].sort(
@@ -512,7 +553,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }).catch(() => {});
       return { ...prev, milestones: updated };
     });
-  }, [syncMilestonesMutation]);
+  }, [syncMilestonesMutation, currentUserId, currentUserName]);
 
   const deleteMilestone = useCallback(async (id: string) => {
     setState((prev) => {
@@ -534,6 +575,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...e,
         id: generateId() + Math.random().toString(36).slice(2, 4),
         createdAt: new Date().toISOString(),
+        loggedBy: currentUserId,
+        loggedByName: currentUserName,
       }));
       return new Promise((resolve) => {
         setState((prev) => {
@@ -554,7 +597,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 clientId: e.id,
                 type: e.type,
                 eventTimestamp: e.timestamp,
-                data: JSON.stringify(e.data),
+                data: JSON.stringify({ ...e.data, _loggedBy: e.loggedBy, _loggedByName: e.loggedByName }),
               })),
             });
           }
@@ -564,7 +607,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return count as number;
       });
     },
-    [syncMutation]
+    [syncMutation, currentUserId, currentUserName]
   );
 
   if (!loaded) return null;

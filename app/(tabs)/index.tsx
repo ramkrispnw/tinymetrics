@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Pressable,
@@ -60,11 +61,27 @@ function formatRelativeTime(isoString: string): string {
 
 export default function HomeScreen() {
   const colors = useColors();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { state, deleteEvent, deleteEvents, syncToCloud, loadFromCloud } = useStore();
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
   const hasSyncedRef = useRef(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncNow = useCallback(async () => {
+    if (syncing) return;
+    setSyncing(true);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await syncToCloud();
+      await loadFromCloud();
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing, syncToCloud, loadFromCloud]);
 
   // Batch select state
   const [selectMode, setSelectMode] = useState(false);
@@ -136,6 +153,16 @@ export default function HomeScreen() {
       return () => clearTimeout(timer);
     }
   }, [isAuthenticated, syncToCloud, loadFromCloud]);
+
+  // Periodic auto-sync every 30 seconds when authenticated
+  // Ensures partner changes are picked up quickly
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(() => {
+      loadFromCloud().catch(() => {});
+    }, 30000); // 30 seconds
+    return () => clearInterval(interval);
+  }, [isAuthenticated, loadFromCloud]);
 
   const todayEvents = useMemo(
     () => state.events.filter((e) => isToday(e.timestamp)),
@@ -335,14 +362,34 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* Last Synced Indicator */}
-        {isAuthenticated && state.lastSyncedAt && (
-          <View style={[styles.syncRow, { backgroundColor: colors.success + "10" }]}>
-            <IconSymbol name="arrow.clockwise" size={12} color={colors.success} />
-            <Text style={{ color: colors.success, fontSize: 11, fontWeight: "500" }}>
-              Synced {formatRelativeTime(state.lastSyncedAt)}
-            </Text>
-          </View>
+        {/* Sync Now + Last Synced Indicator */}
+        {isAuthenticated && (
+          <Pressable
+            onPress={handleSyncNow}
+            disabled={syncing}
+            style={({ pressed }) => [
+              styles.syncNowRow,
+              { backgroundColor: colors.primary + "10", borderColor: colors.primary + "25" },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            {syncing ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <IconSymbol name="arrow.clockwise" size={16} color={colors.primary} />
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600" }}>
+                {syncing ? "Syncing..." : "Sync Now"}
+              </Text>
+              {state.lastSyncedAt && (
+                <Text style={{ color: colors.muted, fontSize: 11, marginTop: 1 }}>
+                  Last synced {formatRelativeTime(state.lastSyncedAt)}
+                </Text>
+              )}
+            </View>
+            <IconSymbol name="chevron.right" size={14} color={colors.primary} />
+          </Pressable>
         )}
 
         {/* Summary Cards */}
@@ -546,6 +593,11 @@ export default function HomeScreen() {
                   <Text style={[styles.eventSummary, { color: colors.muted }]}>
                     {getEventSummary(event)}
                   </Text>
+                  {event.loggedByName && (
+                    <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2, fontStyle: "italic" }}>
+                      Logged by {event.loggedBy === user?.id?.toString() ? "You" : event.loggedByName}
+                    </Text>
+                  )}
                 </View>
                 {!selectMode && (
                   <View style={{ alignItems: "center", gap: 4 }}>
@@ -745,14 +797,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 20,
   },
-  syncRow: {
+  syncNowRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    alignSelf: "flex-start",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
     marginBottom: 12,
   },
   selectBtn: {

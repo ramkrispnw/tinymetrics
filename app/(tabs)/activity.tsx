@@ -30,6 +30,7 @@ import {
   type PumpData,
 } from "@/lib/store";
 import { EditEventSheet } from "@/components/edit-event-sheet";
+import { useAuth } from "@/hooks/use-auth";
 import * as Haptics from "expo-haptics";
 
 type FilterType = "all" | EventType;
@@ -37,6 +38,7 @@ type DateRange = "today" | "yesterday" | "week" | "3months" | "custom";
 
 export default function ActivityScreen() {
   const colors = useColors();
+  const { user } = useAuth();
   const { state, deleteEvent, deleteEvents } = useStore();
   const [filter, setFilter] = useState<FilterType>("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
@@ -387,6 +389,11 @@ export default function ActivityScreen() {
             <Text style={[styles.eventSummary, { color: colors.muted }]}>
               {getEventSummary(item)}
             </Text>
+            {item.loggedByName && (
+              <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2, fontStyle: "italic" }}>
+                Logged by {item.loggedBy === user?.id?.toString() ? "You" : item.loggedByName}
+              </Text>
+            )}
           </View>
           {!selectMode && (
             <View style={styles.eventRight}>

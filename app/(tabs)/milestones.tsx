@@ -205,6 +205,11 @@ function MilestoneCard({
       {milestone.photoUri ? (
         <Image source={{ uri: milestone.photoUri }} style={s.cardPhoto} />
       ) : null}
+      {milestone.loggedByName ? (
+        <Text style={{ color: colors.muted, fontSize: 10, marginTop: 4, fontStyle: "italic" }}>
+          Logged by {milestone.loggedByName}
+        </Text>
+      ) : null}
     </View>
   );
 }

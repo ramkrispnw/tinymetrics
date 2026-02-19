@@ -105,3 +105,38 @@ export async function getScheduledReminders(): Promise<Notifications.Notificatio
   if (Platform.OS === "web") return [];
   return Notifications.getAllScheduledNotificationsAsync();
 }
+
+/**
+ * Send a local notification when a linked partner logs an activity.
+ * This is triggered during sync when new partner events are detected.
+ */
+export async function sendPartnerActivityNotification(
+  partnerName: string,
+  activityType: string,
+  summary?: string
+): Promise<void> {
+  if (Platform.OS === "web") return;
+
+  const granted = await requestNotificationPermissions();
+  if (!granted) return;
+
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("partner-activity", {
+      name: "Partner Activity",
+      importance: Notifications.AndroidImportance.DEFAULT,
+      sound: "default",
+    });
+  }
+
+  const typeLabel = activityType.charAt(0).toUpperCase() + activityType.slice(1);
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: `${partnerName} logged a ${typeLabel}`,
+      body: summary || `Your partner logged a new ${activityType} event.`,
+      data: { type: "partner_activity", activityType },
+      sound: "default",
+    },
+    trigger: null, // Immediate
+  });
+}

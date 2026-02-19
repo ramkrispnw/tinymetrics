@@ -86,3 +86,8 @@
 - [x] Add delete event functionality on Home screen Today's Activity (matching Activity tab)
 - [x] Add batch delete to Activity tab: select mode with checkboxes and bulk delete
 - [x] Add batch delete to Home screen Today's Activity: select mode with checkboxes and bulk delete
+- [x] Add user attribution: show which user logged each event, growth entry, and milestone
+- [x] Create notification settings section in Settings with toggles for partner activity notifications and feed reminders
+- [x] Send push notification to linked partner when an activity is logged (if enabled)
+- [x] Add Sync Now button at top of Home screen
+- [x] Implement real-time sync: push changes to linked account immediately when any change is made

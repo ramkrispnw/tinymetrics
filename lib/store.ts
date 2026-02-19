@@ -64,6 +64,8 @@ export interface BabyEvent {
   data: FeedData | SleepData | DiaperData | ObservationData | GrowthData | PumpData;
   imageUrl?: string;
   createdAt: string; // ISO
+  loggedBy?: string; // userId or display name of who logged this
+  loggedByName?: string; // display name for UI
 }
 
 export type WeightUnit = "kg" | "lbs";
@@ -80,10 +82,16 @@ export interface BabyProfile {
   heightUnit?: HeightUnit;
 }
 
+export interface NotificationSettings {
+  partnerActivity: boolean; // Notify when linked partner logs an activity
+  feedReminders: boolean; // Notify for feed reminders user has set
+}
+
 export interface AppSettings {
   units: "ml" | "oz";
   isPremium: boolean;
   theme: "auto" | "light" | "dark";
+  notifications: NotificationSettings;
 }
 
 export interface Milestone {
@@ -94,6 +102,8 @@ export interface Milestone {
   notes?: string;
   photoUri?: string;
   createdAt: string;
+  loggedBy?: string; // userId or display name
+  loggedByName?: string; // display name for UI
 }
 
 export type MilestoneCategory = "motor" | "social" | "language" | "cognitive" | "feeding" | "other";
@@ -115,6 +125,8 @@ export interface GrowthEntry {
   height?: number;
   heightUnit?: HeightUnit;
   createdAt: string;
+  loggedBy?: string; // userId or display name
+  loggedByName?: string; // display name for UI
 }
 
 export interface AppState {
@@ -129,10 +141,16 @@ export interface AppState {
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
 
+export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
+  partnerActivity: true,
+  feedReminders: true,
+};
+
 export const DEFAULT_SETTINGS: AppSettings = {
   units: "ml",
   isPremium: false,
   theme: "auto",
+  notifications: DEFAULT_NOTIFICATION_SETTINGS,
 };
 
 export const DEFAULT_STATE: AppState = {

@@ -13,7 +13,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { useStore, calculateAge } from "@/lib/store";
+import { useStore, calculateAge, type NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS } from "@/lib/store";
 import { generateEventsCSV, generateGrowthCSV, generateFullReport, shareData } from "@/lib/export-utils";
 import { useAuth } from "@/hooks/use-auth";
 import { startOAuthLogin } from "@/constants/oauth";
@@ -323,7 +323,62 @@ export function SettingsSheet({ onClose, onOpenShare, onEditProfile, onOpenDiges
           <IconSymbol name="chevron.right" size={16} color={colors.muted} />
         </Pressable>
 
+        {/* Notifications */}
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Notifications</Text>
+        <View style={[styles.settingRow, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: "column", alignItems: "stretch" }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+              <View style={[styles.exportIcon, { backgroundColor: colors.primary + "15" }]}>
+                <IconSymbol name="person.2.fill" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.settingTitle, { color: colors.foreground }]}>Partner Activity</Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
+                  Get notified when your linked partner logs an activity
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={state.settings.notifications?.partnerActivity ?? true}
+              onValueChange={(val) => {
+                updateSettings({ notifications: { ...(state.settings.notifications || DEFAULT_NOTIFICATION_SETTINGS), partnerActivity: val } });
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              trackColor={{ false: colors.border, true: colors.primary + "60" }}
+              thumbColor={(state.settings.notifications?.partnerActivity ?? true) ? colors.primary : colors.muted}
+            />
+          </View>
+          <View style={[{ height: 1, backgroundColor: colors.border, marginBottom: 14 }]} />
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+              <View style={[styles.exportIcon, { backgroundColor: colors.warning + "15" }]}>
+                <Text style={{ fontSize: 16 }}>🍼</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.settingTitle, { color: colors.foreground }]}>Feed Reminders</Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
+                  Enable or disable feed interval alerts
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={state.settings.notifications?.feedReminders ?? true}
+              onValueChange={(val) => {
+                updateSettings({ notifications: { ...(state.settings.notifications || DEFAULT_NOTIFICATION_SETTINGS), feedReminders: val } });
+                if (!val) {
+                  handleCancelReminder();
+                }
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              trackColor={{ false: colors.border, true: colors.primary + "60" }}
+              thumbColor={(state.settings.notifications?.feedReminders ?? true) ? colors.primary : colors.muted}
+            />
+          </View>
+        </View>
+
         {/* Feeding Reminders */}
+        {(state.settings.notifications?.feedReminders !== false) && (
+        <>
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>Feeding Reminders</Text>
         <View style={[styles.settingRow, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: "column", alignItems: "stretch" }]}>
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
@@ -379,6 +434,7 @@ export function SettingsSheet({ onClose, onOpenShare, onEditProfile, onOpenDiges
             ))}
           </View>
         </View>
+        </>)}
 
         {/* Weekly Digest */}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>Weekly Digest</Text>
