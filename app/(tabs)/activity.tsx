@@ -484,7 +484,7 @@ export default function ActivityScreen() {
       {/* Date Range Filter */}
       {!selectMode && (
         <>
-          <Text style={[styles.filterLabel, { color: colors.muted }]}>Date Range</Text>
+          <Text style={[styles.filterLabel, { color: colors.foreground }]}>DATE RANGE</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -511,15 +511,16 @@ export default function ActivityScreen() {
                   styles.dateFilterBtn,
                   {
                     backgroundColor: dateRange === d.key ? colors.primary : colors.surface,
-                    borderColor: dateRange === d.key ? colors.primary : colors.border,
+                    borderColor: dateRange === d.key ? colors.primary : colors.border + "80",
+                    borderWidth: dateRange === d.key ? 1.5 : 1.5,
                   },
                   pressed && { opacity: 0.8 },
                 ]}
               >
                 <Text
                   style={{
-                    color: dateRange === d.key ? "#fff" : colors.muted,
-                    fontWeight: dateRange === d.key ? "700" : "500",
+                    color: dateRange === d.key ? "#fff" : colors.foreground,
+                    fontWeight: dateRange === d.key ? "700" : "600",
                     fontSize: 14,
                   }}
                 >
@@ -532,7 +533,7 @@ export default function ActivityScreen() {
           </ScrollView>
 
           {/* Type Filters */}
-          <Text style={[styles.filterLabel, { color: colors.muted }]}>Event Type</Text>
+          <Text style={[styles.filterLabel, { color: colors.foreground }]}>EVENT TYPE</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -549,16 +550,17 @@ export default function ActivityScreen() {
                 style={({ pressed }) => [
                   styles.filterBtn,
                   {
-                    backgroundColor: filter === f.key ? colors.primary + "20" : colors.surface,
-                    borderColor: filter === f.key ? colors.primary : colors.border,
+                    backgroundColor: filter === f.key ? colors.primary + "25" : colors.surface,
+                    borderColor: filter === f.key ? colors.primary : colors.border + "80",
+                    borderWidth: filter === f.key ? 1.5 : 1.5,
                   },
                   pressed && { opacity: 0.8 },
                 ]}
               >
                 <Text
                   style={{
-                    color: filter === f.key ? colors.primary : colors.muted,
-                    fontWeight: filter === f.key ? "700" : "500",
+                    color: filter === f.key ? colors.primary : colors.foreground,
+                    fontWeight: filter === f.key ? "700" : "600",
                     fontSize: 14,
                   }}
                 >
@@ -710,15 +712,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   filterLabel: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "700",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    marginTop: 4,
+    letterSpacing: 1,
+    marginBottom: 10,
+    marginTop: 8,
   },
   dateFilterScroll: {
-    marginBottom: 14,
+    marginBottom: 16,
     flexGrow: 0,
   },
   dateFilterRow: {
@@ -727,13 +729,13 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   dateFilterBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
     borderRadius: 20,
-    borderWidth: 1,
+    borderWidth: 1.5,
   },
   typeFilterScroll: {
-    marginBottom: 16,
+    marginBottom: 18,
     flexGrow: 0,
   },
   filterRow: {
@@ -742,10 +744,10 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   filterBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
     borderRadius: 22,
-    borderWidth: 1,
+    borderWidth: 1.5,
   },
   dayHeader: {
     fontSize: 16,
