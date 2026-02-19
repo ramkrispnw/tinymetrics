@@ -481,98 +481,7 @@ export default function ActivityScreen() {
         </View>
       )}
 
-      {/* Date Range Filter */}
-      {!selectMode && (
-        <>
-          <Text style={[styles.filterLabel, { color: colors.foreground }]}>DATE RANGE</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.dateFilterScroll}
-            contentContainerStyle={styles.dateFilterRow}
-          >
-            {dateRanges.map((d) => (
-              <Pressable
-                key={d.key}
-                onPress={() => {
-                  if (d.key === "custom") {
-                    const now = new Date();
-                    const weekAgo = new Date(now);
-                    weekAgo.setDate(weekAgo.getDate() - 7);
-                    if (!customStart) setCustomStart(getDayKey(weekAgo.toISOString()));
-                    if (!customEnd) setCustomEnd(getDayKey(now.toISOString()));
-                    setShowCustomPicker(true);
-                  } else {
-                    setDateRange(d.key);
-                  }
-                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-                style={({ pressed }) => [
-                  styles.dateFilterBtn,
-                  {
-                    backgroundColor: dateRange === d.key ? colors.primary : colors.surface,
-                    borderColor: dateRange === d.key ? colors.primary : colors.border + "80",
-                    borderWidth: dateRange === d.key ? 1.5 : 1.5,
-                  },
-                  pressed && { opacity: 0.8 },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: dateRange === d.key ? "#fff" : colors.foreground,
-                    fontWeight: dateRange === d.key ? "700" : "600",
-                    fontSize: 14,
-                  }}
-                >
-                  {d.key === "custom" && dateRange === "custom" && customRangeLabel
-                    ? customRangeLabel
-                    : d.label}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          {/* Type Filters */}
-          <Text style={[styles.filterLabel, { color: colors.foreground }]}>EVENT TYPE</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.typeFilterScroll}
-            contentContainerStyle={styles.filterRow}
-          >
-            {typeFilters.map((f) => (
-              <Pressable
-                key={f.key}
-                onPress={() => {
-                  setFilter(f.key);
-                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-                style={({ pressed }) => [
-                  styles.filterBtn,
-                  {
-                    backgroundColor: filter === f.key ? colors.primary + "25" : colors.surface,
-                    borderColor: filter === f.key ? colors.primary : colors.border + "80",
-                    borderWidth: filter === f.key ? 1.5 : 1.5,
-                  },
-                  pressed && { opacity: 0.8 },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: filter === f.key ? colors.primary : colors.foreground,
-                    fontWeight: filter === f.key ? "700" : "600",
-                    fontSize: 14,
-                  }}
-                >
-                  {f.label}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </>
-      )}
-
-      {/* Event List */}
+      {/* Event List with Filter Header */}
       <FlatList
         data={flatData}
         keyExtractor={(item: any) => item.id || item.key}
@@ -588,6 +497,96 @@ export default function ActivityScreen() {
         }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: selectMode ? 80 : 32 }}
+        ListHeaderComponent={
+          !selectMode ? (
+            <View style={styles.filterContainer}>
+              {/* Date Range Filter */}
+              <Text style={[styles.filterLabel, { color: colors.foreground }]}>DATE RANGE</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.dateFilterScroll}
+                contentContainerStyle={styles.dateFilterRow}
+              >
+                {dateRanges.map((d) => (
+                  <Pressable
+                    key={d.key}
+                    onPress={() => {
+                      if (d.key === "custom") {
+                        const now = new Date();
+                        const weekAgo = new Date(now);
+                        weekAgo.setDate(weekAgo.getDate() - 7);
+                        if (!customStart) setCustomStart(getDayKey(weekAgo.toISOString()));
+                        if (!customEnd) setCustomEnd(getDayKey(now.toISOString()));
+                        setShowCustomPicker(true);
+                      } else {
+                        setDateRange(d.key);
+                      }
+                      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    style={({ pressed }) => [
+                      styles.dateFilterBtn,
+                      {
+                        backgroundColor: dateRange === d.key ? colors.primary : colors.surface,
+                        borderColor: dateRange === d.key ? colors.primary : colors.border + "80",
+                      },
+                      pressed && { opacity: 0.8 },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: dateRange === d.key ? "#fff" : colors.foreground,
+                        fontWeight: dateRange === d.key ? "700" : "600",
+                        fontSize: 14,
+                      }}
+                    >
+                      {d.key === "custom" && dateRange === "custom" && customRangeLabel
+                        ? customRangeLabel
+                        : d.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              {/* Type Filters */}
+              <Text style={[styles.filterLabel, { color: colors.foreground }]}>EVENT TYPE</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.typeFilterScroll}
+                contentContainerStyle={styles.filterRow}
+              >
+                {typeFilters.map((f) => (
+                  <Pressable
+                    key={f.key}
+                    onPress={() => {
+                      setFilter(f.key);
+                      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    style={({ pressed }) => [
+                      styles.filterBtn,
+                      {
+                        backgroundColor: filter === f.key ? colors.primary + "25" : colors.surface,
+                        borderColor: filter === f.key ? colors.primary : colors.border + "80",
+                      },
+                      pressed && { opacity: 0.8 },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: filter === f.key ? colors.primary : colors.foreground,
+                        fontWeight: filter === f.key ? "700" : "600",
+                        fontSize: 14,
+                      }}
+                    >
+                      {f.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={{ color: colors.muted, textAlign: "center" }}>
@@ -710,6 +709,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: 12,
+  },
+  filterContainer: {
+    flexShrink: 0,
   },
   filterLabel: {
     fontSize: 13,

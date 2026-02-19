@@ -92,3 +92,4 @@
 - [x] Add Sync Now button at top of Home screen
 - [x] Implement real-time sync: push changes to linked account immediately when any change is made
 - [x] Fix Activity tab: filter labels and buttons not clearly visible — improve contrast, sizing, and spacing
+- [x] Fix Activity tab: filter panes getting compressed when event list is long — fix height and button sizes
