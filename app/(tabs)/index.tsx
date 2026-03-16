@@ -462,7 +462,7 @@ export default function HomeScreen() {
 
         {/* Quick Actions */}
         <Text className="text-lg font-semibold text-foreground mb-3">Log Event</Text>
-        <View className="flex-row gap-3 mb-6">
+        <View className="flex-row gap-1.5 mb-6">
           {[
             { type: "feed" as const, label: "Feed", icon: "fork.knife" as const, color: colors.feed },
             { type: "sleep" as const, label: "Sleep", icon: "moon.fill" as const, color: colors.sleep },
@@ -484,7 +484,7 @@ export default function HomeScreen() {
               <View
                 style={[styles.quickActionIcon, { backgroundColor: action.color + "25" }]}
               >
-                <IconSymbol name={action.icon} size={24} color={action.color} />
+                <IconSymbol name={action.icon} size={18} color={action.color} />
               </View>
               <Text style={[styles.quickActionLabel, { color: colors.foreground }]}>
                 {action.label}
@@ -768,20 +768,22 @@ const styles = StyleSheet.create({
   quickAction: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+    borderRadius: 12,
     borderWidth: 1,
-    gap: 8,
+    gap: 6,
+    minWidth: 0,
   },
   quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
   },
   quickActionLabel: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "600",
   },
   emptyCard: {
