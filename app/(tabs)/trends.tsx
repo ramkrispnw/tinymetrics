@@ -25,6 +25,7 @@ import {
   type WeightUnit,
   type HeightUnit,
   type PumpData,
+  getSleepMinutesForDay,
 } from "@/lib/store";
 import * as Haptics from "expo-haptics";
 import { ChartAISummary } from "@/components/chart-ai-summary";
@@ -111,15 +112,20 @@ export default function TrendsScreen() {
   }, [dateRange, state.events]);
 
   const sleepData = useMemo(() => {
+    const allSleepEvents = state.events.filter((e) => e.type === "sleep");
     return dateRange.map((day) => {
-      const dayEvents = state.events.filter(
-        (e) => e.type === "sleep" && getDayKey(e.timestamp) === day
-      );
-      const totalMin = dayEvents.reduce(
-        (sum, e) => sum + ((e.data as SleepData).durationMin || 0),
-        0
-      );
-      return { day, value: totalMin, count: dayEvents.length };
+      // Sum sleep minutes that overlap with this calendar day,
+      // properly splitting overnight sleep across day boundaries
+      let totalMin = 0;
+      let count = 0;
+      for (const e of allSleepEvents) {
+        const mins = getSleepMinutesForDay(e, day);
+        if (mins > 0) {
+          totalMin += mins;
+          count++;
+        }
+      }
+      return { day, value: totalMin, count };
     });
   }, [dateRange, state.events]);
 

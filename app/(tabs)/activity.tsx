@@ -28,8 +28,11 @@ import {
   type DiaperData,
   type ObservationData,
   type PumpData,
+  type FormulaPrepData,
+  type MedicationData,
 } from "@/lib/store";
 import { EditEventSheet } from "@/components/edit-event-sheet";
+import { EventDetailSheet } from "@/components/event-detail-sheet";
 import { useAuth } from "@/hooks/use-auth";
 import * as Haptics from "expo-haptics";
 
@@ -43,6 +46,7 @@ export default function ActivityScreen() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
+  const [detailEvent, setDetailEvent] = useState<BabyEvent | null>(null);
   const [showCustomPicker, setShowCustomPicker] = useState(false);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -196,6 +200,8 @@ export default function ActivityScreen() {
       case "observation": return "eye.fill" as const;
       case "growth": return "chart.line.uptrend.xyaxis" as const;
       case "pump": return "drop.triangle.fill" as const;
+      case "formula_prep": return "flask.fill" as const;
+      case "medication": return "pills.fill" as const;
       default: return "info.circle.fill" as const;
     }
   };
@@ -208,6 +214,8 @@ export default function ActivityScreen() {
       case "observation": return colors.observation;
       case "growth": return colors.success;
       case "pump": return colors.pump;
+      case "formula_prep": return (colors as any).formula || colors.warning;
+      case "medication": return (colors as any).medication || colors.error;
       default: return colors.muted;
     }
   };
@@ -233,6 +241,7 @@ export default function ActivityScreen() {
         const d = event.data as DiaperData;
         const details = [];
         details.push(d.type === "both" ? "Pee & Poo" : d.type === "pee" ? "Pee" : "Poo");
+        if (d.pooSize) details.push(d.pooSize);
         if (d.pooColor) details.push(d.pooColor);
         if (d.pooConsistency) details.push(d.pooConsistency);
         return details.join(" · ");
@@ -258,6 +267,21 @@ export default function ActivityScreen() {
         const dur = d.durationMin ? formatDuration(d.durationMin) : "";
         const sideLabel = d.side === "both" ? "Both sides" : d.side === "left" ? "Left" : "Right";
         return [sideLabel, amt, dur].filter(Boolean).join(" · ");
+      }
+      case "formula_prep": {
+        const d = event.data as FormulaPrepData;
+        const amt = d.amountMl
+          ? state.settings.units === "oz"
+            ? `${mlToOz(d.amountMl)} oz`
+            : `${d.amountMl} ml`
+          : "";
+        return amt ? `Prepared ${amt}` : "Formula prepared";
+      }
+      case "medication": {
+        const d = event.data as MedicationData;
+        const parts = [d.name];
+        if (d.dosage) parts.push(d.dosage);
+        return parts.join(" · ");
       }
       default:
         return "";
@@ -320,6 +344,8 @@ export default function ActivityScreen() {
     { key: "observation", label: "Notes" },
     { key: "growth", label: "Growth" },
     { key: "pump", label: "Pump" },
+    { key: "formula_prep", label: "Formula" },
+    { key: "medication", label: "Meds" },
   ];
 
   const dateRanges: { key: DateRange; label: string }[] = [
@@ -346,7 +372,7 @@ export default function ActivityScreen() {
             if (selectMode) {
               toggleSelect(item.id);
             } else {
-              handleEdit(item);
+              setDetailEvent(item);
             }
           }}
           onLongPress={() => {
@@ -381,9 +407,19 @@ export default function ActivityScreen() {
                 {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
               </Text>
               {!selectMode && (
-                <View style={[styles.editBadge, { backgroundColor: colors.primary + "15" }]}>
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    handleEdit(item);
+                  }}
+                  style={({ pressed }) => [
+                    styles.editBadge,
+                    { backgroundColor: colors.primary + "15" },
+                    pressed && { opacity: 0.6 },
+                  ]}
+                >
                   <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "600" }}>EDIT</Text>
-                </View>
+                </Pressable>
               )}
             </View>
             <Text style={[styles.eventSummary, { color: colors.muted }]}>
@@ -610,6 +646,20 @@ export default function ActivityScreen() {
             <Text style={styles.batchDeleteBtnText}>Delete</Text>
           </Pressable>
         </View>
+      )}
+
+      {/* Event Detail Sheet */}
+      {detailEvent && (
+        <EventDetailSheet
+          visible={true}
+          event={detailEvent}
+          onClose={() => setDetailEvent(null)}
+          onEdit={() => {
+            const ev = detailEvent;
+            setDetailEvent(null);
+            setTimeout(() => handleEdit(ev), 200);
+          }}
+        />
       )}
 
       {/* Edit Event Sheet */}

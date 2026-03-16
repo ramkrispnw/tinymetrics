@@ -28,6 +28,8 @@ import {
   type FeedData,
   type SleepData,
   type DiaperData,
+  getSleepMinutesForDay,
+  getTodayKey,
   type ObservationData,
   type PumpData,
 } from "@/lib/store";
@@ -42,9 +44,13 @@ import { LogGrowthSheet } from "@/components/log-growth-sheet";
 import { ImportLogsSheet } from "@/components/import-logs-sheet";
 import { WeeklyDigestSheet } from "@/components/weekly-digest-sheet";
 import { LogPumpSheet } from "@/components/log-pump-sheet";
+import { LogFormulaPrepSheet } from "@/components/log-formula-prep-sheet";
+import { LogMedicationSheet } from "@/components/log-medication-sheet";
 import { EditEventSheet } from "@/components/edit-event-sheet";
+import { EventDetailSheet } from "@/components/event-detail-sheet";
+import type { FormulaPrepData, MedicationData } from "@/lib/store";
 
-type SheetType = "feed" | "sleep" | "diaper" | "observation" | "pump" | "profile" | "settings" | "share" | "growth" | "import" | "digest" | null;
+type SheetType = "feed" | "sleep" | "diaper" | "observation" | "pump" | "formula_prep" | "medication" | "profile" | "settings" | "share" | "growth" | "import" | "digest" | null;
 
 
 function formatRelativeTime(isoString: string): string {
@@ -65,6 +71,7 @@ export default function HomeScreen() {
   const { state, deleteEvent, deleteEvents, syncToCloud, loadFromCloud } = useStore();
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
+  const [viewingEvent, setViewingEvent] = useState<BabyEvent | null>(null);
   const hasSyncedRef = useRef(false);
   const [syncing, setSyncing] = useState(false);
 
@@ -192,10 +199,12 @@ export default function HomeScreen() {
   }, [todayEvents]);
 
   const todaySleepMin = useMemo(() => {
-    return todayEvents
-      .filter((e) => e.type === "sleep")
-      .reduce((sum, e) => sum + ((e.data as SleepData).durationMin || 0), 0);
-  }, [todayEvents]);
+    const today = getTodayKey();
+    // Include ALL sleep events (not just today's) to capture overnight sleep
+    // that started yesterday but extends into today
+    const allSleepEvents = state.events.filter((e) => e.type === "sleep");
+    return allSleepEvents.reduce((sum, e) => sum + getSleepMinutesForDay(e, today), 0);
+  }, [state.events]);
 
   const todayPumpMl = useMemo(() => {
     return todayEvents
@@ -256,6 +265,8 @@ export default function HomeScreen() {
       case "diaper": return "drop.fill" as const;
       case "observation": return "eye.fill" as const;
       case "pump": return "drop.triangle.fill" as const;
+      case "formula_prep": return "flask.fill" as const;
+      case "medication": return "pills.fill" as const;
       default: return "info.circle.fill" as const;
     }
   };
@@ -267,6 +278,8 @@ export default function HomeScreen() {
       case "diaper": return colors.diaper;
       case "observation": return colors.observation;
       case "pump": return colors.pump;
+      case "formula_prep": return colors.formula;
+      case "medication": return colors.medication;
       default: return colors.muted;
     }
   };
@@ -286,7 +299,11 @@ export default function HomeScreen() {
       }
       case "diaper": {
         const d = event.data as DiaperData;
-        return d.type === "both" ? "Pee & Poo" : d.type === "pee" ? "Pee" : "Poo";
+        const parts = [d.type === "both" ? "Pee & Poo" : d.type === "pee" ? "Pee" : "Poo"];
+        if (d.pooSize) parts.push(d.pooSize);
+        if (d.pooColor) parts.push(d.pooColor);
+        if (d.pooConsistency) parts.push(d.pooConsistency);
+        return parts.join(" \u00b7 ");
       }
       case "observation": {
         const d = event.data as ObservationData;
@@ -298,6 +315,17 @@ export default function HomeScreen() {
         const dur = d.durationMin ? formatDuration(d.durationMin) : "";
         const sideLabel = d.side === "both" ? "Both sides" : d.side === "left" ? "Left" : "Right";
         return [sideLabel, amt, dur].filter(Boolean).join(" · ");
+      }
+      case "formula_prep": {
+        const d = event.data as FormulaPrepData;
+        const amt = d.amountMl ? displayAmount(d.amountMl) : "";
+        return amt || "Formula prepared";
+      }
+      case "medication": {
+        const d = event.data as MedicationData;
+        const parts = [d.name];
+        if (d.dosage) parts.push(d.dosage);
+        return parts.join(" · ");
       }
       default:
         return "";
@@ -441,6 +469,8 @@ export default function HomeScreen() {
             { type: "diaper" as const, label: "Diaper", icon: "drop.fill" as const, color: colors.diaper },
             { type: "observation" as const, label: "Note", icon: "eye.fill" as const, color: colors.observation },
             { type: "pump" as const, label: "Pump", icon: "drop.triangle.fill" as const, color: colors.pump },
+            { type: "formula_prep" as const, label: "Formula", icon: "flask.fill" as const, color: colors.formula },
+            { type: "medication" as const, label: "Meds", icon: "pills.fill" as const, color: colors.medication },
           ].map((action) => (
             <Pressable
               key={action.type}
@@ -549,7 +579,7 @@ export default function HomeScreen() {
                   if (selectMode) {
                     toggleSelect(event.id);
                   } else {
-                    setEditingEvent(event);
+                    setViewingEvent(event);
                     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }
                 }}
@@ -582,7 +612,7 @@ export default function HomeScreen() {
                 <View style={styles.eventContent}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                     <Text style={[styles.eventTitle, { color: colors.foreground }]}>
-                      {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
+                      {event.type === "formula_prep" ? "Formula Prep" : event.type.charAt(0).toUpperCase() + event.type.slice(1)}
                     </Text>
                     {!selectMode && (
                       <View style={{ backgroundColor: colors.primary + "15", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
@@ -679,6 +709,24 @@ export default function HomeScreen() {
       <Modal visible={activeSheet === "pump"} animationType="slide" presentationStyle="pageSheet">
         <LogPumpSheet onClose={closeSheet} />
       </Modal>
+      <Modal visible={activeSheet === "formula_prep"} animationType="slide" presentationStyle="pageSheet">
+        <LogFormulaPrepSheet onClose={closeSheet} />
+      </Modal>
+      <Modal visible={activeSheet === "medication"} animationType="slide" presentationStyle="pageSheet">
+        <LogMedicationSheet onClose={closeSheet} />
+      </Modal>
+
+      {/* Event Detail Sheet */}
+      <EventDetailSheet
+        visible={viewingEvent !== null}
+        event={viewingEvent}
+        onClose={() => setViewingEvent(null)}
+        onEdit={() => {
+          const ev = viewingEvent;
+          setViewingEvent(null);
+          setTimeout(() => setEditingEvent(ev), 300);
+        }}
+      />
 
       {/* Edit Event Sheet */}
       <EditEventSheet

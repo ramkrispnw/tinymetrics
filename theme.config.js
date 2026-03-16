@@ -14,6 +14,8 @@ const themeColors = {
   diaper: { light: '#F97316', dark: '#FB923C' },
   observation: { light: '#EC4899', dark: '#F472B6' },
   pump: { light: '#E879A0', dark: '#F0A0B8' },
+  formula: { light: '#14B8A6', dark: '#2DD4BF' },
+  medication: { light: '#06B6D4', dark: '#22D3EE' },
 };
 
 module.exports = { themeColors };

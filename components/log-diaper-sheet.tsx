@@ -8,12 +8,13 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
+  KeyboardAvoidingView,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
-import type { DiaperType, PooColor, PooConsistency, DiaperData } from "@/lib/store";
+import type { DiaperType, PooColor, PooConsistency, PooSize, DiaperData } from "@/lib/store";
 import * as Haptics from "expo-haptics";
 import { pickImage } from "@/lib/image-utils";
 import { trpc } from "@/lib/trpc";
@@ -29,6 +30,7 @@ export function LogDiaperSheet({ onClose }: Props) {
   const [type, setType] = useState<DiaperType>("pee");
   const [pooColor, setPooColor] = useState<PooColor | undefined>();
   const [pooConsistency, setPooConsistency] = useState<PooConsistency | undefined>();
+  const [pooSize, setPooSize] = useState<PooSize | undefined>();
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [eventDate, setEventDate] = useState(new Date());
@@ -41,6 +43,7 @@ export function LogDiaperSheet({ onClose }: Props) {
       type,
       pooColor: type !== "pee" ? pooColor : undefined,
       pooConsistency: type !== "pee" ? pooConsistency : undefined,
+      pooSize: type !== "pee" ? pooSize : undefined,
       notes: notes || undefined,
     };
 
@@ -82,6 +85,10 @@ export function LogDiaperSheet({ onClose }: Props) {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} className="px-4 pt-2">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}
         <View style={styles.header}>
@@ -214,6 +221,40 @@ export function LogDiaperSheet({ onClose }: Props) {
               ))}
             </View>
 
+            <Text style={[styles.sectionLabel, { color: colors.muted }]}>Size</Text>
+            <View style={styles.consistencyRow}>
+              {(["small", "medium", "large"] as PooSize[]).map((s) => (
+                <Pressable
+                  key={s}
+                  onPress={() => {
+                    setPooSize(s);
+                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  style={({ pressed }) => [
+                    styles.consistencyBtn,
+                    {
+                      backgroundColor: pooSize === s ? colors.diaper + "20" : colors.surface,
+                      borderColor: pooSize === s ? colors.diaper : colors.border,
+                    },
+                    pressed && { opacity: 0.8 },
+                  ]}
+                >
+                  <Text style={{ fontSize: 20 }}>
+                    {s === "small" ? "🟢" : s === "medium" ? "🟡" : "🟠"}
+                  </Text>
+                  <Text
+                    style={{
+                      color: pooSize === s ? colors.diaper : colors.foreground,
+                      fontWeight: pooSize === s ? "700" : "500",
+                      fontSize: 13,
+                    }}
+                  >
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
             <Text style={[styles.sectionLabel, { color: colors.muted }]}>Consistency</Text>
             <View style={styles.consistencyRow}>
               {consistencies.map((c) => (
@@ -261,6 +302,7 @@ export function LogDiaperSheet({ onClose }: Props) {
           />
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </ScreenContainer>
   );
 }

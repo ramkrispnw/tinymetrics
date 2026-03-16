@@ -52,6 +52,10 @@ const MAPPING = {
   "drop.triangle.fill": "water-drop",
   "checkmark.square.fill": "check-box",
   "square": "check-box-outline-blank",
+  "flask.fill": "science",
+  "pills.fill": "medication",
+  "bell.fill": "notifications",
+  "bell.slash.fill": "notifications-off",
 } as IconMapping;
 
 export function IconSymbol({

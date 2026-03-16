@@ -107,6 +107,67 @@ export async function getScheduledReminders(): Promise<Notifications.Notificatio
 }
 
 /**
+ * Schedule a medication reminder notification.
+ */
+export async function scheduleMedicationReminder(
+  intervalHours: number,
+  medicationName: string,
+  babyName: string
+): Promise<string | null> {
+  if (Platform.OS === "web") return null;
+
+  const granted = await requestNotificationPermissions();
+  if (!granted) return null;
+
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("medication-reminders", {
+      name: "Medication Reminders",
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      sound: "default",
+    });
+  }
+
+  // Cancel existing medication reminders for this medication first
+  await cancelMedicationReminders(medicationName);
+
+  const intervalSeconds = intervalHours * 3600;
+
+  const id = await Notifications.scheduleNotificationAsync({
+    content: {
+      title: `Time for ${babyName}'s ${medicationName}`,
+      body: `It's been ${intervalHours} hour${intervalHours !== 1 ? "s" : ""}. Time for the next dose of ${medicationName}.`,
+      data: { type: "medication_reminder", medicationName },
+      sound: "default",
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: intervalSeconds,
+      repeats: true,
+    },
+  });
+
+  return id;
+}
+
+/**
+ * Cancel medication reminders, optionally filtered by medication name.
+ */
+export async function cancelMedicationReminders(medicationName?: string): Promise<void> {
+  if (Platform.OS === "web") return;
+
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const n of scheduled) {
+    const data = n.content.data as any;
+    if (data?.type === "medication_reminder") {
+      if (!medicationName || data.medicationName === medicationName) {
+        await Notifications.cancelScheduledNotificationAsync(n.identifier);
+      }
+    }
+  }
+}
+
+/**
  * Send a local notification when a linked partner logs an activity.
  * This is triggered during sync when new partner events are detected.
  */

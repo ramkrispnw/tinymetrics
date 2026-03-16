@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
+  KeyboardAvoidingView,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -108,6 +109,7 @@ export function LogFeedSheet({ onClose }: Props) {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} className="px-4 pt-2">
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}
         <View style={styles.header}>
@@ -290,6 +292,7 @@ export function LogFeedSheet({ onClose }: Props) {
           />
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </ScreenContainer>
   );
 }

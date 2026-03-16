@@ -13,6 +13,8 @@ export const themeColors: {
   diaper: { light: string; dark: string };
   observation: { light: string; dark: string };
   pump: { light: string; dark: string };
+  formula: { light: string; dark: string };
+  medication: { light: string; dark: string };
 };
 
 declare const themeConfig: {

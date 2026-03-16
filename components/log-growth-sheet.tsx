@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -76,6 +77,7 @@ export function LogGrowthSheet({ onClose }: Props) {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} className="px-4 pt-2">
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}
         <View style={styles.header}>
@@ -257,6 +259,7 @@ export function LogGrowthSheet({ onClose }: Props) {
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </ScreenContainer>
   );
 }

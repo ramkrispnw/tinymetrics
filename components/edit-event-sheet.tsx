@@ -19,6 +19,9 @@ import {
   type DiaperData,
   type ObservationData,
   type PumpData,
+  type FormulaPrepData,
+  type MedicationData,
+  type PooSize,
   formatTime,
   formatDate,
 } from "@/lib/store";
@@ -63,6 +66,19 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
   const [pumpDuration, setPumpDuration] = useState("");
   const [pumpNotes, setPumpNotes] = useState("");
 
+  // Poo size
+  const [pooSize, setPooSize] = useState<PooSize | "">("")
+
+  // Formula prep fields
+  const [formulaAmountMl, setFormulaAmountMl] = useState("");
+  const [formulaNotes, setFormulaNotes] = useState("");
+
+  // Medication fields
+  const [medName, setMedName] = useState("");
+  const [medDosage, setMedDosage] = useState("");
+  const [medFrequency, setMedFrequency] = useState("");
+  const [medNotes, setMedNotes] = useState("");
+
   useEffect(() => {
     if (!event) return;
     setTimestamp(new Date(event.timestamp));
@@ -85,6 +101,7 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
         setDiaperType(d.type || "pee");
         setPooColor(d.pooColor || "");
         setPooConsistency(d.pooConsistency || "");
+        setPooSize(d.pooSize || "");
         setDiaperNotes(d.notes || "");
         break;
       }
@@ -101,6 +118,20 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
         setPumpSide(d.side || "both");
         setPumpDuration(d.durationMin ? String(d.durationMin) : "");
         setPumpNotes(d.notes || "");
+        break;
+      }
+      case "formula_prep": {
+        const d = event.data as FormulaPrepData;
+        setFormulaAmountMl(d.amountMl ? String(d.amountMl) : "");
+        setFormulaNotes(d.notes || "");
+        break;
+      }
+      case "medication": {
+        const d = event.data as MedicationData;
+        setMedName(d.name || "");
+        setMedDosage(d.dosage || "");
+        setMedFrequency(d.frequency || "");
+        setMedNotes(d.notes || "");
         break;
       }
     }
@@ -132,6 +163,7 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
           type: diaperType,
           pooColor: pooColor || undefined,
           pooConsistency: pooConsistency || undefined,
+          pooSize: pooSize || undefined,
           notes: diaperNotes || undefined,
         };
         break;
@@ -152,6 +184,20 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
           notes: pumpNotes || undefined,
         };
         break;
+      case "formula_prep":
+        data = {
+          amountMl: formulaAmountMl ? parseFloat(formulaAmountMl) : undefined,
+          notes: formulaNotes || undefined,
+        };
+        break;
+      case "medication":
+        data = {
+          name: medName,
+          dosage: medDosage || undefined,
+          frequency: medFrequency || undefined,
+          notes: medNotes || undefined,
+        };
+        break;
     }
     await updateEvent(event.id, {
       timestamp: timestamp.toISOString(),
@@ -168,6 +214,8 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
       case "diaper": return colors.diaper;
       case "observation": return colors.observation;
       case "pump": return colors.pump;
+      case "formula_prep": return (colors as any).formula || colors.warning;
+      case "medication": return (colors as any).medication || colors.error;
       default: return colors.primary;
     }
   };
@@ -333,6 +381,27 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
 
               {(diaperType === "poo" || diaperType === "both") && (
                 <>
+                  <Text style={[styles.label, { color: colors.muted }]}>POO SIZE</Text>
+                  <View style={styles.toggleRow}>
+                    {(["small", "medium", "large"] as const).map((s) => (
+                      <Pressable
+                        key={s}
+                        onPress={() => setPooSize(s)}
+                        style={[
+                          styles.toggleBtn,
+                          {
+                            backgroundColor: pooSize === s ? typeColor : colors.surface,
+                            borderColor: pooSize === s ? typeColor : colors.border,
+                          },
+                        ]}
+                      >
+                        <Text style={{ color: pooSize === s ? "#fff" : colors.foreground, fontWeight: "600", fontSize: 13 }}>
+                          {s.charAt(0).toUpperCase() + s.slice(1)}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
                   <Text style={[styles.label, { color: colors.muted }]}>POO COLOR</Text>
                   <TextInput
                     value={pooColor}
@@ -413,6 +482,73 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
               <TextInput
                 value={pumpNotes}
                 onChangeText={setPumpNotes}
+                multiline
+                placeholder="Optional notes..."
+                placeholderTextColor={colors.muted + "80"}
+                style={[styles.input, styles.textArea, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+              />
+            </>
+          )}
+
+          {/* Formula Prep fields */}
+          {event.type === "formula_prep" && (
+            <>
+              <Text style={[styles.label, { color: colors.muted }]}>AMOUNT (ML)</Text>
+              <TextInput
+                value={formulaAmountMl}
+                onChangeText={setFormulaAmountMl}
+                keyboardType="numeric"
+                placeholder="e.g. 120"
+                placeholderTextColor={colors.muted + "80"}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+              />
+
+              <Text style={[styles.label, { color: colors.muted }]}>NOTES</Text>
+              <TextInput
+                value={formulaNotes}
+                onChangeText={setFormulaNotes}
+                multiline
+                placeholder="Optional notes..."
+                placeholderTextColor={colors.muted + "80"}
+                style={[styles.input, styles.textArea, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+              />
+            </>
+          )}
+
+          {/* Medication fields */}
+          {event.type === "medication" && (
+            <>
+              <Text style={[styles.label, { color: colors.muted }]}>MEDICATION NAME</Text>
+              <TextInput
+                value={medName}
+                onChangeText={setMedName}
+                placeholder="e.g. Tylenol, Vitamin D"
+                placeholderTextColor={colors.muted + "80"}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+              />
+
+              <Text style={[styles.label, { color: colors.muted }]}>DOSAGE</Text>
+              <TextInput
+                value={medDosage}
+                onChangeText={setMedDosage}
+                placeholder="e.g. 2.5 ml, 1 drop"
+                placeholderTextColor={colors.muted + "80"}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+              />
+
+              <Text style={[styles.label, { color: colors.muted }]}>FREQUENCY</Text>
+              <TextInput
+                value={medFrequency}
+                onChangeText={setMedFrequency}
+                placeholder="e.g. every 6 hours, twice daily"
+                placeholderTextColor={colors.muted + "80"}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+              />
+
+              <Text style={[styles.label, { color: colors.muted }]}>NOTES</Text>
+              <TextInput
+                value={medNotes}
+                onChangeText={setMedNotes}
                 multiline
                 placeholder="Optional notes..."
                 placeholderTextColor={colors.muted + "80"}

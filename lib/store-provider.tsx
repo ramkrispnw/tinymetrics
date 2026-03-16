@@ -496,12 +496,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         saveGrowthHistory(updatedGrowth);
         saveEvents(updatedEvents);
 
+        // Auto-update baby profile with latest growth measurements
+        let updatedProfile = prev.profile;
+        if (updatedProfile) {
+          const profileUpdates: Partial<BabyProfile> = {};
+          if (entry.weight != null) {
+            profileUpdates.weight = entry.weight;
+            profileUpdates.weightUnit = entry.weightUnit || "kg";
+          }
+          if (entry.height != null) {
+            profileUpdates.height = entry.height;
+            profileUpdates.heightUnit = entry.heightUnit || "cm";
+          }
+          if ((entry as any).headCircumference != null) {
+            (profileUpdates as any).headCircumference = (entry as any).headCircumference;
+          }
+          if (Object.keys(profileUpdates).length > 0) {
+            updatedProfile = { ...updatedProfile, ...profileUpdates };
+            saveProfile(updatedProfile);
+            // Sync profile to cloud
+            syncProfileMutation.mutateAsync({
+              profile: JSON.stringify(updatedProfile),
+            }).catch(() => {});
+          }
+        }
+
         // Sync growth history to cloud
         syncGrowthMutation.mutateAsync({
           growthHistory: JSON.stringify(updatedGrowth),
         }).catch(() => {});
 
-        return { ...prev, growthHistory: updatedGrowth, events: updatedEvents };
+        return { ...prev, growthHistory: updatedGrowth, events: updatedEvents, profile: updatedProfile || prev.profile };
       });
       // Sync growth event to cloud
       try {

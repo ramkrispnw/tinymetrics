@@ -3,7 +3,7 @@ import { createContext, useContext } from "react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type EventType = "feed" | "sleep" | "diaper" | "observation" | "growth" | "pump";
+export type EventType = "feed" | "sleep" | "diaper" | "observation" | "growth" | "pump" | "formula_prep" | "medication";
 
 export type PumpSide = "left" | "right" | "both";
 
@@ -11,6 +11,7 @@ export type FeedMethod = "bottle" | "breast_left" | "breast_right" | "solid";
 export type DiaperType = "pee" | "poo" | "both";
 export type PooColor = "yellow" | "green" | "brown" | "black" | "red";
 export type PooConsistency = "liquid" | "soft" | "firm" | "hard";
+export type PooSize = "small" | "medium" | "large";
 export type ObservationCategory = "rash" | "fast_breathing" | "fever" | "vomiting" | "cough" | "other";
 export type Severity = "mild" | "moderate" | "severe";
 
@@ -32,6 +33,7 @@ export interface DiaperData {
   type: DiaperType;
   pooColor?: PooColor;
   pooConsistency?: PooConsistency;
+  pooSize?: PooSize;
   notes?: string;
 }
 
@@ -49,6 +51,18 @@ export interface PumpData {
   notes?: string;
 }
 
+export interface FormulaPrepData {
+  amountMl?: number;
+  notes?: string;
+}
+
+export interface MedicationData {
+  name: string;
+  dosage?: string;
+  frequency?: string; // e.g. "every 6 hours", "twice daily"
+  notes?: string;
+}
+
 export interface GrowthData {
   weight?: number;
   weightUnit?: WeightUnit;
@@ -61,7 +75,7 @@ export interface BabyEvent {
   id: string;
   type: EventType;
   timestamp: string; // ISO
-  data: FeedData | SleepData | DiaperData | ObservationData | GrowthData | PumpData;
+  data: FeedData | SleepData | DiaperData | ObservationData | GrowthData | PumpData | FormulaPrepData | MedicationData;
   imageUrl?: string;
   createdAt: string; // ISO
   loggedBy?: string; // userId or display name of who logged this
@@ -341,6 +355,36 @@ export function getProfileSummary(profile: BabyProfile | null): string {
     summary += `, Height: ${profile.height} ${profile.heightUnit || "cm"}`;
   }
   return summary;
+}
+
+/**
+ * Calculate sleep minutes attributed to a specific day, splitting overnight sleep
+ * across calendar day boundaries. For example, sleep from 10pm-2am (240 min)
+ * attributes 120 min to the start day and 120 min to the next day.
+ */
+export function getSleepMinutesForDay(event: BabyEvent, targetDay: string): number {
+  if (event.type !== "sleep") return 0;
+  const data = event.data as SleepData;
+  const totalMin = data.durationMin || 0;
+  if (totalMin <= 0) return 0;
+
+  // Parse the sleep start time
+  const startTime = data.startTime ? new Date(data.startTime) : new Date(event.timestamp);
+  const endTime = data.endTime
+    ? new Date(data.endTime)
+    : new Date(startTime.getTime() + totalMin * 60 * 1000);
+
+  // Get the target day boundaries (midnight to midnight in local time)
+  const [year, month, day] = targetDay.split("-").map(Number);
+  const dayStart = new Date(year, month - 1, day, 0, 0, 0, 0);
+  const dayEnd = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
+
+  // Calculate overlap between sleep window and target day
+  const overlapStart = Math.max(startTime.getTime(), dayStart.getTime());
+  const overlapEnd = Math.min(endTime.getTime(), dayEnd.getTime());
+
+  if (overlapStart >= overlapEnd) return 0;
+  return Math.round((overlapEnd - overlapStart) / 60000);
 }
 
 export function isToday(isoString: string): boolean {

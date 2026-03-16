@@ -93,3 +93,14 @@
 - [x] Implement real-time sync: push changes to linked account immediately when any change is made
 - [x] Fix Activity tab: filter labels and buttons not clearly visible — improve contrast, sizing, and spacing
 - [x] Fix Activity tab: filter panes getting compressed when event list is long — fix height and button sizes
+
+# Pain Points to Fix (Current Sprint)
+
+- [x] Fix keyboard handling: ensure text input fields (notes, observations) reposition when keyboard opens
+- [x] Add Formula Prep event type: track when and how much formula was prepared
+- [x] Add Medication tracking: log medications and set reminders based on schedule
+- [x] Fix sync delay: ensure events created by one user appear immediately on linked account (no delay)
+- [x] Auto-update baby profile: when growth log is added, update baby's profile weight/height
+- [x] Add poop size tracking: for poo/mixed diaper events, add small/medium/large input
+- [x] Fix overnight sleep accounting: split sleep across two calendar days (e.g., 10pm-2am = 4 hours on day 1, 0 on day 2)
+- [x] Add event detail view: when clicking an event, show full details including notes, descriptions, images, and metadata
