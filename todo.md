@@ -105,3 +105,5 @@
 - [x] Fix overnight sleep accounting: split sleep across two calendar days (e.g., 10pm-2am = 4 hours on day 1, 0 on day 2)
 - [x] Add event detail view: when clicking an event, show full details including notes, descriptions, images, and metadata
 - [x] Fix Log Event row: icons overflow their circular buttons — reduce icon size and adjust button containers for 7 items
+- [x] Split Log Event buttons into two rows (4+3) for larger tap targets on smaller screens
+- [x] Add color-coded backgrounds to each Log Event button matching its event type

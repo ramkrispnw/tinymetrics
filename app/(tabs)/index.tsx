@@ -462,8 +462,8 @@ export default function HomeScreen() {
 
         {/* Quick Actions */}
         <Text className="text-lg font-semibold text-foreground mb-3">Log Event</Text>
-        <View className="flex-row gap-1.5 mb-6">
-          {[
+        {(() => {
+          const allActions = [
             { type: "feed" as const, label: "Feed", icon: "fork.knife" as const, color: colors.feed },
             { type: "sleep" as const, label: "Sleep", icon: "moon.fill" as const, color: colors.sleep },
             { type: "diaper" as const, label: "Diaper", icon: "drop.fill" as const, color: colors.diaper },
@@ -471,27 +471,40 @@ export default function HomeScreen() {
             { type: "pump" as const, label: "Pump", icon: "drop.triangle.fill" as const, color: colors.pump },
             { type: "formula_prep" as const, label: "Formula", icon: "flask.fill" as const, color: colors.formula },
             { type: "medication" as const, label: "Meds", icon: "pills.fill" as const, color: colors.medication },
-          ].map((action) => (
+          ];
+          const row1 = allActions.slice(0, 4);
+          const row2 = allActions.slice(4);
+          const renderBtn = (action: typeof allActions[number]) => (
             <Pressable
               key={action.type}
               onPress={() => setActiveSheet(action.type)}
               style={({ pressed }) => [
                 styles.quickAction,
-                { backgroundColor: action.color + "15", borderColor: action.color + "30" },
-                pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 },
+                { backgroundColor: action.color + "20", borderColor: action.color + "40" },
+                pressed && { transform: [{ scale: 0.96 }], opacity: 0.85 },
               ]}
             >
               <View
-                style={[styles.quickActionIcon, { backgroundColor: action.color + "25" }]}
+                style={[styles.quickActionIcon, { backgroundColor: action.color + "35" }]}
               >
-                <IconSymbol name={action.icon} size={18} color={action.color} />
+                <IconSymbol name={action.icon} size={22} color={action.color} />
               </View>
               <Text style={[styles.quickActionLabel, { color: colors.foreground }]}>
                 {action.label}
               </Text>
             </Pressable>
-          ))}
-        </View>
+          );
+          return (
+            <View className="mb-6" style={{ gap: 8 }}>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {row1.map(renderBtn)}
+              </View>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {row2.map(renderBtn)}
+              </View>
+            </View>
+          );
+        })()}
 
         {/* Growth Tracking Button */}
         <Pressable
@@ -768,22 +781,21 @@ const styles = StyleSheet.create({
   quickAction: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 2,
-    borderRadius: 12,
-    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderRadius: 14,
+    borderWidth: 1.5,
     gap: 6,
-    minWidth: 0,
   },
   quickActionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },
   quickActionLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
   },
   emptyCard: {
