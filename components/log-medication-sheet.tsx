@@ -24,6 +24,13 @@ interface Props {
   onClose: () => void;
 }
 
+const PRESET_MEDICATIONS = [
+  { category: "Vitamins", items: ["Vitamin D Drops", "Iron Supplement", "Multivitamin Drops"] },
+  { category: "Pain / Fever", items: ["Infant Tylenol (Acetaminophen)", "Infant Advil (Ibuprofen)"] },
+  { category: "Digestive", items: ["Gripe Water", "Gas Drops (Simethicone)", "Probiotic Drops"] },
+  { category: "Allergy / Nasal", items: ["Antihistamine (Cetirizine)", "Saline Nasal Drops"] },
+];
+
 const FREQUENCY_OPTIONS = [
   { key: "4", label: "Every 4h" },
   { key: "6", label: "Every 6h" },
@@ -35,22 +42,47 @@ const FREQUENCY_OPTIONS = [
 export function LogMedicationSheet({ onClose }: Props) {
   const colors = useColors();
   const { addEvent, state } = useStore();
-  const [name, setName] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [isCustom, setIsCustom] = useState(false);
+  const [customName, setCustomName] = useState("");
   const [dosage, setDosage] = useState("");
   const [frequency, setFrequency] = useState("6");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [eventDate, setEventDate] = useState(new Date());
   const [setReminder, setSetReminder] = useState(false);
+  const [showPicker, setShowPicker] = useState(true);
 
-  const canSave = name.trim().length > 0;
+  const medicationName = isCustom ? customName.trim() : (selectedPreset || "");
+  const canSave = medicationName.length > 0;
+
+  const handleSelectPreset = (name: string) => {
+    setSelectedPreset(name);
+    setIsCustom(false);
+    setShowPicker(false);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleSelectCustom = () => {
+    setSelectedPreset(null);
+    setIsCustom(true);
+    setShowPicker(false);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleChangeMedication = () => {
+    setShowPicker(true);
+    setSelectedPreset(null);
+    setIsCustom(false);
+    setCustomName("");
+  };
 
   const handleSave = async () => {
     if (!canSave) return;
     setSaving(true);
 
     const data: MedicationData = {
-      name: name.trim(),
+      name: medicationName,
       dosage: dosage || undefined,
       frequency: frequency ? `every ${frequency} hours` : undefined,
       notes: notes || undefined,
@@ -65,7 +97,7 @@ export function LogMedicationSheet({ onClose }: Props) {
     // Schedule reminder if enabled
     if (setReminder && frequency) {
       const hours = parseInt(frequency, 10);
-      await scheduleMedicationReminder(hours, name.trim(), state.profile?.name || "baby");
+      await scheduleMedicationReminder(hours, medicationName, state.profile?.name || "baby");
     }
 
     if (Platform.OS !== "web") {
@@ -108,9 +140,6 @@ export function LogMedicationSheet({ onClose }: Props) {
             <View style={[styles.iconCircle, { backgroundColor: colors.medication + "20" }]}>
               <IconSymbol name="pills.fill" size={36} color={colors.medication} />
             </View>
-            <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8 }}>
-              Track medication and set reminders
-            </Text>
           </View>
 
           {/* Date & Time */}
@@ -122,18 +151,93 @@ export function LogMedicationSheet({ onClose }: Props) {
             label="Given at"
           />
 
-          {/* Medication Name */}
-          <Text style={[styles.sectionLabel, { color: colors.muted }]}>Medication Name *</Text>
-          <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="e.g. Vitamin D, Tylenol, Gripe Water"
-              placeholderTextColor={colors.muted}
-              returnKeyType="done"
-              style={[styles.textInput, { color: colors.foreground }]}
-            />
-          </View>
+          {/* Medication Picker */}
+          <Text style={[styles.sectionLabel, { color: colors.muted }]}>Medication / Supplement</Text>
+
+          {showPicker ? (
+            <View style={{ gap: 12 }}>
+              {PRESET_MEDICATIONS.map((group) => (
+                <View key={group.category}>
+                  <Text style={[styles.categoryLabel, { color: colors.foreground }]}>
+                    {group.category}
+                  </Text>
+                  <View style={styles.presetGrid}>
+                    {group.items.map((item) => (
+                      <Pressable
+                        key={item}
+                        onPress={() => handleSelectPreset(item)}
+                        style={({ pressed }) => [
+                          styles.presetChip,
+                          {
+                            backgroundColor: colors.surface,
+                            borderColor: colors.border,
+                          },
+                          pressed && { opacity: 0.7 },
+                        ]}
+                      >
+                        <Text style={[styles.presetChipText, { color: colors.foreground }]}>
+                          {item}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              ))}
+
+              {/* Other (custom) */}
+              <Pressable
+                onPress={handleSelectCustom}
+                style={({ pressed }) => [
+                  styles.customBtn,
+                  {
+                    backgroundColor: colors.medication + "15",
+                    borderColor: colors.medication + "40",
+                  },
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <IconSymbol name="pencil" size={16} color={colors.medication} />
+                <Text style={[styles.customBtnText, { color: colors.medication }]}>
+                  Other (custom)
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View>
+              {/* Selected medication display */}
+              <View style={[styles.selectedRow, { backgroundColor: colors.surface, borderColor: colors.medication + "40" }]}>
+                <View style={{ flex: 1 }}>
+                  {isCustom ? (
+                    <TextInput
+                      value={customName}
+                      onChangeText={setCustomName}
+                      placeholder="Enter medication name..."
+                      placeholderTextColor={colors.muted}
+                      autoFocus
+                      returnKeyType="done"
+                      style={[styles.customInput, { color: colors.foreground }]}
+                    />
+                  ) : (
+                    <Text style={[styles.selectedName, { color: colors.foreground }]}>
+                      {selectedPreset}
+                    </Text>
+                  )}
+                </View>
+                <Pressable
+                  onPress={handleChangeMedication}
+                  style={({ pressed }) => [
+                    styles.changeBtn,
+                    { backgroundColor: colors.medication + "20" },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text style={{ color: colors.medication, fontSize: 13, fontWeight: "600" }}>
+                    Change
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
 
           {/* Dosage */}
           <Text style={[styles.sectionLabel, { color: colors.muted }]}>Dosage</Text>
@@ -229,12 +333,12 @@ const styles = StyleSheet.create({
   saveText: { fontSize: 16, fontWeight: "700" },
   iconSection: {
     alignItems: "center",
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -245,6 +349,62 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: 20,
     marginBottom: 8,
+  },
+  categoryLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  presetGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  presetChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  presetChipText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  customBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+  },
+  customBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  selectedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    gap: 10,
+  },
+  selectedName: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  customInput: {
+    fontSize: 16,
+    fontWeight: "500",
+    paddingVertical: 0,
+  },
+  changeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   inputRow: {
     flexDirection: "row",

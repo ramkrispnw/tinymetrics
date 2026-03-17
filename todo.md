@@ -107,3 +107,5 @@
 - [x] Fix Log Event row: icons overflow their circular buttons — reduce icon size and adjust button containers for 7 items
 - [x] Split Log Event buttons into two rows (4+3) for larger tap targets on smaller screens
 - [x] Add color-coded backgrounds to each Log Event button matching its event type
+- [x] Add preset medication/supplement dropdown to Log Medication sheet with "Other (custom)" option
+- [x] Add Medication Reminders management section in Settings Notifications with delete capability

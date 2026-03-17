@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Text,
   View,
@@ -19,7 +19,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { startOAuthLogin } from "@/constants/oauth";
 import * as Haptics from "expo-haptics";
 import { Alert } from "react-native";
-import { scheduleFeedingReminder, cancelFeedingReminders } from "@/lib/notifications";
+import { scheduleFeedingReminder, cancelFeedingReminders, cancelMedicationReminders, getScheduledReminders } from "@/lib/notifications";
+import * as Notifications from "expo-notifications";
 
 interface Props {
   onClose: () => void;
@@ -36,6 +37,40 @@ export function SettingsSheet({ onClose, onOpenShare, onEditProfile, onOpenDiges
   const [loggingOut, setLoggingOut] = useState(false);
   const [reminderInterval, setReminderInterval] = useState<number | null>(null);
   const [reminderActive, setReminderActive] = useState(false);
+  const [medReminders, setMedReminders] = useState<Array<{ name: string; frequencyHours: number; id: string }>>([]);
+  const [loadingMedReminders, setLoadingMedReminders] = useState(true);
+
+  const loadMedReminders = useCallback(async () => {
+    try {
+      const scheduled = await getScheduledReminders();
+      const meds: Array<{ name: string; frequencyHours: number; id: string }> = [];
+      for (const n of scheduled) {
+        const data = n.content.data as any;
+        if (data?.type === "medication_reminder" && data?.medicationName) {
+          // Extract frequency from the trigger
+          const trigger = n.trigger as any;
+          const seconds = trigger?.seconds || trigger?.value || 0;
+          const hours = Math.round(seconds / 3600);
+          meds.push({ name: data.medicationName, frequencyHours: hours || 0, id: n.identifier });
+        }
+      }
+      setMedReminders(meds);
+    } catch (e) {
+      console.error("[Settings] Failed to load med reminders:", e);
+    } finally {
+      setLoadingMedReminders(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMedReminders();
+  }, [loadMedReminders]);
+
+  const handleDeleteMedReminder = async (medicationName: string) => {
+    await cancelMedicationReminders(medicationName);
+    setMedReminders((prev) => prev.filter((r) => r.name !== medicationName));
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
 
   const handleSetReminder = async (hours: number) => {
     const babyName = state.profile?.name || "baby";
@@ -374,6 +409,74 @@ export function SettingsSheet({ onClose, onOpenShare, onEditProfile, onOpenDiges
               thumbColor={(state.settings.notifications?.feedReminders ?? true) ? colors.primary : colors.muted}
             />
           </View>
+          <View style={[{ height: 1, backgroundColor: colors.border, marginVertical: 14 }]} />
+          {/* Medication Reminders */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <View style={[styles.exportIcon, { backgroundColor: colors.medication + "15" }]}>
+              <IconSymbol name="pills.fill" size={18} color={colors.medication} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.settingTitle, { color: colors.foreground }]}>Medication Reminders</Text>
+              <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
+                Manage active medication dose reminders
+              </Text>
+            </View>
+          </View>
+          {loadingMedReminders ? (
+            <View style={{ paddingVertical: 12, alignItems: "center" }}>
+              <ActivityIndicator size="small" color={colors.medication} />
+            </View>
+          ) : medReminders.length === 0 ? (
+            <View style={{ paddingVertical: 12, paddingHorizontal: 8 }}>
+              <Text style={{ color: colors.muted, fontSize: 13, fontStyle: "italic", textAlign: "center" }}>
+                No active medication reminders.{"\n"}Set a reminder when logging a medication.
+              </Text>
+            </View>
+          ) : (
+            <View style={{ gap: 8 }}>
+              {medReminders.map((rem) => (
+                <View
+                  key={rem.id}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    backgroundColor: colors.medication + "08",
+                    borderRadius: 10,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    borderWidth: 1,
+                    borderColor: colors.medication + "20",
+                  }}
+                >
+                  <IconSymbol name="pills.fill" size={16} color={colors.medication} />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600" }}>
+                      {rem.name}
+                    </Text>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginTop: 1 }}>
+                      {rem.frequencyHours > 0 ? `Every ${rem.frequencyHours} hours` : "Repeating"}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => handleDeleteMedReminder(rem.name)}
+                    style={({ pressed }) => [
+                      {
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: 8,
+                        backgroundColor: colors.error + "15",
+                        borderWidth: 1,
+                        borderColor: colors.error + "40",
+                      },
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Text style={{ color: colors.error, fontWeight: "600", fontSize: 12 }}>Delete</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Feeding Reminders */}
