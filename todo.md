@@ -109,3 +109,4 @@
 - [x] Add color-coded backgrounds to each Log Event button matching its event type
 - [x] Add preset medication/supplement dropdown to Log Medication sheet with "Other (custom)" option
 - [x] Add Medication Reminders management section in Settings Notifications with delete capability
+- [x] Allow users to add custom medications to the preset list that persist across sessions

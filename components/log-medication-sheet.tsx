@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Text,
   View,
@@ -10,7 +10,9 @@ import {
   ActivityIndicator,
   Switch,
   KeyboardAvoidingView,
+  Alert,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -18,13 +20,15 @@ import { useStore } from "@/lib/store";
 import type { MedicationData } from "@/lib/store";
 import * as Haptics from "expo-haptics";
 import { DateTimePicker } from "@/components/date-time-picker";
-import { scheduleMedicationReminder, cancelMedicationReminders } from "@/lib/notifications";
+import { scheduleMedicationReminder } from "@/lib/notifications";
 
 interface Props {
   onClose: () => void;
 }
 
-const PRESET_MEDICATIONS = [
+const CUSTOM_MEDS_KEY = "tinymetrics_custom_medications";
+
+const BUILT_IN_MEDICATIONS = [
   { category: "Vitamins", items: ["Vitamin D Drops", "Iron Supplement", "Multivitamin Drops"] },
   { category: "Pain / Fever", items: ["Infant Tylenol (Acetaminophen)", "Infant Advil (Ibuprofen)"] },
   { category: "Digestive", items: ["Gripe Water", "Gas Drops (Simethicone)", "Probiotic Drops"] },
@@ -39,6 +43,23 @@ const FREQUENCY_OPTIONS = [
   { key: "24", label: "Once daily" },
 ];
 
+async function loadCustomMedications(): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(CUSTOM_MEDS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveCustomMedications(meds: string[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(CUSTOM_MEDS_KEY, JSON.stringify(meds));
+  } catch (e) {
+    console.error("[Medication] Failed to save custom meds:", e);
+  }
+}
+
 export function LogMedicationSheet({ onClose }: Props) {
   const colors = useColors();
   const { addEvent, state } = useStore();
@@ -52,9 +73,28 @@ export function LogMedicationSheet({ onClose }: Props) {
   const [eventDate, setEventDate] = useState(new Date());
   const [setReminder, setSetReminder] = useState(false);
   const [showPicker, setShowPicker] = useState(true);
+  const [customMeds, setCustomMeds] = useState<string[]>([]);
+  const [loadingCustom, setLoadingCustom] = useState(true);
+
+  // Load custom medications on mount
+  useEffect(() => {
+    loadCustomMedications().then((meds) => {
+      setCustomMeds(meds);
+      setLoadingCustom(false);
+    });
+  }, []);
 
   const medicationName = isCustom ? customName.trim() : (selectedPreset || "");
   const canSave = medicationName.length > 0;
+
+  // Check if a custom name already exists in built-in or custom lists
+  const isNameDuplicate = useCallback((name: string): boolean => {
+    const lower = name.toLowerCase().trim();
+    for (const group of BUILT_IN_MEDICATIONS) {
+      if (group.items.some((i) => i.toLowerCase() === lower)) return true;
+    }
+    return customMeds.some((m) => m.toLowerCase() === lower);
+  }, [customMeds]);
 
   const handleSelectPreset = (name: string) => {
     setSelectedPreset(name);
@@ -77,9 +117,36 @@ export function LogMedicationSheet({ onClose }: Props) {
     setCustomName("");
   };
 
+  const handleDeleteCustomMed = (name: string) => {
+    Alert.alert(
+      "Remove Medication",
+      `Remove "${name}" from your custom list?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            const updated = customMeds.filter((m) => m !== name);
+            setCustomMeds(updated);
+            await saveCustomMedications(updated);
+            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          },
+        },
+      ]
+    );
+  };
+
   const handleSave = async () => {
     if (!canSave) return;
     setSaving(true);
+
+    // If custom medication, persist it to the list
+    if (isCustom && customName.trim() && !isNameDuplicate(customName.trim())) {
+      const updated = [...customMeds, customName.trim()];
+      setCustomMeds(updated);
+      await saveCustomMedications(updated);
+    }
 
     const data: MedicationData = {
       name: medicationName,
@@ -156,7 +223,8 @@ export function LogMedicationSheet({ onClose }: Props) {
 
           {showPicker ? (
             <View style={{ gap: 12 }}>
-              {PRESET_MEDICATIONS.map((group) => (
+              {/* Built-in presets */}
+              {BUILT_IN_MEDICATIONS.map((group) => (
                 <View key={group.category}>
                   <Text style={[styles.categoryLabel, { color: colors.foreground }]}>
                     {group.category}
@@ -183,6 +251,39 @@ export function LogMedicationSheet({ onClose }: Props) {
                   </View>
                 </View>
               ))}
+
+              {/* User's Custom Medications */}
+              {!loadingCustom && customMeds.length > 0 && (
+                <View>
+                  <Text style={[styles.categoryLabel, { color: colors.medication }]}>
+                    Your Medications
+                  </Text>
+                  <View style={styles.presetGrid}>
+                    {customMeds.map((item) => (
+                      <Pressable
+                        key={item}
+                        onPress={() => handleSelectPreset(item)}
+                        onLongPress={() => handleDeleteCustomMed(item)}
+                        style={({ pressed }) => [
+                          styles.presetChip,
+                          {
+                            backgroundColor: colors.medication + "10",
+                            borderColor: colors.medication + "40",
+                          },
+                          pressed && { opacity: 0.7 },
+                        ]}
+                      >
+                        <Text style={[styles.presetChipText, { color: colors.foreground }]}>
+                          {item}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6, fontStyle: "italic" }}>
+                    Long press to remove a custom medication
+                  </Text>
+                </View>
+              )}
 
               {/* Other (custom) */}
               <Pressable
@@ -236,6 +337,11 @@ export function LogMedicationSheet({ onClose }: Props) {
                   </Text>
                 </Pressable>
               </View>
+              {isCustom && customName.trim().length > 0 && !isNameDuplicate(customName.trim()) && (
+                <Text style={{ color: colors.medication, fontSize: 12, marginTop: 6, fontStyle: "italic" }}>
+                  This medication will be saved to your list for future use.
+                </Text>
+              )}
             </View>
           )}
 
