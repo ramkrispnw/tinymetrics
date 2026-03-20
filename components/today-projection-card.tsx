@@ -1,8 +1,16 @@
 import { View, Text, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
-import { calculateAge, getDayKey, type FeedData, type SleepData, type DiaperData, formatDuration } from "@/lib/store";
+import {
+  calculateAge,
+  getDayKey,
+  formatDuration,
+  type FeedData,
+  type DiaperData,
+} from "@/lib/store";
 import { calculateTodayProjections, getAgeSpecificTargets } from "@/lib/ai-context-builder";
+
+// ── Progress Bar ──────────────────────────────────────────────────────────────
 
 interface ProgressBarProps {
   label: string;
@@ -47,7 +55,6 @@ function ProgressBar({ label, emoji, logged, projected, target, unit, formatValu
 
       {/* Track */}
       <View style={[styles.track, { backgroundColor: colors.border }]}>
-        {/* Logged portion */}
         {loggedPct > 0 && (
           <View
             style={[
@@ -56,7 +63,6 @@ function ProgressBar({ label, emoji, logged, projected, target, unit, formatValu
             ]}
           />
         )}
-        {/* Projected portion (lighter) */}
         {remainingPct > 0 && (
           <View
             style={[
@@ -71,11 +77,9 @@ function ProgressBar({ label, emoji, logged, projected, target, unit, formatValu
             ]}
           />
         )}
-        {/* Target marker at 100% */}
         <View style={[styles.targetMarker, { backgroundColor: colors.muted }]} />
       </View>
 
-      {/* Target label */}
       <Text style={[styles.targetLabel, { color: colors.muted }]}>
         Target: {fmt(target)}
         {projectedPct >= 95 && projectedPct <= 115 && " ✓"}
@@ -85,6 +89,128 @@ function ProgressBar({ label, emoji, logged, projected, target, unit, formatValu
     </View>
   );
 }
+
+// ── Feeding Sparkline (7 days) ────────────────────────────────────────────────
+
+interface SparklineProps {
+  /** ml per day for the last 7 days, index 0 = 6 days ago, index 6 = today */
+  dailyMl: number[];
+  /** today's projected total (replaces today's actual in the bar) */
+  todayProjected: number;
+  dailyTarget: number;
+}
+
+function FeedingSparkline({ dailyMl, todayProjected, dailyTarget }: SparklineProps) {
+  const colors = useColors();
+  const BARS = 7;
+  const BAR_HEIGHT = 36;
+  const values = [...dailyMl.slice(0, 6), todayProjected]; // last 6 actual + today projected
+  const maxVal = Math.max(dailyTarget * 1.2, ...values, 1);
+
+  const dayLabels = ["6d", "5d", "4d", "3d", "2d", "1d", "Today"];
+
+  return (
+    <View style={styles.sparklineContainer}>
+      <View style={styles.sparklineHeader}>
+        <Text style={[styles.sparklineTitle, { color: colors.foreground }]}>
+          7-Day Feeding
+        </Text>
+        <View style={styles.sparklineLegend}>
+          <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+          <Text style={[styles.legendText, { color: colors.muted }]}>Actual</Text>
+          <View style={[styles.legendDot, { backgroundColor: colors.warning, marginLeft: 8 }]} />
+          <Text style={[styles.legendText, { color: colors.muted }]}>Today (proj.)</Text>
+        </View>
+      </View>
+
+      {/* Target dashed line label */}
+      <Text style={[styles.sparklineTargetLabel, { color: colors.muted }]}>
+        Target: {dailyTarget}ml
+      </Text>
+
+      {/* Bar chart */}
+      <View style={styles.sparklineBars}>
+        {values.map((val, i) => {
+          const isToday = i === BARS - 1;
+          const heightPct = val > 0 ? (val / maxVal) * BAR_HEIGHT : 2;
+          const targetHeightPct = (dailyTarget / maxVal) * BAR_HEIGHT;
+          const barColor = isToday ? colors.warning : colors.primary;
+          const atTarget = val >= dailyTarget * 0.9 && val <= dailyTarget * 1.15;
+          const below = val < dailyTarget * 0.9 && val > 0;
+
+          return (
+            <View key={i} style={styles.sparklineBarWrapper}>
+              {/* Bar column */}
+              <View style={[styles.sparklineBarTrack, { height: BAR_HEIGHT }]}>
+                {/* Target line indicator */}
+                <View
+                  style={[
+                    styles.sparklineTargetLine,
+                    {
+                      bottom: targetHeightPct,
+                      backgroundColor: colors.border,
+                    },
+                  ]}
+                />
+                {/* Actual bar */}
+                {val > 0 && (
+                  <View
+                    style={[
+                      styles.sparklineBar,
+                      {
+                        height: heightPct,
+                        backgroundColor: below
+                          ? colors.error + "CC"
+                          : atTarget
+                          ? colors.success + "CC"
+                          : barColor + "CC",
+                        borderTopLeftRadius: 3,
+                        borderTopRightRadius: 3,
+                      },
+                    ]}
+                  />
+                )}
+                {/* No data placeholder */}
+                {val === 0 && (
+                  <View
+                    style={[
+                      styles.sparklineBar,
+                      { height: 3, backgroundColor: colors.border },
+                    ]}
+                  />
+                )}
+              </View>
+              {/* Day label */}
+              <Text
+                style={[
+                  styles.sparklineDayLabel,
+                  {
+                    color: isToday ? colors.primary : colors.muted,
+                    fontWeight: isToday ? "700" : "400",
+                  },
+                ]}
+              >
+                {dayLabels[i]}
+              </Text>
+              {/* ml label */}
+              {val > 0 && (
+                <Text style={[styles.sparklineMlLabel, { color: isToday ? colors.warning : colors.muted }]}>
+                  {val >= 1000 ? `${(val / 1000).toFixed(1)}L` : `${Math.round(val)}`}
+                </Text>
+              )}
+            </View>
+          );
+        })}
+      </View>
+
+      <Text style={[styles.sparklineNote, { color: colors.muted }]}>
+        Green = on target · Red = below target · Orange = today's projection
+      </Text>
+    </View>
+  );
+}
+
+// ── Main Card ─────────────────────────────────────────────────────────────────
 
 export function TodayProjectionCard() {
   const colors = useColors();
@@ -96,11 +222,24 @@ export function TodayProjectionCard() {
   const ageWeeks = Math.floor((ageInfo.months * 30 + ageInfo.days) / 7);
   const targets = getAgeSpecificTargets(ageWeeks);
   const projections = calculateTodayProjections(state.events, ageWeeks);
-
   const { feedingProjection, sleepProjection, diaperProjection } = projections;
 
+  // ── Build 7-day daily feeding totals ──
+  const dailyFeedingMl: number[] = [];
+  for (let daysAgo = 6; daysAgo >= 0; daysAgo--) {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    const dk = getDayKey(d.toISOString());
+    const dayFeeds = state.events.filter(
+      (e) => e.type === "feed" && getDayKey(e.timestamp) === dk
+    );
+    const ml = dayFeeds.reduce((sum, e) => sum + ((e.data as FeedData).amountMl || 0), 0);
+    dailyFeedingMl.push(ml);
+  }
+  // Replace today (index 6) with projected value for the sparkline
+  const sparklineValues = [...dailyFeedingMl.slice(0, 6), feedingProjection.projectedTotalMl];
+
   // Time remaining label
-  const now = new Date();
   const hoursLeft = Math.round(feedingProjection.timeRemainingHours);
   const timeLabel = hoursLeft <= 1 ? "< 1h left today" : `${hoursLeft}h left today`;
 
@@ -135,16 +274,38 @@ export function TodayProjectionCard() {
         status={sleepProjection.status}
       />
 
-      {/* Diapers bar */}
+      {/* Wet Diapers bar */}
       <ProgressBar
         label="Wet Diapers"
-        emoji="🧷"
+        emoji="💧"
         logged={diaperProjection.wetDiapersLogged}
         projected={diaperProjection.projectedWetDiapers}
         target={diaperProjection.dailyTargetWet}
         unit=""
         formatValue={(v) => `${Math.round(v)}`}
         status={diaperProjection.wetStatus}
+      />
+
+      {/* Poopy Diapers bar */}
+      <ProgressBar
+        label="Poopy Diapers"
+        emoji="💩"
+        logged={diaperProjection.poopyDiapersLogged}
+        projected={diaperProjection.projectedPoopyDiapers}
+        target={diaperProjection.dailyTargetPoopy}
+        unit=""
+        formatValue={(v) => `${Math.round(v)}`}
+        status={diaperProjection.poopyStatus}
+      />
+
+      {/* Divider */}
+      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+      {/* 7-day Feeding Sparkline */}
+      <FeedingSparkline
+        dailyMl={sparklineValues}
+        todayProjected={feedingProjection.projectedTotalMl}
+        dailyTarget={feedingProjection.dailyTargetMl}
       />
 
       {/* Legend */}
@@ -187,6 +348,11 @@ const styles = StyleSheet.create({
   timeLabel: {
     fontSize: 12,
   },
+  divider: {
+    height: 1,
+    marginVertical: 4,
+  },
+  // ── Progress Bar ──
   barContainer: {
     gap: 4,
   },
@@ -238,6 +404,67 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: "right",
   },
+  // ── Sparkline ──
+  sparklineContainer: {
+    gap: 6,
+  },
+  sparklineHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  sparklineTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  sparklineLegend: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  sparklineTargetLabel: {
+    fontSize: 10,
+    textAlign: "right",
+  },
+  sparklineBars: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    paddingTop: 4,
+  },
+  sparklineBarWrapper: {
+    flex: 1,
+    alignItems: "center",
+    gap: 3,
+  },
+  sparklineBarTrack: {
+    width: "80%",
+    justifyContent: "flex-end",
+    position: "relative",
+  },
+  sparklineTargetLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+  },
+  sparklineBar: {
+    width: "100%",
+  },
+  sparklineDayLabel: {
+    fontSize: 9,
+    textAlign: "center",
+  },
+  sparklineMlLabel: {
+    fontSize: 8,
+    textAlign: "center",
+  },
+  sparklineNote: {
+    fontSize: 9,
+    textAlign: "center",
+    marginTop: 2,
+  },
+  // ── Legend ──
   legend: {
     flexDirection: "row",
     justifyContent: "flex-end",
