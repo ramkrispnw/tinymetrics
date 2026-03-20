@@ -64,6 +64,7 @@ export default function MilestonesScreen() {
             {
               backgroundColor:
                 filterCat === "all" ? colors.primary : colors.surface,
+              borderColor: filterCat === "all" ? colors.primary : colors.border,
               opacity: pressed ? 0.8 : 1,
             },
           ]}
@@ -86,6 +87,7 @@ export default function MilestonesScreen() {
               {
                 backgroundColor:
                   filterCat === cat.key ? colors.primary : colors.surface,
+                borderColor: filterCat === cat.key ? colors.primary : colors.border,
                 opacity: pressed ? 0.8 : 1,
               },
             ]}
@@ -401,14 +403,16 @@ const s = StyleSheet.create({
     gap: 4,
   },
   addBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  filterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  filterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8, flexGrow: 0 },
   filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    flexShrink: 0,
   },
-  filterChipText: { fontSize: 13, fontWeight: "600" },
-  listContent: { paddingHorizontal: 16, paddingBottom: 100 },
+  filterChipText: { fontSize: 14, fontWeight: "600" },
+  listContent: { paddingHorizontal: 16, paddingBottom: 100, flexGrow: 0 },
   emptyContainer: { alignItems: "center", paddingTop: 60 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyTitle: { fontSize: 18, fontWeight: "600", marginBottom: 4 },
@@ -418,13 +422,14 @@ const s = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
     borderWidth: 0.5,
+    alignSelf: "stretch",
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
   },
-  cardLeft: { flexDirection: "row", alignItems: "center", flex: 1, gap: 10 },
+  cardLeft: { flexDirection: "row", alignItems: "flex-start", flex: 1, gap: 10 },
   cardIcon: { fontSize: 28 },
   cardInfo: { flex: 1 },
   cardTitle: { fontSize: 16, fontWeight: "600" },
