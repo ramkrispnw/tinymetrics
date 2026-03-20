@@ -633,7 +633,7 @@ export default function HomeScreen() {
                       event.type === "deletion_audit" && { fontStyle: "italic" },
                     ]}>
                       {event.type === "deletion_audit"
-                        ? `${(event.data as any).deletedByName || "Someone"} deleted a ${(event.data as any).deletedEventType?.replace("_", " ") || "event"}`
+                        ? `${(event.data as any).deletedByName || "Someone"} deleted:`
                         : event.type === "formula_prep" ? "Formula Prep"
                         : event.type.charAt(0).toUpperCase() + event.type.slice(1)}
                     </Text>
@@ -643,9 +643,15 @@ export default function HomeScreen() {
                       </View>
                     )}
                   </View>
-                  <Text style={[styles.eventSummary, { color: colors.muted }]}>
-                    {getEventSummary(event)}
-                  </Text>
+                  {event.type === "deletion_audit" ? (
+                    <Text style={[styles.eventSummary, { color: colors.muted, fontStyle: "italic" }]}>
+                      {(event.data as any).deletedEventLabel || (event.data as any).deletedEventType || "Unknown event"}
+                    </Text>
+                  ) : (
+                    <Text style={[styles.eventSummary, { color: colors.muted }]}>
+                      {getEventSummary(event)}
+                    </Text>
+                  )}
                   {event.loggedByName && event.type !== "deletion_audit" && (
                     <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2, fontStyle: "italic" }}>
                       Logged by {event.loggedBy === user?.id?.toString() ? "You" : event.loggedByName}

@@ -370,6 +370,69 @@ export function getProfileSummary(profile: BabyProfile | null): string {
 }
 
 /**
+ * Build a concise human-readable detail string for any event type.
+ * Used in deletion audit entries so partners know exactly what was deleted.
+ * Units default to ml/kg/cm — the caller can pass the app unit setting if needed.
+ */
+export function getEventDetailSummary(event: BabyEvent, units: "ml" | "oz" = "ml"): string {
+  const d = event.data as any;
+  switch (event.type) {
+    case "feed": {
+      const method = d.method === "bottle" ? "Bottle" : d.method === "solid" ? "Solid" : "Breast";
+      const amt = d.amountMl
+        ? units === "oz" ? `${mlToOz(d.amountMl)} oz` : `${d.amountMl} ml`
+        : "";
+      const dur = d.durationMin ? formatDuration(d.durationMin) : "";
+      return [method, amt, dur].filter(Boolean).join(" · ");
+    }
+    case "sleep": {
+      const dur = d.durationMin ? formatDuration(d.durationMin) : "In progress";
+      return dur;
+    }
+    case "diaper": {
+      const parts: string[] = [];
+      parts.push(d.type === "both" ? "Pee & Poo" : d.type === "pee" ? "Pee" : "Poo");
+      if (d.pooSize) parts.push(d.pooSize);
+      if (d.pooColor) parts.push(d.pooColor);
+      if (d.pooConsistency) parts.push(d.pooConsistency);
+      return parts.join(" · ");
+    }
+    case "pump": {
+      const sideLabel = d.side === "both" ? "Both sides" : d.side === "left" ? "Left" : "Right";
+      const amt = d.amountMl
+        ? units === "oz" ? `${mlToOz(d.amountMl)} oz` : `${d.amountMl} ml`
+        : "";
+      const dur = d.durationMin ? formatDuration(d.durationMin) : "";
+      return [sideLabel, amt, dur].filter(Boolean).join(" · ");
+    }
+    case "formula_prep": {
+      const amt = d.amountMl
+        ? units === "oz" ? `${mlToOz(d.amountMl)} oz` : `${d.amountMl} ml`
+        : "";
+      return amt ? `Prepared ${amt}` : "Formula prepared";
+    }
+    case "medication": {
+      const parts = [d.name];
+      if (d.dosage) parts.push(d.dosage);
+      if (d.frequency) parts.push(d.frequency);
+      return parts.join(" · ");
+    }
+    case "observation": {
+      const cat = (d.category as string).replace("_", " ");
+      return d.severity ? `${cat} · ${d.severity}` : cat;
+    }
+    case "growth": {
+      const parts: string[] = [];
+      if (d.weight != null) parts.push(`${d.weight} ${d.weightUnit || "kg"}`);
+      if (d.height != null) parts.push(`${d.height} ${d.heightUnit || "cm"}`);
+      return parts.join(" · ") || "Growth logged";
+    }
+    default:
+      return "";
+  }
+}
+
+/**
  * Calculate sleep minutes attributed to a specific day, splitting overnight sleep
  * across calendar day boundaries. For example, sleep from 10pm-2am (240 min)
  * attributes 120 min to the start day and 120 min to the next day.

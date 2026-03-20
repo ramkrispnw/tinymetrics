@@ -417,7 +417,7 @@ export default function ActivityScreen() {
                 item.type === "deletion_audit" && { fontStyle: "italic" },
               ]}>
                 {item.type === "deletion_audit"
-                  ? `${(item.data as any).deletedByName || "Someone"} deleted a ${(item.data as any).deletedEventType || "event"}`
+                  ? `${(item.data as any).deletedByName || "Someone"} deleted:`
                   : item.type.charAt(0).toUpperCase() + item.type.slice(1).replace("_", " ")}
               </Text>
               {!selectMode && item.type !== "deletion_audit" && (
@@ -436,9 +436,15 @@ export default function ActivityScreen() {
                 </Pressable>
               )}
             </View>
-            <Text style={[styles.eventSummary, { color: colors.muted }]}>
-              {getEventSummary(item)}
-            </Text>
+            {item.type === "deletion_audit" ? (
+              <Text style={[styles.eventSummary, { color: colors.muted, fontStyle: "italic" }]}>
+                {(item.data as any).deletedEventLabel || (item.data as any).deletedEventType || "Unknown event"}
+              </Text>
+            ) : (
+              <Text style={[styles.eventSummary, { color: colors.muted }]}>
+                {getEventSummary(item)}
+              </Text>
+            )}
             {item.loggedByName && item.type !== "deletion_audit" && (
               <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2, fontStyle: "italic" }}>
                 Logged by {item.loggedBy === user?.id?.toString() ? "You" : item.loggedByName}

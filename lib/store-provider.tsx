@@ -17,6 +17,7 @@ import {
   saveGrowthHistory,
   saveMilestones,
   saveLastSynced,
+  getEventDetailSummary,
 } from "./store";
 import { trpc, getVanillaClient } from "./trpc";
 import { useAuth } from "@/hooks/use-auth";
@@ -345,7 +346,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           loggedBy: currentUserId,
           loggedByName: currentUserName,
           data: {
-            deletedEventLabel: `${deletedEvent.type.charAt(0).toUpperCase() + deletedEvent.type.slice(1).replace("_", " ")}`,
+            deletedEventLabel: (() => {
+              const typeLabel = deletedEvent.type === "formula_prep"
+                ? "Formula Prep"
+                : deletedEvent.type.charAt(0).toUpperCase() + deletedEvent.type.slice(1).replace("_", " ");
+              const detail = getEventDetailSummary(deletedEvent, state.settings.units as "ml" | "oz");
+              return detail ? `${typeLabel} · ${detail}` : typeLabel;
+            })(),
             deletedEventType: deletedEvent.type,
             deletedEventTimestamp: deletedEvent.timestamp,
             deletedByName: currentUserName || "Unknown",
