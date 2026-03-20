@@ -181,9 +181,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           for (const e of parsedEvents) {
             if (!deletedSet.has(e.id)) mergedMap.set(e.id, e);
           }
-          const merged = Array.from(mergedMap.values()).sort(
-            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          );
+          // Strip deletion_audit entries older than 7 days to keep the Activity log tidy
+          const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+          const merged = Array.from(mergedMap.values())
+            .filter((e) => {
+              if (e.type !== "deletion_audit") return true;
+              return new Date(e.timestamp).getTime() >= sevenDaysAgo;
+            })
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
           saveEvents(merged);
 
           // Send partner activity notifications if enabled

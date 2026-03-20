@@ -33,6 +33,7 @@ import {
 } from "@/lib/store";
 import { EditEventSheet } from "@/components/edit-event-sheet";
 import { EventDetailSheet } from "@/components/event-detail-sheet";
+import { UndoSnackbar } from "@/components/undo-snackbar";
 import { useAuth } from "@/hooks/use-auth";
 import * as Haptics from "expo-haptics";
 
@@ -42,7 +43,7 @@ type DateRange = "today" | "yesterday" | "week" | "3months" | "custom";
 export default function ActivityScreen() {
   const colors = useColors();
   const { user } = useAuth();
-  const { state, deleteEvent, deleteEvents } = useStore();
+  const { state, deleteEvent, deleteEvents, addEvent } = useStore();
   const [filter, setFilter] = useState<FilterType>("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
@@ -52,6 +53,12 @@ export default function ActivityScreen() {
   const [customEnd, setCustomEnd] = useState("");
   const [appliedCustomStart, setAppliedCustomStart] = useState<Date | null>(null);
   const [appliedCustomEnd, setAppliedCustomEnd] = useState<Date | null>(null);
+
+  // Undo delete state
+  const [pendingDelete, setPendingDelete] = useState<BabyEvent | null>(null);
+
+  // Audit log visibility toggle
+  const [showAuditLog, setShowAuditLog] = useState(true);
 
   // Batch select state
   const [selectMode, setSelectMode] = useState(false);
@@ -169,8 +176,18 @@ export default function ActivityScreen() {
       events = events.filter((e) => e.type === filter);
     }
 
+    // Hide audit log entries if toggle is off
+    if (!showAuditLog) {
+      events = events.filter((e) => e.type !== "deletion_audit");
+    }
+
+    // Hide the currently pending-delete event so it disappears immediately
+    if (pendingDelete) {
+      events = events.filter((e) => e.id !== pendingDelete.id);
+    }
+
     return events;
-  }, [state.events, filter, dateRangeBounds]);
+  }, [state.events, filter, dateRangeBounds, showAuditLog, pendingDelete]);
 
   const groupedEvents = useMemo(() => {
     const groups: { key: string; title: string; data: BabyEvent[] }[] = [];
@@ -295,21 +312,13 @@ export default function ActivityScreen() {
   };
 
   const handleDelete = (event: BabyEvent) => {
-    if (Platform.OS === "web") {
-      deleteEvent(event.id);
-      return;
+    // Show undo snackbar — actual deletion fires on commit
+    if (pendingDelete) {
+      // Commit the previous pending delete immediately before starting a new one
+      deleteEvent(pendingDelete.id);
     }
-    Alert.alert("Delete Event", "Are you sure you want to delete this event?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => {
-          deleteEvent(event.id);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        },
-      },
-    ]);
+    setPendingDelete(event);
+    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const handleEdit = (event: BabyEvent) => {
@@ -609,6 +618,31 @@ export default function ActivityScreen() {
                 ))}
               </ScrollView>
 
+              {/* Audit Log Toggle */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, marginTop: 4 }}>
+                <Text style={[styles.filterLabel, { color: colors.foreground, marginBottom: 0, marginTop: 0 }]}>SHOW DELETION LOG</Text>
+                <Pressable
+                  onPress={() => {
+                    setShowAuditLog((v) => !v);
+                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  style={({ pressed }) => ([
+                    {
+                      width: 44,
+                      height: 26,
+                      borderRadius: 13,
+                      backgroundColor: showAuditLog ? colors.primary : colors.border,
+                      justifyContent: "center",
+                      paddingHorizontal: 3,
+                      alignItems: showAuditLog ? "flex-end" : "flex-start",
+                    },
+                    pressed && { opacity: 0.8 },
+                  ])}
+                >
+                  <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff" }} />
+                </Pressable>
+              </View>
+
               {/* Type Filters */}
               <Text style={[styles.filterLabel, { color: colors.foreground }]}>EVENT TYPE</Text>
               <ScrollView
@@ -671,6 +705,25 @@ export default function ActivityScreen() {
             <Text style={styles.batchDeleteBtnText}>Delete</Text>
           </Pressable>
         </View>
+      )}
+
+      {/* Undo Delete Snackbar */}
+      {pendingDelete && (
+        <UndoSnackbar
+          key={pendingDelete.id}
+          message={`Deleted: ${(pendingDelete.data as any).method
+            ? (pendingDelete.type.charAt(0).toUpperCase() + pendingDelete.type.slice(1))
+            : pendingDelete.type === "formula_prep" ? "Formula Prep"
+            : pendingDelete.type.charAt(0).toUpperCase() + pendingDelete.type.slice(1)}`}
+          onUndo={() => {
+            setPendingDelete(null);
+            if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }}
+          onCommit={() => {
+            deleteEvent(pendingDelete.id);
+            setPendingDelete(null);
+          }}
+        />
       )}
 
       {/* Event Detail Sheet */}
