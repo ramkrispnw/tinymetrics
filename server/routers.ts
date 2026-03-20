@@ -214,11 +214,13 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
-        let systemPrompt = `You are a helpful baby care assistant. You help new parents track and understand their baby's health patterns.
-You provide evidence-based advice about feeding, sleeping, diaper changes, and general baby health.
-Always be supportive and reassuring while being accurate. If something seems concerning, recommend consulting a pediatrician.
-
-FORMATTING RULES (ALWAYS follow these):
+        // Import baby coacher system prompt
+        const { getBabyCoachSystemPrompt } = await import("../lib/ai-system-prompt");
+        
+        let systemPrompt = getBabyCoachSystemPrompt(input.babyProfile?.ageLabel || "Unknown age") || "";
+        
+        // Add formatting rules
+        systemPrompt = systemPrompt + `\n\nFORMATTING RULES (ALWAYS follow these):
 - Use **bold** for key terms, numbers, and important points
 - Use emojis to make responses friendly and scannable (🍼 feeding, 😴 sleep, 🧷 diapers, 📊 trends, ⚠️ concerns, ✅ good, 💡 tips)
 - Use bullet points (- ) for lists
