@@ -375,6 +375,7 @@ export default function ActivityScreen() {
       return (
         <Pressable
           onPress={() => {
+            if (item.type === "deletion_audit") return; // audit entries are not tappable
             if (selectMode) {
               toggleSelect(item.id);
             } else {
@@ -382,6 +383,7 @@ export default function ActivityScreen() {
             }
           }}
           onLongPress={() => {
+            if (item.type === "deletion_audit") return; // audit entries cannot be selected
             if (!selectMode) {
               setSelectMode(true);
               setSelectedIds(new Set([item.id]));

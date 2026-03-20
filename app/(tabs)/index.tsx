@@ -590,6 +590,7 @@ export default function HomeScreen() {
               <Pressable
                 key={event.id}
                 onPress={() => {
+                  if (event.type === "deletion_audit") return; // audit entries are not tappable
                   if (selectMode) {
                     toggleSelect(event.id);
                   } else {
@@ -598,6 +599,7 @@ export default function HomeScreen() {
                   }
                 }}
                 onLongPress={() => {
+                  if (event.type === "deletion_audit") return; // audit entries cannot be selected
                   if (!selectMode) {
                     setSelectMode(true);
                     setSelectedIds(new Set([event.id]));
@@ -625,10 +627,17 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.eventContent}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Text style={[styles.eventTitle, { color: colors.foreground }]}>
-                      {event.type === "formula_prep" ? "Formula Prep" : event.type.charAt(0).toUpperCase() + event.type.slice(1)}
+                    <Text style={[
+                      styles.eventTitle,
+                      { color: event.type === "deletion_audit" ? colors.muted : colors.foreground },
+                      event.type === "deletion_audit" && { fontStyle: "italic" },
+                    ]}>
+                      {event.type === "deletion_audit"
+                        ? `${(event.data as any).deletedByName || "Someone"} deleted a ${(event.data as any).deletedEventType?.replace("_", " ") || "event"}`
+                        : event.type === "formula_prep" ? "Formula Prep"
+                        : event.type.charAt(0).toUpperCase() + event.type.slice(1)}
                     </Text>
-                    {!selectMode && (
+                    {!selectMode && event.type !== "deletion_audit" && (
                       <View style={{ backgroundColor: colors.primary + "15", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
                         <Text style={{ color: colors.primary, fontSize: 9, fontWeight: "600" }}>EDIT</Text>
                       </View>
@@ -637,13 +646,13 @@ export default function HomeScreen() {
                   <Text style={[styles.eventSummary, { color: colors.muted }]}>
                     {getEventSummary(event)}
                   </Text>
-                  {event.loggedByName && (
+                  {event.loggedByName && event.type !== "deletion_audit" && (
                     <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2, fontStyle: "italic" }}>
                       Logged by {event.loggedBy === user?.id?.toString() ? "You" : event.loggedByName}
                     </Text>
                   )}
                 </View>
-                {!selectMode && (
+                {!selectMode && event.type !== "deletion_audit" && (
                   <View style={{ alignItems: "center", gap: 4 }}>
                     <Text style={[styles.eventTime, { color: colors.muted }]}>
                       {formatTime(event.timestamp)}
@@ -658,6 +667,11 @@ export default function HomeScreen() {
                       <IconSymbol name="trash.fill" size={14} color={colors.error + "80"} />
                     </Pressable>
                   </View>
+                )}
+                {!selectMode && event.type === "deletion_audit" && (
+                  <Text style={[styles.eventTime, { color: colors.muted }]}>
+                    {formatTime(event.timestamp)}
+                  </Text>
                 )}
                 {selectMode && (
                   <Text style={[styles.eventTime, { color: colors.muted }]}>
