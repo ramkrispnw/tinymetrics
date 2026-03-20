@@ -321,7 +321,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const deleteEvent = useCallback(
     async (id: string) => {
+      // Capture the event before removing it so we can create an audit entry
+      let deletedEvent: BabyEvent | undefined;
       setState((prev) => {
+        deletedEvent = prev.events.find((e) => e.id === id);
         const updated = prev.events.filter((e) => e.id !== id);
         saveEvents(updated);
         return { ...prev, events: updated };
@@ -331,8 +334,44 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       } catch {
         // Offline or not logged in
       }
+      // Log a deletion_audit entry visible to all household members
+      if (deletedEvent) {
+        const auditId = generateId();
+        const auditEvent: BabyEvent = {
+          id: auditId,
+          type: "deletion_audit",
+          timestamp: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          loggedBy: currentUserId,
+          loggedByName: currentUserName,
+          data: {
+            deletedEventLabel: `${deletedEvent.type.charAt(0).toUpperCase() + deletedEvent.type.slice(1).replace("_", " ")}`,
+            deletedEventType: deletedEvent.type,
+            deletedEventTimestamp: deletedEvent.timestamp,
+            deletedByName: currentUserName || "Unknown",
+          },
+        };
+        setState((prev) => {
+          const updated = [auditEvent, ...prev.events];
+          saveEvents(updated);
+          return { ...prev, events: updated };
+        });
+        // Sync audit entry to cloud so partner sees it
+        try {
+          await syncMutation.mutateAsync({
+            events: [{
+              clientId: auditEvent.id,
+              type: auditEvent.type,
+              eventTimestamp: auditEvent.timestamp,
+              data: JSON.stringify({ ...auditEvent.data, _loggedBy: auditEvent.loggedBy, _loggedByName: auditEvent.loggedByName }),
+            }],
+          });
+        } catch {
+          // Offline — audit entry is saved locally
+        }
+      }
     },
-    [deleteMutation]
+    [deleteMutation, syncMutation, currentUserId, currentUserName]
   );
 
   const deleteEvents = useCallback(

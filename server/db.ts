@@ -1,4 +1,4 @@
-import { eq, and, or, desc, inArray } from "drizzle-orm";
+import { eq, and, or, desc, inArray, lt } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, shareInvites, babyEvents, householdData } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -500,4 +500,30 @@ export async function getDeletedEventClientIds(householdId: number): Promise<str
     );
 
   return rows.map((r) => r.clientId);
+}
+
+/**
+ * Hard-delete tombstone rows (deleted=1) older than `daysOld` days.
+ * Safe to call at any time — devices that haven't synced in 30+ days
+ * will re-download their full event list on next login anyway.
+ */
+export async function purgeTombstones(daysOld = 30): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - daysOld);
+
+  const result = await db
+    .delete(babyEvents)
+    .where(
+      and(
+        eq(babyEvents.deleted, 1),
+        lt(babyEvents.createdAt, cutoff)
+      )
+    );
+
+  // mysql2 returns ResultSetHeader with affectedRows
+  const affected = (result as any)?.[0]?.affectedRows ?? 0;
+  return affected;
 }

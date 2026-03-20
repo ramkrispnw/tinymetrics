@@ -6,6 +6,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { purgeTombstones } from "../db";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -78,6 +79,24 @@ async function startServer() {
   server.listen(port, () => {
     console.log(`[api] server listening on port ${port}`);
   });
+
+  // ── Tombstone cleanup: purge deleted=1 rows older than 30 days ──
+  // Run once at startup (catches any backlog), then every 24 hours.
+  const runTombstoneCleanup = async () => {
+    try {
+      const purged = await purgeTombstones(30);
+      if (purged > 0) {
+        console.log(`[Cleanup] Purged ${purged} expired tombstone row(s)`);
+      }
+    } catch (err) {
+      console.warn("[Cleanup] Tombstone purge failed:", err);
+    }
+  };
+  // Delay first run by 10s to let DB connection stabilise
+  setTimeout(() => {
+    runTombstoneCleanup();
+    setInterval(runTombstoneCleanup, 24 * 60 * 60 * 1000); // every 24h
+  }, 10_000);
 }
 
 startServer().catch(console.error);

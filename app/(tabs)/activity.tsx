@@ -202,6 +202,7 @@ export default function ActivityScreen() {
       case "pump": return "drop.triangle.fill" as const;
       case "formula_prep": return "flask.fill" as const;
       case "medication": return "pills.fill" as const;
+      case "deletion_audit": return "trash.fill" as const;
       default: return "info.circle.fill" as const;
     }
   };
@@ -216,6 +217,7 @@ export default function ActivityScreen() {
       case "pump": return colors.pump;
       case "formula_prep": return (colors as any).formula || colors.warning;
       case "medication": return (colors as any).medication || colors.error;
+      case "deletion_audit": return colors.muted;
       default: return colors.muted;
     }
   };
@@ -282,6 +284,10 @@ export default function ActivityScreen() {
         const parts = [d.name];
         if (d.dosage) parts.push(d.dosage);
         return parts.join(" · ");
+      }
+      case "deletion_audit": {
+        const d = event.data as any;
+        return d.deletedEventLabel || d.deletedEventType || "Event deleted";
       }
       default:
         return "";
@@ -403,10 +409,16 @@ export default function ActivityScreen() {
           </View>
           <View style={styles.eventContent}>
             <View style={styles.eventTitleRow}>
-              <Text style={[styles.eventTitle, { color: colors.foreground }]}>
-                {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+              <Text style={[
+                styles.eventTitle,
+                { color: item.type === "deletion_audit" ? colors.muted : colors.foreground },
+                item.type === "deletion_audit" && { fontStyle: "italic" },
+              ]}>
+                {item.type === "deletion_audit"
+                  ? `${(item.data as any).deletedByName || "Someone"} deleted a ${(item.data as any).deletedEventType || "event"}`
+                  : item.type.charAt(0).toUpperCase() + item.type.slice(1).replace("_", " ")}
               </Text>
-              {!selectMode && (
+              {!selectMode && item.type !== "deletion_audit" && (
                 <Pressable
                   onPress={(e) => {
                     e.stopPropagation?.();
@@ -425,13 +437,13 @@ export default function ActivityScreen() {
             <Text style={[styles.eventSummary, { color: colors.muted }]}>
               {getEventSummary(item)}
             </Text>
-            {item.loggedByName && (
+            {item.loggedByName && item.type !== "deletion_audit" && (
               <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2, fontStyle: "italic" }}>
                 Logged by {item.loggedBy === user?.id?.toString() ? "You" : item.loggedByName}
               </Text>
             )}
           </View>
-          {!selectMode && (
+          {!selectMode && item.type !== "deletion_audit" && (
             <View style={styles.eventRight}>
               <Text style={[styles.eventTime, { color: colors.muted }]}>
                 {formatTime(item.timestamp)}
@@ -446,6 +458,11 @@ export default function ActivityScreen() {
                 <IconSymbol name="trash.fill" size={16} color={colors.error + "80"} />
               </Pressable>
             </View>
+          )}
+          {(!selectMode && item.type === "deletion_audit") && (
+            <Text style={[styles.eventTime, { color: colors.muted }]}>
+              {formatTime(item.timestamp)}
+            </Text>
           )}
           {selectMode && (
             <Text style={[styles.eventTime, { color: colors.muted }]}>

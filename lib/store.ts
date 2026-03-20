@@ -3,7 +3,7 @@ import { createContext, useContext } from "react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type EventType = "feed" | "sleep" | "diaper" | "observation" | "growth" | "pump" | "formula_prep" | "medication";
+export type EventType = "feed" | "sleep" | "diaper" | "observation" | "growth" | "pump" | "formula_prep" | "medication" | "deletion_audit";
 
 export type PumpSide = "left" | "right" | "both";
 
@@ -71,11 +71,23 @@ export interface GrowthData {
   notes?: string;
 }
 
+/** Audit entry logged when any household member deletes an event */
+export interface DeletionAuditData {
+  /** Human-readable label of the deleted event, e.g. "Feed (bottle, 120ml)" */
+  deletedEventLabel: string;
+  /** The original event type that was deleted */
+  deletedEventType: string;
+  /** ISO timestamp of the deleted event */
+  deletedEventTimestamp: string;
+  /** Display name of the user who performed the deletion */
+  deletedByName: string;
+}
+
 export interface BabyEvent {
   id: string;
   type: EventType;
   timestamp: string; // ISO
-  data: FeedData | SleepData | DiaperData | ObservationData | GrowthData | PumpData | FormulaPrepData | MedicationData;
+  data: FeedData | SleepData | DiaperData | ObservationData | GrowthData | PumpData | FormulaPrepData | MedicationData | DeletionAuditData;
   imageUrl?: string;
   createdAt: string; // ISO
   loggedBy?: string; // userId or display name of who logged this

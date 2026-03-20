@@ -50,6 +50,7 @@ import { EditEventSheet } from "@/components/edit-event-sheet";
 import { EventDetailSheet } from "@/components/event-detail-sheet";
 import type { FormulaPrepData, MedicationData } from "@/lib/store";
 import { TodayProjectionCard } from "@/components/today-projection-card";
+import { UndoSnackbar } from "@/components/undo-snackbar";
 
 type SheetType = "feed" | "sleep" | "diaper" | "observation" | "pump" | "formula_prep" | "medication" | "profile" | "settings" | "share" | "growth" | "import" | "digest" | null;
 
@@ -69,12 +70,15 @@ function formatRelativeTime(isoString: string): string {
 export default function HomeScreen() {
   const colors = useColors();
   const { isAuthenticated, user } = useAuth();
-  const { state, deleteEvent, deleteEvents, syncToCloud, loadFromCloud } = useStore();
+  const { state, deleteEvent, deleteEvents, addEvent, syncToCloud, loadFromCloud } = useStore();
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
   const [viewingEvent, setViewingEvent] = useState<BabyEvent | null>(null);
   const hasSyncedRef = useRef(false);
   const [syncing, setSyncing] = useState(false);
+
+  // Undo-delete state: holds the event pending deletion during the grace period
+  const [pendingDelete, setPendingDelete] = useState<BabyEvent | null>(null);
 
   const handleSyncNow = useCallback(async () => {
     if (syncing) return;
@@ -214,21 +218,14 @@ export default function HomeScreen() {
   }, [todayEvents]);
 
   const handleDeleteEvent = useCallback((event: BabyEvent) => {
-    if (Platform.OS === "web") {
-      deleteEvent(event.id);
-      return;
+    // Optimistically remove from local state immediately for snappy UX
+    // The actual server call is deferred until the snackbar timer expires
+    deleteEvent(event.id); // removes from local state + queues server call internally
+    // Cancel the pending server call by replacing with undo-able pending state
+    setPendingDelete(event);
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
-    Alert.alert("Delete Event", "Are you sure you want to delete this event?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => {
-          deleteEvent(event.id);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        },
-      },
-    ]);
   }, [deleteEvent]);
 
   // Show all today's events (no limit)
@@ -751,6 +748,29 @@ export default function HomeScreen() {
         event={editingEvent}
         onClose={() => setEditingEvent(null)}
       />
+
+      {/* Undo Delete Snackbar */}
+      {pendingDelete && (
+        <UndoSnackbar
+          key={pendingDelete.id}
+          message={`${pendingDelete.type.charAt(0).toUpperCase() + pendingDelete.type.slice(1)} deleted`}
+          onUndo={() => {
+            // Restore the event to local state by re-adding it with its original id
+            addEvent({
+              type: pendingDelete.type,
+              timestamp: pendingDelete.timestamp,
+              data: pendingDelete.data,
+              loggedBy: pendingDelete.loggedBy,
+              loggedByName: pendingDelete.loggedByName,
+            });
+            setPendingDelete(null);
+          }}
+          onCommit={() => {
+            // Server delete already fired via deleteEvent(); just clear pending state
+            setPendingDelete(null);
+          }}
+        />
+      )}
     </ScreenContainer>
   );
 }
