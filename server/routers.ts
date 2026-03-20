@@ -194,6 +194,12 @@ export const appRouter = router({
         const householdId = await db.getHouseholdId(ctx.user.id);
         return db.deleteCloudEventByClientId(input.clientId, householdId);
       }),
+
+    // List all deleted event clientIds for the household (used by partner devices to purge locally)
+    listDeleted: protectedProcedure.query(async ({ ctx }) => {
+      const householdId = await db.getHouseholdId(ctx.user.id);
+      return db.getDeletedEventClientIds(householdId);
+    }),
   }),
 
   ai: router({

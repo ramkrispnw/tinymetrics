@@ -483,3 +483,21 @@ export async function deleteCloudEventByClientId(clientId: string, householdId: 
 
   return { success: true };
 }
+
+/** Get clientIds of all soft-deleted events for a household */
+export async function getDeletedEventClientIds(householdId: number): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .select({ clientId: babyEvents.clientId })
+    .from(babyEvents)
+    .where(
+      and(
+        eq(babyEvents.householdId, householdId),
+        eq(babyEvents.deleted, 1)
+      )
+    );
+
+  return rows.map((r) => r.clientId);
+}

@@ -127,6 +127,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         console.warn("[CloudSync] Failed to fetch events:", err);
       }
 
+      // Fetch deleted event IDs so partner devices can purge them locally
+      let deletedClientIds: string[] = [];
+      try {
+        deletedClientIds = await client.events.listDeleted.query();
+      } catch (err) {
+        console.warn("[CloudSync] Failed to fetch deleted event IDs:", err);
+      }
+
       if (cloudEvents && Array.isArray(cloudEvents) && cloudEvents.length > 0) {
         const parsedEvents: BabyEvent[] = cloudEvents.map((ce) => {
           let parsedData: any;
@@ -158,14 +166,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
         setState((prev) => {
           // Merge: cloud wins for same clientId, keep local-only events
+          // Strip any events that have been soft-deleted on the server (by any household member)
+          const deletedSet = new Set(deletedClientIds);
           const mergedMap = new Map<string, BabyEvent>();
-          for (const e of prev.events) mergedMap.set(e.id, e);
+          for (const e of prev.events) {
+            if (!deletedSet.has(e.id)) mergedMap.set(e.id, e);
+          }
           // Detect new partner events for notifications
           const existingIds = new Set(prev.events.map((e) => e.id));
           const newPartnerEvents = parsedEvents.filter(
             (e) => !existingIds.has(e.id) && e.loggedBy && e.loggedBy !== currentUserId
           );
-          for (const e of parsedEvents) mergedMap.set(e.id, e);
+          for (const e of parsedEvents) {
+            if (!deletedSet.has(e.id)) mergedMap.set(e.id, e);
+          }
           const merged = Array.from(mergedMap.values()).sort(
             (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           );
@@ -184,6 +198,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           return { ...prev, events: merged };
         });
         console.log(`[CloudSync] Pulled ${parsedEvents.length} events from cloud`);
+      } else if (deletedClientIds.length > 0) {
+        // No cloud events returned (all deleted or empty household), but we still need
+        // to purge any locally-held events that were deleted by a partner.
+        const deletedSet = new Set(deletedClientIds);
+        setState((prev) => {
+          const filtered = prev.events.filter((e) => !deletedSet.has(e.id));
+          if (filtered.length !== prev.events.length) {
+            saveEvents(filtered);
+            return { ...prev, events: filtered };
+          }
+          return prev;
+        });
+        console.log(`[CloudSync] Purged ${deletedClientIds.length} deleted events from local store`);
       }
 
       // 2. Pull profile
