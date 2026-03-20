@@ -49,6 +49,7 @@ import { LogMedicationSheet } from "@/components/log-medication-sheet";
 import { EditEventSheet } from "@/components/edit-event-sheet";
 import { EventDetailSheet } from "@/components/event-detail-sheet";
 import type { FormulaPrepData, MedicationData } from "@/lib/store";
+import { TodayProjectionCard } from "@/components/today-projection-card";
 
 type SheetType = "feed" | "sleep" | "diaper" | "observation" | "pump" | "formula_prep" | "medication" | "profile" | "settings" | "share" | "growth" | "import" | "digest" | null;
 
@@ -539,6 +540,9 @@ export default function HomeScreen() {
           </View>
           <IconSymbol name="chevron.right" size={16} color={colors.muted} />
         </Pressable>
+
+        {/* Today's Projection */}
+        <TodayProjectionCard />
 
         {/* Recent Activity */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
