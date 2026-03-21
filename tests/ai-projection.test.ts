@@ -330,3 +330,94 @@ describe("estimateColWidths — no truncation for ISO dates", () => {
     expect(width).toBeGreaterThan(90);
   });
 });
+
+// ── QA: Notes and descriptions passed to AI context ──────────────────────────
+
+describe("buildAIContext — notes and descriptions", () => {
+  const profile = {
+    name: "Test",
+    birthDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+    gender: "male" as const,
+  };
+
+  it("includes feed notes in context", () => {
+    const events: BabyEvent[] = [{
+      id: "f1",
+      type: "feed",
+      timestamp: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      data: { method: "bottle", amountMl: 120, notes: "seemed very hungry" },
+    } as BabyEvent];
+    const ctx = buildAIContext(profile, events, [], [], null);
+    expect(ctx).toContain("seemed very hungry");
+  });
+
+  it("includes observation description and category in context", () => {
+    const events: BabyEvent[] = [{
+      id: "o1",
+      type: "observation",
+      timestamp: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      data: { category: "health", severity: "mild", description: "baby seems gassy today", notes: "" },
+    } as BabyEvent];
+    const ctx = buildAIContext(profile, events, [], [], null);
+    expect(ctx).toContain("baby seems gassy today");
+    expect(ctx).toContain("[health]");
+    expect(ctx).toContain("[mild]");
+  });
+
+  it("includes medication name and dosage in context", () => {
+    const events: BabyEvent[] = [{
+      id: "m1",
+      type: "medication",
+      timestamp: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      data: { name: "Vitamin D", dosage: "400 IU", frequency: "once daily", notes: "given with feed" },
+    } as BabyEvent];
+    const ctx = buildAIContext(profile, events, [], [], null);
+    expect(ctx).toContain("Vitamin D");
+    expect(ctx).toContain("400 IU");
+    expect(ctx).toContain("once daily");
+    expect(ctx).toContain("given with feed");
+  });
+
+  it("includes milestone notes in context", () => {
+    const milestones = [{
+      id: "ms1",
+      title: "First smile",
+      date: "2026-03-20",
+      category: "social" as const,
+      notes: "smiled at dad during morning feed",
+      createdAt: new Date().toISOString(),
+    }];
+    const ctx = buildAIContext(profile, [], [], milestones, null);
+    expect(ctx).toContain("First smile");
+    expect(ctx).toContain("smiled at dad during morning feed");
+  });
+
+  it("includes diaper notes and poo color in context", () => {
+    const events: BabyEvent[] = [{
+      id: "d1",
+      type: "diaper",
+      timestamp: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      data: { type: "poo", pooColor: "green", notes: "unusual color" },
+    } as BabyEvent];
+    const ctx = buildAIContext(profile, events, [], [], null);
+    expect(ctx).toContain("green");
+    expect(ctx).toContain("unusual color");
+  });
+
+  it("does not include empty notes", () => {
+    const events: BabyEvent[] = [{
+      id: "f2",
+      type: "feed",
+      timestamp: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      data: { method: "bottle", amountMl: 120, notes: "   " },
+    } as BabyEvent];
+    const ctx = buildAIContext(profile, events, [], [], null);
+    // Should not add a "Feed note" line for whitespace-only notes
+    expect(ctx).not.toContain("Feed note");
+  });
+});

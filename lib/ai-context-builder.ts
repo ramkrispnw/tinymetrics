@@ -3,7 +3,9 @@ import {
   FeedData,
   SleepData,
   DiaperData,
+  ObservationData,
   PumpData,
+  FormulaPrepData,
   MedicationData,
   GrowthEntry,
   Milestone,
@@ -402,9 +404,17 @@ export function buildAIContext(
     if (feeds.length > 0) {
       const totalMl = feeds.reduce((s, e) => s + ((e.data as FeedData).amountMl || 0), 0);
       const totalMin = feeds.reduce((s, e) => s + ((e.data as FeedData).durationMin || 0), 0);
-      parts.push(
-        `Feeding: ${feeds.length} sessions, ${totalMl}ml total, ${totalMin}min total nursing`
-      );
+      let feedLine = `Feeding: ${feeds.length} sessions, ${totalMl}ml total`;
+      if (totalMin > 0) feedLine += `, ${totalMin}min total nursing`;
+      parts.push(feedLine);
+      // Include per-feed notes
+      feeds.forEach((e) => {
+        const d = e.data as FeedData;
+        if (d.notes?.trim()) {
+          const t = new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          parts.push(`  Feed note (${t}): ${d.notes.trim()}`);
+        }
+      });
     }
 
     if (sleeps.length > 0) {
@@ -412,6 +422,14 @@ export function buildAIContext(
       const allSleepForToday = events.filter((e) => e.type === "sleep");
       const totalMin = allSleepForToday.reduce((s, e) => s + getSleepMinutesForDay(e, todayKey), 0);
       parts.push(`Sleep: ${sleeps.length} sessions started today + overnight carry-over, ${formatDuration(totalMin)} total`);
+      // Include per-sleep notes
+      sleeps.forEach((e) => {
+        const d = e.data as SleepData;
+        if (d.notes?.trim()) {
+          const t = new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          parts.push(`  Sleep note (${t}): ${d.notes.trim()}`);
+        }
+      });
     }
 
     if (diapers.length > 0) {
@@ -419,19 +437,70 @@ export function buildAIContext(
       const poo = diapers.filter((e) => (e.data as DiaperData).type === "poo").length;
       const both = diapers.filter((e) => (e.data as DiaperData).type === "both").length;
       parts.push(`Diapers: ${diapers.length} changes (${pee} pee, ${poo} poo, ${both} both)`);
+      // Include diaper notes (e.g. color, consistency observations)
+      diapers.forEach((e) => {
+        const d = e.data as DiaperData;
+        const noteItems: string[] = [];
+        if (d.pooColor) noteItems.push(`color: ${d.pooColor}`);
+        if (d.notes?.trim()) noteItems.push(d.notes.trim());
+        if (noteItems.length > 0) {
+          const t = new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          parts.push(`  Diaper note (${t}): ${noteItems.join(", ")}`);
+        }
+      });
     }
 
     if (pumps.length > 0) {
       const totalMl = pumps.reduce((s, e) => s + ((e.data as PumpData).amountMl || 0), 0);
       parts.push(`Pumping: ${pumps.length} sessions, ${totalMl}ml total`);
+      pumps.forEach((e) => {
+        const d = e.data as PumpData;
+        if (d.notes?.trim()) {
+          const t = new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          parts.push(`  Pump note (${t}): ${d.notes.trim()}`);
+        }
+      });
+    }
+
+    // Formula prep
+    const formulas = todayEvents.filter((e) => e.type === "formula_prep");
+    if (formulas.length > 0) {
+      const totalMl = formulas.reduce((s, e) => s + ((e.data as FormulaPrepData).amountMl || 0), 0);
+      parts.push(`Formula prep: ${formulas.length} sessions, ${totalMl}ml total`);
+      formulas.forEach((e) => {
+        const d = e.data as FormulaPrepData;
+        if (d.notes?.trim()) {
+          const t = new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          parts.push(`  Formula note (${t}): ${d.notes.trim()}`);
+        }
+      });
     }
 
     if (meds.length > 0) {
-      parts.push(`Medications: ${meds.length} doses logged`);
+      // Include medication name, dosage, frequency, and notes for each dose
+      meds.forEach((e) => {
+        const d = e.data as MedicationData;
+        const t = new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        let medLine = `Medication (${t}): ${d.name}`;
+        if (d.dosage) medLine += `, ${d.dosage}`;
+        if (d.frequency) medLine += ` (${d.frequency})`;
+        if (d.notes?.trim()) medLine += ` — ${d.notes.trim()}`;
+        parts.push(medLine);
+      });
     }
 
     if (observations.length > 0) {
-      parts.push(`Observations: ${observations.length}`);
+      // Include full observation text — this is the most important note type
+      observations.forEach((e) => {
+        const d = e.data as ObservationData;
+        const t = new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        let obsLine = `Observation (${t})`;
+        if (d.category) obsLine += ` [${d.category}]`;
+        if (d.severity) obsLine += ` [${d.severity}]`;
+        if (d.description?.trim()) obsLine += `: ${d.description.trim()}`;
+        if (d.notes?.trim() && d.notes.trim() !== d.description?.trim()) obsLine += ` — ${d.notes.trim()}`;
+        parts.push(obsLine);
+      });
     }
   }
 
@@ -481,7 +550,9 @@ export function buildAIContext(
   if (milestones.length > 0) {
     parts.push("\n## MILESTONES ACHIEVED");
     milestones.slice(0, 15).forEach((m: Milestone) => {
-      parts.push(`${m.date}: ${m.title} (${m.category})`);
+      let line = `${m.date}: ${m.title} (${m.category})`;
+      if (m.notes?.trim()) line += ` — ${m.notes.trim()}`;
+      parts.push(line);
     });
   }
 
