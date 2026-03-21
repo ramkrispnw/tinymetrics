@@ -201,7 +201,8 @@ function isSeparatorRow(line: string): boolean {
 
 /**
  * Estimate column width in px based on longest content in that column.
- * Min 60px, max 160px, ~8px per character.
+ * Uses 9.5px per character, min 90px, max 200px.
+ * First column gets a minimum of 120px to always fit ISO dates (YYYY-MM-DD).
  */
 function estimateColWidths(rows: string[][]): number[] {
   if (rows.length === 0) return [];
@@ -210,12 +211,20 @@ function estimateColWidths(rows: string[][]): number[] {
 
   for (const row of rows) {
     for (let c = 0; c < row.length; c++) {
-      const len = row[c].replace(/\*\*/g, "").replace(/\*/g, "").length;
-      widths[c] = Math.max(widths[c], len);
+      // Strip markdown bold/italic markers and emoji for length estimation
+      const stripped = row[c]
+        .replace(/\*\*/g, "")
+        .replace(/\*/g, "")
+        .replace(/[\u{1F300}-\u{1FFFF}]/gu, "  "); // emoji ~2 chars wide
+      widths[c] = Math.max(widths[c], stripped.length);
     }
   }
 
-  return widths.map((w) => Math.min(Math.max(w * 8, 60), 160));
+  return widths.map((w, i) => {
+    const estimated = Math.round(w * 9.5);
+    const minWidth = i === 0 ? 120 : 90; // first col needs room for dates
+    return Math.min(Math.max(estimated, minWidth), 200);
+  });
 }
 
 /**

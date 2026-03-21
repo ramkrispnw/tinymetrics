@@ -451,8 +451,17 @@ export function buildAIContext(
     // Use overlap logic to capture overnight sleep carrying into this day
     const allSleepForDay = events.filter((e) => e.type === "sleep");
     const sleepMin = allSleepForDay.reduce((s, e) => s + getSleepMinutesForDay(e, dk), 0);
+    // Count wet (pee + both) and poo (poo + both) separately so AI has accurate per-type counts
+    const wetCount = diapers.filter((e) => {
+      const t = (e.data as DiaperData).type;
+      return t === "pee" || t === "both";
+    }).length;
+    const pooCount = diapers.filter((e) => {
+      const t = (e.data as DiaperData).type;
+      return t === "poo" || t === "both";
+    }).length;
     parts.push(
-      `${dk}: ${feeds.length} feeds (${feedMl}ml), ${sleeps.length} sleep sessions (${formatDuration(sleepMin)} incl. overnight), ${diapers.length} diapers`
+      `${dk}: ${feeds.length} feeds (${feedMl}ml), ${formatDuration(sleepMin)} sleep (incl. overnight), ${wetCount} wet diapers, ${pooCount} poo diapers`
     );
   }
 
