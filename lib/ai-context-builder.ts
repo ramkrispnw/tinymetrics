@@ -331,12 +331,19 @@ export function formatTodayProjection(projection: TodayProjection): string {
 /**
  * Build comprehensive AI context with baby data, events, and projections
  */
+export interface DateRange {
+  startDate: Date;
+  endDate: Date;
+  label: string; // e.g. "last week", "February 2026", "last 30 days"
+}
+
 export function buildAIContext(
   profile: any,
   events: BabyEvent[],
   growthHistory: GrowthEntry[],
   milestones: Milestone[],
-  activeSleep: any
+  activeSleep: any,
+  dateRange?: DateRange
 ): string {
   const parts: string[] = [];
 
@@ -368,14 +375,30 @@ export function buildAIContext(
     parts.push("\n" + formatTodayProjection(projections));
   }
 
-  // ── Date range: last 14 days ──
+  // ── Date range: 7 days by default, or custom range ──
   const dayKeys: string[] = [];
-  for (let i = 0; i < 14; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    dayKeys.push(getDayKey(d.toISOString()));
+  const isCustomRange = !!dateRange;
+  if (dateRange) {
+    // Custom range: enumerate all days from startDate to endDate
+    const cur = new Date(dateRange.startDate);
+    cur.setHours(0, 0, 0, 0);
+    const end = new Date(dateRange.endDate);
+    end.setHours(23, 59, 59, 999);
+    while (cur <= end) {
+      dayKeys.push(getDayKey(cur.toISOString()));
+      cur.setDate(cur.getDate() + 1);
+    }
+    // Most recent first
+    dayKeys.reverse();
+  } else {
+    // Default: last 7 days
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dayKeys.push(getDayKey(d.toISOString()));
+    }
   }
-  const todayKey = dayKeys[0];
+  const todayKey = getDayKey(new Date().toISOString());
 
   // ── Events by day ──
   const recentEvents = events.filter((e) => dayKeys.includes(getDayKey(e.timestamp)));
@@ -504,10 +527,14 @@ export function buildAIContext(
     }
   }
 
-  // ── Weekly summary ──
-  parts.push("\n## LAST 7 DAYS SUMMARY");
-  const last7Keys = dayKeys.slice(0, 7);
-  for (const dk of last7Keys) {
+  // ── Summary section (7-day default or custom range) ──
+  const summaryLabel = isCustomRange && dateRange
+    ? `## DATA FOR ${dateRange.label.toUpperCase()}`
+    : "## LAST 7 DAYS SUMMARY";
+  parts.push("\n" + summaryLabel);
+  // For custom ranges, skip today's detail row (already shown above) unless it's a historical query
+  const summaryKeys = isCustomRange ? dayKeys : dayKeys.slice(1); // skip today (already in TODAY'S EVENTS)
+  for (const dk of summaryKeys) {
     const dayEvents = byDay.get(dk) || [];
     if (dayEvents.length === 0) {
       parts.push(`${dk}: No events`);

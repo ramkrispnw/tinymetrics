@@ -18,7 +18,7 @@ import { trpc } from "@/lib/trpc";
 import {
   calculateAge,
 } from "@/lib/store";
-import { buildAIContext } from "@/lib/ai-context-builder";
+import { buildAIContext, type DateRange } from "@/lib/ai-context-builder";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { pickImage } from "@/lib/image-utils";
@@ -55,17 +55,93 @@ export default function AssistantScreen() {
   };
 
   /**
+   * Detect if a user question refers to a specific time period.
+   * Returns a DateRange if detected, or undefined for default (last 7 days).
+   */
+  const detectDateRange = (question: string): DateRange | undefined => {
+    const q = question.toLowerCase();
+    const now = new Date();
+
+    // "yesterday"
+    if (/\byesterday\b/.test(q)) {
+      const start = new Date(now); start.setDate(start.getDate() - 1); start.setHours(0,0,0,0);
+      const end = new Date(start); end.setHours(23,59,59,999);
+      return { startDate: start, endDate: end, label: "yesterday" };
+    }
+
+    // "last week" or "past week"
+    if (/last week|past week/.test(q)) {
+      const end = new Date(now); end.setDate(end.getDate() - 1); end.setHours(23,59,59,999);
+      const start = new Date(now); start.setDate(start.getDate() - 7); start.setHours(0,0,0,0);
+      return { startDate: start, endDate: end, label: "last 7 days" };
+    }
+
+    // "last 2 weeks" / "past 2 weeks" / "last 14 days"
+    if (/last 2 weeks|past 2 weeks|last 14 days|past 14 days/.test(q)) {
+      const end = new Date(now); end.setHours(23,59,59,999);
+      const start = new Date(now); start.setDate(start.getDate() - 13); start.setHours(0,0,0,0);
+      return { startDate: start, endDate: end, label: "last 14 days" };
+    }
+
+    // "last month" / "past month" / "last 30 days"
+    if (/last month|past month|last 30 days|past 30 days/.test(q)) {
+      const end = new Date(now); end.setHours(23,59,59,999);
+      const start = new Date(now); start.setDate(start.getDate() - 29); start.setHours(0,0,0,0);
+      return { startDate: start, endDate: end, label: "last 30 days" };
+    }
+
+    // "last N days"
+    const nDaysMatch = q.match(/last (\d+) days?/);
+    if (nDaysMatch) {
+      const n = parseInt(nDaysMatch[1], 10);
+      if (n > 0 && n <= 365) {
+        const end = new Date(now); end.setHours(23,59,59,999);
+        const start = new Date(now); start.setDate(start.getDate() - (n - 1)); start.setHours(0,0,0,0);
+        return { startDate: start, endDate: end, label: `last ${n} days` };
+      }
+    }
+
+    // Named month: "in january", "in february 2026", "january 2026", etc.
+    const months = ["january","february","march","april","may","june",
+                    "july","august","september","october","november","december"];
+    for (let mi = 0; mi < months.length; mi++) {
+      const monthName = months[mi];
+      const yearMatch = q.match(new RegExp(monthName + "\\s*(\\d{4})"));
+      const monthOnly = q.includes(monthName);
+      if (monthOnly) {
+        const year = yearMatch ? parseInt(yearMatch[1], 10) : now.getFullYear();
+        const start = new Date(year, mi, 1, 0, 0, 0, 0);
+        const end = new Date(year, mi + 1, 0, 23, 59, 59, 999);
+        if (start <= now) { // don't fetch future months
+          return { startDate: start, endDate: end, label: `${monthName} ${year}` };
+        }
+      }
+    }
+
+    // "this week"
+    if (/\bthis week\b/.test(q)) {
+      const dayOfWeek = now.getDay(); // 0=Sun
+      const start = new Date(now); start.setDate(start.getDate() - dayOfWeek); start.setHours(0,0,0,0);
+      const end = new Date(now); end.setHours(23,59,59,999);
+      return { startDate: start, endDate: end, label: "this week" };
+    }
+
+    return undefined; // default: last 7 days
+  };
+
+  /**
    * Build comprehensive context using the baby coacher skill.
-   * Includes: profile, today's projections, events (last 14 days),
+   * Includes: profile, today's projections, events (7 days by default or custom range),
    * growth history, milestones, and age-specific targets.
    */
-  const buildContext = () => {
+  const buildContext = (dateRange?: DateRange) => {
     return buildAIContext(
       state.profile,
       state.events,
       state.growthHistory,
       state.milestones,
-      state.activeSleep
+      state.activeSleep,
+      dateRange
     );
   };
 
@@ -132,7 +208,8 @@ export default function AssistantScreen() {
     }
 
     try {
-      const context = buildContext();
+      const detectedRange = detectDateRange(userMsg.content);
+      const context = buildContext(detectedRange);
       const result = await askAI.mutateAsync({
         question: userMsg.content,
         context,
