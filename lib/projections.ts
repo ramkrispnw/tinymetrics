@@ -285,7 +285,9 @@ function deriveStatus(projected: number, target: number): "ahead" | "on-track" |
  */
 export function calculateProjections(
   events: BabyEvent[],
-  ageWeeks: number
+  ageWeeks: number,
+  currentWeightKg?: number,
+  birthWeightKg?: number
 ): DailyProjections {
   const now = new Date();
   const todayKey = getDayKey(now.toISOString());
@@ -296,7 +298,7 @@ export function calculateProjections(
   const hoursElapsed = (now.getTime() - dayStart.getTime()) / 3600000;
   const hoursRemaining = 24 - hoursElapsed;
 
-  const targets = getAgeSpecificTargets(ageWeeks);
+  const targets = getAgeSpecificTargets(ageWeeks, currentWeightKg, birthWeightKg);
 
   // Build 7-day history arrays (index 0 = yesterday = D-1)
   const histDayKeys = Array.from({ length: 7 }, (_, i) => getDayKeyForOffset(i + 1));

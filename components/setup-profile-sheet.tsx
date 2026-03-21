@@ -41,6 +41,8 @@ export function SetupProfileSheet({ onClose }: Props) {
   const [pendingPhotoBase64, setPendingPhotoBase64] = useState<string | null>(null);
   const [pendingPhotoMime, setPendingPhotoMime] = useState<string>("image/jpeg");
   const [sex, setSex] = useState<"boy" | "girl" | undefined>(state.profile?.sex);
+  const [birthWeight, setBirthWeight] = useState(state.profile?.birthWeight?.toString() || "");
+  const [birthWeightUnit, setBirthWeightUnit] = useState<WeightUnit>(state.profile?.birthWeightUnit || "kg");
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
@@ -121,6 +123,8 @@ export function SetupProfileSheet({ onClose }: Props) {
       weightUnit,
       height: height ? parseFloat(height) : undefined,
       heightUnit,
+      birthWeight: birthWeight ? parseFloat(birthWeight) : undefined,
+      birthWeightUnit,
       photoUri: finalPhotoUri || undefined,
     });
     if (Platform.OS !== "web") {
@@ -347,10 +351,55 @@ export function SetupProfileSheet({ onClose }: Props) {
           </View>
         </View>
 
+        {/* Birth Weight */}
+        <Text style={[styles.sectionLabel, { color: colors.muted }]}>Birth Weight</Text>
+        <View style={styles.measureRow}>
+          <View style={[styles.measureInput, { backgroundColor: colors.surface, borderColor: colors.border, flex: 1 }]}>
+            <TextInput
+              value={birthWeight}
+              onChangeText={setBirthWeight}
+              placeholder={birthWeightUnit === "kg" ? "e.g. 3.2" : "e.g. 7.1"}
+              placeholderTextColor={colors.muted}
+              keyboardType="decimal-pad"
+              returnKeyType="done"
+              style={[styles.textInput, { color: colors.foreground }]}
+            />
+          </View>
+          <View style={styles.unitToggle}>
+            {(["kg", "lbs"] as WeightUnit[]).map((u) => (
+              <Pressable
+                key={u}
+                onPress={() => {
+                  setBirthWeightUnit(u);
+                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                style={({ pressed }) => [
+                  styles.unitBtn,
+                  {
+                    backgroundColor: birthWeightUnit === u ? colors.primary : colors.surface,
+                    borderColor: birthWeightUnit === u ? colors.primary : colors.border,
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: birthWeightUnit === u ? "#fff" : colors.foreground,
+                    fontWeight: birthWeightUnit === u ? "700" : "500",
+                    fontSize: 14,
+                  }}
+                >
+                  {u}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
         {/* Info card */}
         <View style={[styles.infoCard, { backgroundColor: colors.primary + "08", borderColor: colors.primary + "20" }]}>
           <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 20 }}>
-            Weight and height help the AI assistant provide age- and size-appropriate advice for your baby.
+            Weight, height, and birth weight help the AI assistant provide personalized, size-appropriate targets and advice for your baby.
           </Text>
         </View>
       </ScrollView>

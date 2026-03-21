@@ -219,7 +219,20 @@ export function TodayProjectionCard() {
 
   const ageInfo = calculateAge(state.profile.birthDate);
   const ageWeeks = Math.floor((ageInfo.months * 30 + ageInfo.days) / 7);
-  const proj = calculateProjections(state.events, ageWeeks);
+
+  // Convert weight to kg for personalized targets
+  const currentWeightKg = state.profile.weight
+    ? state.profile.weightUnit === "lbs"
+      ? state.profile.weight * 0.453592
+      : state.profile.weight
+    : undefined;
+  const birthWeightKg = state.profile.birthWeight
+    ? state.profile.birthWeightUnit === "lbs"
+      ? state.profile.birthWeight * 0.453592
+      : state.profile.birthWeight
+    : undefined;
+
+  const proj = calculateProjections(state.events, ageWeeks, currentWeightKg, birthWeightKg);
 
   // 7-day sparkline: 6 historical days + today projected
   const sparklineValues = get7DayFeedingHistory(state.events, proj.feeding.projected);

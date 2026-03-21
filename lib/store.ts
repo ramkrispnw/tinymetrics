@@ -102,10 +102,12 @@ export interface BabyProfile {
   birthDate: string; // ISO date
   sex?: "boy" | "girl";
   photoUri?: string;
-  weight?: number; // stored in the user's chosen unit
+  weight?: number; // current weight, stored in the user's chosen unit
   weightUnit?: WeightUnit;
-  height?: number; // stored in the user's chosen unit
+  height?: number; // current height, stored in the user's chosen unit
   heightUnit?: HeightUnit;
+  birthWeight?: number; // weight at birth, stored in birthWeightUnit
+  birthWeightUnit?: WeightUnit;
 }
 
 export interface NotificationSettings {
