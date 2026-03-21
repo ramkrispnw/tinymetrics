@@ -442,14 +442,23 @@ export function getEventDetailSummary(event: BabyEvent, units: "ml" | "oz" = "ml
 export function getSleepMinutesForDay(event: BabyEvent, targetDay: string): number {
   if (event.type !== "sleep") return 0;
   const data = event.data as SleepData;
-  const totalMin = data.durationMin || 0;
-  if (totalMin <= 0) return 0;
 
   // Parse the sleep start time
   const startTime = data.startTime ? new Date(data.startTime) : new Date(event.timestamp);
-  const endTime = data.endTime
-    ? new Date(data.endTime)
-    : new Date(startTime.getTime() + totalMin * 60 * 1000);
+
+  // Derive end time: prefer explicit endTime, then durationMin, then treat as ongoing (use now)
+  let endTime: Date;
+  if (data.endTime) {
+    endTime = new Date(data.endTime);
+  } else if (data.durationMin && data.durationMin > 0) {
+    endTime = new Date(startTime.getTime() + data.durationMin * 60 * 1000);
+  } else {
+    // Active/ongoing sleep — count minutes up to now
+    endTime = new Date();
+  }
+
+  // Sanity check: end must be after start
+  if (endTime <= startTime) return 0;
 
   // Get the target day boundaries (midnight to midnight in local time)
   const [year, month, day] = targetDay.split("-").map(Number);
