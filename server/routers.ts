@@ -208,7 +208,7 @@ export const appRouter = router({
       .input(
         z.object({
           question: z.string().min(1).max(2000),
-          context: z.string().max(15000).optional(),
+          context: z.string().max(20000).optional(),
           babyProfile: z.object({
             name: z.string().optional(),
             ageLabel: z.string().optional(),

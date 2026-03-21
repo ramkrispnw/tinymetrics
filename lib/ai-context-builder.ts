@@ -567,5 +567,5 @@ export function buildAIContext(
 
   // Truncate to stay within limits
   const full = parts.join("\n");
-  return full.length > 14000 ? full.slice(0, 14000) + "\n...(truncated)" : full;
+  return full.length > 19000 ? full.slice(0, 19000) + "\n...(truncated)" : full;
 }
