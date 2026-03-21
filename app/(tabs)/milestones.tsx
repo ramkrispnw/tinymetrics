@@ -62,17 +62,19 @@ export default function MilestonesScreen() {
           style={({ pressed }) => [
             s.filterChip,
             {
-              backgroundColor:
-                filterCat === "all" ? colors.primary : colors.surface,
-              borderColor: filterCat === "all" ? colors.primary : colors.border,
-              opacity: pressed ? 0.8 : 1,
+              backgroundColor: filterCat === "all" ? colors.primary + "25" : colors.surface,
+              borderColor: filterCat === "all" ? colors.primary : colors.border + "80",
             },
+            pressed && { opacity: 0.8 },
           ]}
         >
           <Text
             style={[
               s.filterChipText,
-              { color: filterCat === "all" ? "#fff" : colors.foreground },
+              {
+                color: filterCat === "all" ? colors.primary : colors.foreground,
+                fontWeight: filterCat === "all" ? "700" : "600",
+              },
             ]}
           >
             All
@@ -85,19 +87,18 @@ export default function MilestonesScreen() {
             style={({ pressed }) => [
               s.filterChip,
               {
-                backgroundColor:
-                  filterCat === cat.key ? colors.primary : colors.surface,
-                borderColor: filterCat === cat.key ? colors.primary : colors.border,
-                opacity: pressed ? 0.8 : 1,
+                backgroundColor: filterCat === cat.key ? colors.primary + "25" : colors.surface,
+                borderColor: filterCat === cat.key ? colors.primary : colors.border + "80",
               },
+              pressed && { opacity: 0.8 },
             ]}
           >
             <Text
               style={[
                 s.filterChipText,
                 {
-                  color:
-                    filterCat === cat.key ? "#fff" : colors.foreground,
+                  color: filterCat === cat.key ? colors.primary : colors.foreground,
+                  fontWeight: filterCat === cat.key ? "700" : "600",
                 },
               ]}
             >
@@ -403,15 +404,15 @@ const s = StyleSheet.create({
     gap: 4,
   },
   addBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  filterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8, flexGrow: 0 },
+  filterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 10, flexGrow: 0 },
   filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 22,
     borderWidth: 1.5,
     flexShrink: 0,
   },
-  filterChipText: { fontSize: 13, fontWeight: "600" },
+  filterChipText: { fontSize: 14, fontWeight: "600" },
   listContent: { paddingHorizontal: 16, paddingBottom: 100, flexGrow: 0 },
   emptyContainer: { alignItems: "center", paddingTop: 60 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
