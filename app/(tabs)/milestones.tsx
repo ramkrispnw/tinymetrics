@@ -21,13 +21,14 @@ import {
   MILESTONE_CATEGORIES,
   type Milestone,
 } from "@/lib/store";
-import { pickImage } from "@/lib/image-utils";
+import { pickImage, uploadPhotoToCloud } from "@/lib/image-utils";
 
 export default function MilestonesScreen() {
   const colors = useColors();
   const { state, addMilestone, deleteMilestone } = useStore();
   const [showAdd, setShowAdd] = useState(false);
   const [filterCat, setFilterCat] = useState<MilestoneCategory | "all">("all");
+  const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
 
   const filtered = useMemo(() => {
     if (filterCat === "all") return state.milestones;
@@ -128,6 +129,7 @@ export default function MilestonesScreen() {
           <MilestoneCard
             milestone={item}
             colors={colors}
+            onTap={() => setSelectedMilestone(item)}
             onDelete={() => {
               if (Platform.OS === "web") {
                 if (confirm("Delete this milestone?")) {
@@ -159,6 +161,42 @@ export default function MilestonesScreen() {
           onClose={() => setShowAdd(false)}
         />
       </Modal>
+
+      {/* Milestone Detail Sheet */}
+      <Modal
+        visible={!!selectedMilestone}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setSelectedMilestone(null)}
+      >
+        {selectedMilestone && (
+          <MilestoneDetailSheet
+            milestone={selectedMilestone}
+            colors={colors}
+            onClose={() => setSelectedMilestone(null)}
+            onDelete={() => {
+              if (Platform.OS === "web") {
+                if (confirm("Delete this milestone?")) {
+                  deleteMilestone(selectedMilestone.id);
+                  setSelectedMilestone(null);
+                }
+              } else {
+                Alert.alert("Delete Milestone", "Are you sure?", [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: () => {
+                      deleteMilestone(selectedMilestone.id);
+                      setSelectedMilestone(null);
+                    },
+                  },
+                ]);
+              }
+            }}
+          />
+        )}
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -166,10 +204,12 @@ export default function MilestonesScreen() {
 function MilestoneCard({
   milestone,
   colors,
+  onTap,
   onDelete,
 }: {
   milestone: Milestone;
   colors: any;
+  onTap: () => void;
   onDelete: () => void;
 }) {
   const cat = MILESTONE_CATEGORIES.find((c) => c.key === milestone.category);
@@ -180,7 +220,10 @@ function MilestoneCard({
   });
 
   return (
-    <View style={[s.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <Pressable
+      onPress={onTap}
+      style={({ pressed }) => [s.card, { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
+    >
       <View style={s.cardHeader}>
         <View style={s.cardLeft}>
           <Text style={s.cardIcon}>{cat?.icon || "⭐"}</Text>
@@ -194,7 +237,7 @@ function MilestoneCard({
           </View>
         </View>
         <Pressable
-          onPress={onDelete}
+          onPress={(e) => { e.stopPropagation?.(); onDelete(); }}
           style={({ pressed }) => [{ opacity: pressed ? 0.5 : 1, padding: 8 }]}
         >
           <IconSymbol name="trash.fill" size={18} color={colors.error} />
@@ -213,6 +256,97 @@ function MilestoneCard({
           Logged by {milestone.loggedByName}
         </Text>
       ) : null}
+    </Pressable>
+  );
+}
+
+function MilestoneDetailSheet({
+  milestone,
+  colors,
+  onClose,
+  onDelete,
+}: {
+  milestone: Milestone;
+  colors: any;
+  onClose: () => void;
+  onDelete: () => void;
+}) {
+  const cat = MILESTONE_CATEGORIES.find((c) => c.key === milestone.category);
+  const dateStr = new Date(milestone.date + "T00:00:00").toLocaleDateString([], {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  const createdStr = new Date(milestone.createdAt).toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return (
+    <View style={[s.sheetContainer, { backgroundColor: colors.background }]}>
+      {/* Header */}
+      <View style={[s.sheetHeader, { borderBottomColor: colors.border }]}>
+        <Pressable onPress={onClose} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
+          <Text style={[s.sheetCancel, { color: colors.primary }]}>Close</Text>
+        </Pressable>
+        <Text style={[s.sheetTitle, { color: colors.foreground }]}>Milestone</Text>
+        <Pressable onPress={onDelete} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1, padding: 4 }]}>
+          <IconSymbol name="trash.fill" size={18} color={colors.error} />
+        </Pressable>
+      </View>
+
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
+        {/* Category badge + icon */}
+        <View style={{ alignItems: "center", marginBottom: 20 }}>
+          <Text style={{ fontSize: 56 }}>{cat?.icon || "⭐"}</Text>
+          <View style={[s.catChip, { backgroundColor: colors.primary + "20", borderColor: colors.primary + "50", marginTop: 10 }]}>
+            <Text style={[s.catChipText, { color: colors.primary }]}>{cat?.label || "Other"}</Text>
+          </View>
+        </View>
+
+        {/* Title */}
+        <Text style={{ fontSize: 22, fontWeight: "700", color: colors.foreground, textAlign: "center", marginBottom: 6 }}>
+          {milestone.title}
+        </Text>
+
+        {/* Date */}
+        <Text style={{ fontSize: 15, color: colors.muted, textAlign: "center", marginBottom: 20 }}>
+          {dateStr}
+        </Text>
+
+        {/* Photo */}
+        {milestone.photoUri ? (
+          <Image
+            source={{ uri: milestone.photoUri }}
+            style={{ width: "100%", height: 240, borderRadius: 14, marginBottom: 20, resizeMode: "cover" }}
+          />
+        ) : null}
+
+        {/* Notes */}
+        {milestone.notes ? (
+          <View style={[{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 0.5, borderColor: colors.border }]}>
+            <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted, marginBottom: 6, letterSpacing: 0.5 }}>NOTES</Text>
+            <Text style={{ fontSize: 15, color: colors.foreground, lineHeight: 22 }}>{milestone.notes}</Text>
+          </View>
+        ) : null}
+
+        {/* Metadata */}
+        <View style={[{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 0.5, borderColor: colors.border }]}>
+          {milestone.loggedByName ? (
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+              <Text style={{ fontSize: 13, color: colors.muted }}>Logged by</Text>
+              <Text style={{ fontSize: 13, color: colors.foreground, fontWeight: "600" }}>{milestone.loggedByName}</Text>
+            </View>
+          ) : null}
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <Text style={{ fontSize: 13, color: colors.muted }}>Recorded on</Text>
+            <Text style={{ fontSize: 13, color: colors.foreground, fontWeight: "600" }}>{createdStr}</Text>
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -234,26 +368,39 @@ function AddMilestoneSheet({
   const [category, setCategory] = useState<MilestoneCategory>("motor");
   const [notes, setNotes] = useState("");
   const [photoUri, setPhotoUri] = useState<string | undefined>();
+  const [photoBase64, setPhotoBase64] = useState<string | undefined>();
+  const [photoMime, setPhotoMime] = useState<string>("image/jpeg");
+  const [saving, setSaving] = useState(false);
 
   const handlePickPhoto = async () => {
     const result = await pickImage("gallery");
     if (result) {
       setPhotoUri(result.uri);
+      setPhotoBase64(result.base64);
+      setPhotoMime(result.mimeType);
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim()) {
       Alert.alert("Missing Title", "Please enter a milestone title.");
       return;
+    }
+    setSaving(true);
+    // Upload photo to cloud so all linked accounts can access it
+    let finalPhotoUri = photoUri;
+    if (photoBase64 && photoUri && !photoUri.startsWith("http")) {
+      const cloudUrl = await uploadPhotoToCloud(photoBase64, photoMime);
+      if (cloudUrl) finalPhotoUri = cloudUrl;
     }
     onSave({
       title: title.trim(),
       date,
       category,
       notes: notes.trim() || undefined,
-      photoUri,
+      photoUri: finalPhotoUri,
     });
+    setSaving(false);
   };
 
   return (
@@ -266,9 +413,10 @@ function AddMilestoneSheet({
         <Text style={[s.sheetTitle, { color: colors.foreground }]}>New Milestone</Text>
         <Pressable
           onPress={handleSave}
-          style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
+          disabled={saving}
+          style={({ pressed }) => [{ opacity: pressed || saving ? 0.6 : 1 }]}
         >
-          <Text style={[s.sheetSave, { color: colors.primary }]}>Save</Text>
+          <Text style={[s.sheetSave, { color: colors.primary }]}>{saving ? "Saving…" : "Save"}</Text>
         </Pressable>
       </View>
 
@@ -406,13 +554,13 @@ const s = StyleSheet.create({
   addBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
   filterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 10, flexGrow: 0 },
   filterChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 22,
-    borderWidth: 1.5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
     flexShrink: 0,
   },
-  filterChipText: { fontSize: 14, fontWeight: "600" },
+  filterChipText: { fontSize: 13, fontWeight: "600" },
   listContent: { paddingHorizontal: 16, paddingBottom: 100, flexGrow: 0 },
   emptyContainer: { alignItems: "center", paddingTop: 60 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },

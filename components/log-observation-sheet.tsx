@@ -16,7 +16,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
 import type { ObservationCategory, Severity, ObservationData } from "@/lib/store";
 import * as Haptics from "expo-haptics";
-import { pickImage } from "@/lib/image-utils";
+import { pickImage, uploadPhotoToCloud } from "@/lib/image-utils";
 import { trpc } from "@/lib/trpc";
 import { DateTimePicker } from "@/components/date-time-picker";
 
@@ -34,6 +34,8 @@ export function LogObservationSheet({ onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [eventDate, setEventDate] = useState(new Date());
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageMime, setImageMime] = useState<string>("image/jpeg");
   const [analyzing, setAnalyzing] = useState(false);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const analyzePhoto = trpc.ai.analyzePhoto.useMutation();
@@ -47,10 +49,20 @@ export function LogObservationSheet({ onClose }: Props) {
       notes: notes || undefined,
     };
 
+    // Upload photo to cloud for cross-account access
+    let cloudImageUrl: string | undefined;
+    if (imageBase64 && imageUri && !imageUri.startsWith("http")) {
+      const url = await uploadPhotoToCloud(imageBase64, imageMime);
+      if (url) cloudImageUrl = url;
+    } else if (imageUri?.startsWith("http")) {
+      cloudImageUrl = imageUri;
+    }
+
     await addEvent({
       type: "observation",
       timestamp: eventDate.toISOString(),
       data,
+      imageUrl: cloudImageUrl,
     });
 
     if (Platform.OS !== "web") {
@@ -179,6 +191,8 @@ export function LogObservationSheet({ onClose }: Props) {
             const img = await pickImage("camera");
             if (img) {
               setImageUri(img.uri);
+              setImageBase64(img.base64);
+              setImageMime(img.mimeType);
               setAnalyzing(true);
               try {
                 const result = await analyzePhoto.mutateAsync({

@@ -16,7 +16,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
 import type { FeedMethod, FeedData } from "@/lib/store";
 import * as Haptics from "expo-haptics";
-import { pickImage } from "@/lib/image-utils";
+import { pickImage, uploadPhotoToCloud } from "@/lib/image-utils";
 import { trpc } from "@/lib/trpc";
 import { Image } from "expo-image";
 import { DateTimePicker } from "@/components/date-time-picker";
@@ -38,6 +38,8 @@ export function LogFeedSheet({ onClose }: Props) {
   const [timerSeconds, setTimerSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageMime, setImageMime] = useState<string>("image/jpeg");
   const [analyzing, setAnalyzing] = useState(false);
   const analyzeBottle = trpc.ai.analyzeBottle.useMutation();
 
@@ -87,10 +89,20 @@ export function LogFeedSheet({ onClose }: Props) {
       notes: notes || undefined,
     };
 
+    // Upload photo to cloud for cross-account access
+    let cloudImageUrl: string | undefined;
+    if (imageBase64 && imageUri && !imageUri.startsWith("http")) {
+      const url = await uploadPhotoToCloud(imageBase64, imageMime);
+      if (url) cloudImageUrl = url;
+    } else if (imageUri?.startsWith("http")) {
+      cloudImageUrl = imageUri;
+    }
+
     await addEvent({
       type: "feed",
       timestamp: eventDate.toISOString(),
       data,
+      imageUrl: cloudImageUrl,
     });
 
     if (Platform.OS !== "web") {
@@ -192,6 +204,8 @@ export function LogFeedSheet({ onClose }: Props) {
                   const img = await pickImage("camera");
                   if (img) {
                     setImageUri(img.uri);
+                    setImageBase64(img.base64);
+                    setImageMime(img.mimeType);
                     setAnalyzing(true);
                     try {
                       const result = await analyzeBottle.mutateAsync({
