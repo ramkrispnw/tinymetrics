@@ -371,7 +371,7 @@ export function calculateProjections(
   const poopyTodayPace = poopyFractionByNow > 0.02
     ? poopyLoggedToday / poopyFractionByNow
     : poopyBaseline;
-  const poopyResult = blendedProjection(
+  const poopyRaw = blendedProjection(
     poopyLoggedToday,
     poopyBaseline > 0 ? poopyBaseline : targets.poopyDiapersDaily,
     poopyTodayPace,
@@ -379,6 +379,14 @@ export function calculateProjections(
     poopyHasEvents,
     0
   );
+  // Cap projection at historicalMax + 1 to prevent outlier days from inflating the result.
+  // Always allow at least what's already been logged today.
+  const poopyHistMax = Math.max(...histPoopyTotals, 0);
+  const poopyCeiling = Math.max(poopyHistMax + 1, poopyLoggedToday);
+  const poopyResult = {
+    ...poopyRaw,
+    projected: Math.min(poopyRaw.projected, poopyCeiling),
+  };
 
   return {
     feeding: {
