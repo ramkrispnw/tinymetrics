@@ -57,6 +57,7 @@ export default function MilestonesScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={s.filterRow}
+        style={s.filterScroll}
       >
         <Pressable
           onPress={() => setFilterCat("all")}
@@ -552,7 +553,8 @@ const s = StyleSheet.create({
     gap: 4,
   },
   addBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  filterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 10, flexGrow: 0 },
+  filterScroll: { flexGrow: 0, flexShrink: 0 },
+  filterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 10, flexGrow: 0, alignItems: "center" },
   filterChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
