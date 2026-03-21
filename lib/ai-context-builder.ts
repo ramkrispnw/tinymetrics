@@ -364,8 +364,10 @@ export function buildAIContext(
     }
 
     if (sleeps.length > 0) {
-      const totalMin = sleeps.reduce((s, e) => s + ((e.data as SleepData).durationMin || 0), 0);
-      parts.push(`Sleep: ${sleeps.length} sessions, ${formatDuration(totalMin)} total`);
+      // Use overlap logic to include overnight sleep from previous day
+      const allSleepForToday = events.filter((e) => e.type === "sleep");
+      const totalMin = allSleepForToday.reduce((s, e) => s + getSleepMinutesForDay(e, todayKey), 0);
+      parts.push(`Sleep: ${sleeps.length} sessions started today + overnight carry-over, ${formatDuration(totalMin)} total`);
     }
 
     if (diapers.length > 0) {
@@ -402,9 +404,11 @@ export function buildAIContext(
     const sleeps = dayEvents.filter((e) => e.type === "sleep");
     const diapers = dayEvents.filter((e) => e.type === "diaper");
     const feedMl = feeds.reduce((s, e) => s + ((e.data as FeedData).amountMl || 0), 0);
-    const sleepMin = sleeps.reduce((s, e) => s + ((e.data as SleepData).durationMin || 0), 0);
+    // Use overlap logic to capture overnight sleep carrying into this day
+    const allSleepForDay = events.filter((e) => e.type === "sleep");
+    const sleepMin = allSleepForDay.reduce((s, e) => s + getSleepMinutesForDay(e, dk), 0);
     parts.push(
-      `${dk}: ${feeds.length} feeds (${feedMl}ml), ${sleeps.length} sleeps (${formatDuration(sleepMin)}), ${diapers.length} diapers`
+      `${dk}: ${feeds.length} feeds (${feedMl}ml), ${sleeps.length} sleep sessions (${formatDuration(sleepMin)} incl. overnight), ${diapers.length} diapers`
     );
   }
 
