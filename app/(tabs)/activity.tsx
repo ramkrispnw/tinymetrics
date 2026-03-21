@@ -21,6 +21,7 @@ import {
   formatDuration,
   getDayKey,
   mlToOz,
+  getSleepMinutesForDay,
   type BabyEvent,
   type EventType,
   type FeedData,
@@ -254,6 +255,12 @@ export default function ActivityScreen() {
       }
       case "sleep": {
         const d = event.data as SleepData;
+        // Prefer endTime-derived duration over durationMin to reflect edits correctly
+        if (d.endTime) {
+          const dayKey = getDayKey(event.timestamp);
+          const totalMin = getSleepMinutesForDay(event, dayKey);
+          return totalMin > 0 ? formatDuration(totalMin) : "In progress";
+        }
         return d.durationMin ? formatDuration(d.durationMin) : "In progress";
       }
       case "diaper": {
