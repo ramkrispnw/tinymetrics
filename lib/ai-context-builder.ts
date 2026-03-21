@@ -9,6 +9,7 @@ import {
   Milestone,
   calculateAge,
   getDayKey,
+  getSleepMinutesForDay,
   formatDuration,
 } from "./store";
 
@@ -149,10 +150,20 @@ export function calculateTodayProjections(
   else if (feedingPercentage < 90) feedingStatus = "behind";
 
   // ── Sleep Projection ──
+  // Use ALL events (not just today's) to capture overnight sleep that started
+  // yesterday but overlaps into today — same logic as the header badge.
+  const allSleepEvents = events.filter((e) => e.type === "sleep");
+  const totalSleepMin = allSleepEvents.reduce(
+    (sum, e) => sum + getSleepMinutesForDay(e, todayKey),
+    0
+  );
+  // For nap cadence projection, use only sessions that started today
   const sleeps = todayEvents.filter((e) => e.type === "sleep");
-  const totalSleepMin = sleeps.reduce((sum, e) => sum + ((e.data as SleepData).durationMin || 0), 0);
-  const averageSleepMin = sleeps.length > 0 ? totalSleepMin / sleeps.length : 60; // default 60 min nap
-  const avgTimeBetweenNaps = sleeps.length > 0 ? timeElapsedHours / sleeps.length : 4; // default 4 hours
+  const completedSleepMin = sleeps.length > 0
+    ? sleeps.reduce((sum, e) => sum + ((e.data as SleepData).durationMin || 0), 0)
+    : totalSleepMin;
+  const averageSleepMin = sleeps.length > 0 ? completedSleepMin / sleeps.length : 60;
+  const avgTimeBetweenNaps = sleeps.length > 0 ? timeElapsedHours / sleeps.length : 4;
   const projectedRemainingNaps = Math.max(0, Math.round(timeRemainingHours / avgTimeBetweenNaps));
   const projectedTotalSleepMin = totalSleepMin + averageSleepMin * projectedRemainingNaps;
   const sleepPercentage = (projectedTotalSleepMin / (targets.sleepHoursDaily * 60)) * 100;
