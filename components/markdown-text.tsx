@@ -240,14 +240,11 @@ function CellContent({
 }
 
 /**
- * Render a markdown table with a frozen first column and horizontally scrollable remaining columns.
+ * Render a markdown table with a frozen first column and a single shared horizontal ScrollView
+ * for all remaining columns — so all rows scroll together.
  *
  * Layout:
- *   [ frozen col 0 ] | [ ScrollView → col 1, col 2, col 3 … ]
- *
- * Each row in the frozen column and the scrollable section must have the same height.
- * We achieve this by rendering them side-by-side in a flex-row, letting RN natural layout
- * match heights within each row.
+ *   [ frozen col 0 (fixed) ] | [ single ScrollView containing col 1…N for ALL rows stacked ]
  */
 function TableBlock({
   lines,
@@ -267,87 +264,102 @@ function TableBlock({
   const bodyRows = rows.slice(1);
   const colWidths = estimateColWidths(rows);
 
-  // Only freeze first column if there are 3+ columns (otherwise just scroll the whole thing)
+  // Only freeze first column if there are 3+ columns
   const shouldFreeze = headerRow.length >= 3;
   const frozenWidth = shouldFreeze ? (colWidths[0] ?? 80) : 0;
-  const scrollCols = shouldFreeze ? headerRow.length - 1 : headerRow.length;
   const startCol = shouldFreeze ? 1 : 0;
+  const scrollColCount = shouldFreeze ? headerRow.length - 1 : headerRow.length;
 
-  const renderRow = (row: string[], ri: number, isHeader: boolean) => {
-    const rowBg = isHeader
-      ? colors.surface
-      : ri % 2 === 1
-      ? colors.surface + "60"
-      : "transparent";
-
-    return (
-      <View
-        key={`row-${ri}`}
-        style={[
-          s.tableRow,
-          { backgroundColor: rowBg },
-          !isHeader && { borderTopWidth: 1, borderTopColor: colors.border },
-        ]}
-      >
-        {/* Frozen first column */}
-        {shouldFreeze && (
-          <View
-            style={[
-              s.tableCell,
-              s.frozenCell,
-              {
-                width: frozenWidth,
-                backgroundColor: isHeader ? colors.surface : rowBg,
-                borderRightColor: colors.border,
-                borderRightWidth: 1,
-              },
-            ]}
-          >
-            <CellContent
-              cell={row[0] ?? ""}
-              textColor={textColor}
-              colors={colors}
-              bold={isHeader}
-            />
-          </View>
-        )}
-
-        {/* Scrollable remaining columns */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          scrollEnabled={scrollCols > 2}
-          contentContainerStyle={{ flexDirection: "row" }}
-        >
-          {Array.from({ length: scrollCols }, (_, idx) => {
-            const ci = startCol + idx;
-            return (
-              <View
-                key={ci}
-                style={[
-                  s.tableCell,
-                  { width: colWidths[ci] ?? 80 },
-                  idx > 0 && { borderLeftWidth: 1, borderLeftColor: colors.border },
-                ]}
-              >
-                <CellContent
-                  cell={row[ci] ?? ""}
-                  textColor={textColor}
-                  colors={colors}
-                  bold={isHeader}
-                />
-              </View>
-            );
-          })}
-        </ScrollView>
-      </View>
-    );
+  const getRowBg = (ri: number, isHeader: boolean) => {
+    if (isHeader) return colors.surface;
+    return ri % 2 === 1 ? colors.surface + "60" : "transparent";
   };
+
+  const allRows = [headerRow, ...bodyRows];
 
   return (
     <View style={[s.table, { borderColor: colors.border }]}>
-      {renderRow(headerRow, 0, true)}
-      {bodyRows.map((row, ri) => renderRow(row, ri, false))}
+      <View style={{ flexDirection: "row" }}>
+        {/* Frozen first column — one cell per row, stacked vertically */}
+        {shouldFreeze && (
+          <View
+            style={[
+              s.frozenCol,
+              {
+                width: frozenWidth,
+                borderRightWidth: 1,
+                borderRightColor: colors.border,
+              },
+            ]}
+          >
+            {allRows.map((row, ri) => {
+              const isHeader = ri === 0;
+              return (
+                <View
+                  key={ri}
+                  style={[
+                    s.tableCell,
+                    { backgroundColor: getRowBg(ri - 1, isHeader) },
+                    ri > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
+                  ]}
+                >
+                  <CellContent
+                    cell={row[0] ?? ""}
+                    textColor={textColor}
+                    colors={colors}
+                    bold={isHeader}
+                  />
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Single shared ScrollView for all scrollable columns */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flex: 1 }}
+        >
+          {/* All rows stacked vertically inside the scroll view */}
+          <View>
+            {allRows.map((row, ri) => {
+              const isHeader = ri === 0;
+              return (
+                <View
+                  key={ri}
+                  style={[
+                    s.tableRow,
+                    { backgroundColor: getRowBg(ri - 1, isHeader) },
+                    ri > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
+                  ]}
+                >
+                  {Array.from({ length: scrollColCount }, (_, idx) => {
+                    const ci = startCol + idx;
+                    return (
+                      <View
+                        key={ci}
+                        style={[
+                          s.tableCell,
+                          { width: colWidths[ci] ?? 80 },
+                          idx > 0 && { borderLeftWidth: 1, borderLeftColor: colors.border },
+                        ]}
+                      >
+                        <CellContent
+                          cell={row[ci] ?? ""}
+                          textColor={textColor}
+                          colors={colors}
+                          bold={isHeader}
+                        />
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -366,6 +378,6 @@ const s = StyleSheet.create({
   table: { borderWidth: 1, borderRadius: 8, overflow: "hidden", marginVertical: 6 },
   tableRow: { flexDirection: "row" },
   tableCell: { paddingHorizontal: 10, paddingVertical: 8 },
-  frozenCell: { zIndex: 1 },
+  frozenCol: { zIndex: 1 },
   tableCellText: { fontSize: 13, lineHeight: 19 },
 });
