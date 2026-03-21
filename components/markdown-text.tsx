@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, View, StyleSheet } from "react-native";
+import { Text, View, StyleSheet, ScrollView } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 
 interface Props {
@@ -9,7 +9,7 @@ interface Props {
 
 /**
  * Simple markdown renderer for AI responses.
- * Supports: bold, headers, bullets, numbered lists, tables, and emojis.
+ * Supports: bold, headers, bullets, numbered lists, tables (horizontally scrollable), and emojis.
  */
 export function MarkdownText({ content, baseColor }: Props) {
   const colors = useColors();
@@ -132,33 +132,28 @@ function renderInline(
   colors: any
 ): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Match **bold**, *italic*, `code`
   const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(text)) !== null) {
-    // Text before the match
     if (match.index > lastIndex) {
       parts.push(text.slice(lastIndex, match.index));
     }
 
     if (match[2]) {
-      // Bold
       parts.push(
         <Text key={`b-${match.index}`} style={{ fontWeight: "700" }}>
           {match[2]}
         </Text>
       );
     } else if (match[3]) {
-      // Italic
       parts.push(
         <Text key={`i-${match.index}`} style={{ fontStyle: "italic" }}>
           {match[3]}
         </Text>
       );
     } else if (match[4]) {
-      // Code
       parts.push(
         <Text
           key={`c-${match.index}`}
@@ -178,7 +173,6 @@ function renderInline(
     lastIndex = match.index + match[0].length;
   }
 
-  // Remaining text
   if (lastIndex < text.length) {
     parts.push(text.slice(lastIndex));
   }
@@ -186,7 +180,48 @@ function renderInline(
   return parts.length > 0 ? parts : [text];
 }
 
-/** Render a markdown table */
+/**
+ * Parse a markdown table line into cells.
+ * Splits on | and trims whitespace, ignoring leading/trailing empty strings.
+ */
+function parseCells(line: string): string[] {
+  return line
+    .split("|")
+    .slice(1, -1)
+    .map((cell) => cell.trim());
+}
+
+/**
+ * Returns true if a line is a markdown separator row (e.g. |---|:---:|---:|)
+ */
+function isSeparatorRow(line: string): boolean {
+  // After splitting, every cell should be only dashes, colons, and spaces
+  const cells = parseCells(line);
+  if (cells.length === 0) return false;
+  return cells.every((cell) => /^:?-+:?$/.test(cell));
+}
+
+/**
+ * Estimate a minimum column width (in px) based on the longest content in that column.
+ * Min 60px, max 160px, ~8px per character.
+ */
+function estimateColWidths(rows: string[][]): number[] {
+  if (rows.length === 0) return [];
+  const numCols = Math.max(...rows.map((r) => r.length));
+  const widths: number[] = Array(numCols).fill(0);
+
+  for (const row of rows) {
+    for (let c = 0; c < row.length; c++) {
+      const len = row[c].replace(/\*\*/g, "").replace(/\*/g, "").length;
+      widths[c] = Math.max(widths[c], len);
+    }
+  }
+
+  // Convert character count to px: ~8px per char, clamp between 60–160
+  return widths.map((w) => Math.min(Math.max(w * 8, 60), 160));
+}
+
+/** Render a markdown table inside a horizontal ScrollView */
 function TableBlock({
   lines,
   textColor,
@@ -196,53 +231,70 @@ function TableBlock({
   textColor: string;
   colors: any;
 }) {
-  // Parse rows, skip separator rows (|---|---|)
-  const rows = lines
-    .filter((l) => !l.match(/^\|[\s\-:]+\|$/))
-    .map((l) =>
-      l
-        .split("|")
-        .slice(1, -1)
-        .map((cell) => cell.trim())
-    );
+  // Filter out separator rows
+  const dataLines = lines.filter((l) => !isSeparatorRow(l));
+  const rows = dataLines.map(parseCells);
 
   if (rows.length === 0) return null;
 
   const headerRow = rows[0];
   const bodyRows = rows.slice(1);
+  const colWidths = estimateColWidths(rows);
 
   return (
-    <View style={[s.table, { borderColor: colors.border }]}>
-      {/* Header */}
-      <View style={[s.tableRow, { backgroundColor: colors.surface }]}>
-        {headerRow.map((cell, ci) => (
-          <View key={ci} style={[s.tableCell, ci > 0 && { borderLeftWidth: 1, borderLeftColor: colors.border }]}>
-            <Text style={[s.tableCellText, { color: textColor, fontWeight: "700" }]}>
-              {cell}
-            </Text>
-          </View>
-        ))}
-      </View>
-      {/* Body */}
-      {bodyRows.map((row, ri) => (
-        <View
-          key={ri}
-          style={[
-            s.tableRow,
-            { borderTopWidth: 1, borderTopColor: colors.border },
-            ri % 2 === 1 && { backgroundColor: colors.surface + "40" },
-          ]}
-        >
-          {row.map((cell, ci) => (
-            <View key={ci} style={[s.tableCell, ci > 0 && { borderLeftWidth: 1, borderLeftColor: colors.border }]}>
-              <Text style={[s.tableCellText, { color: textColor }]}>
-                {renderInline(cell, textColor, colors)}
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={s.tableScroll}
+      contentContainerStyle={{ paddingBottom: 2 }}
+    >
+      <View style={[s.table, { borderColor: colors.border }]}>
+        {/* Header row */}
+        <View style={[s.tableRow, { backgroundColor: colors.surface }]}>
+          {headerRow.map((cell, ci) => (
+            <View
+              key={ci}
+              style={[
+                s.tableCell,
+                { width: colWidths[ci] ?? 80 },
+                ci > 0 && { borderLeftWidth: 1, borderLeftColor: colors.border },
+              ]}
+            >
+              <Text style={[s.tableCellText, { color: textColor, fontWeight: "700" }]}>
+                {cell}
               </Text>
             </View>
           ))}
         </View>
-      ))}
-    </View>
+
+        {/* Body rows */}
+        {bodyRows.map((row, ri) => (
+          <View
+            key={ri}
+            style={[
+              s.tableRow,
+              { borderTopWidth: 1, borderTopColor: colors.border },
+              ri % 2 === 1 && { backgroundColor: colors.surface + "60" },
+            ]}
+          >
+            {row.map((cell, ci) => (
+              <View
+                key={ci}
+                style={[
+                  s.tableCell,
+                  { width: colWidths[ci] ?? 80 },
+                  ci > 0 && { borderLeftWidth: 1, borderLeftColor: colors.border },
+                ]}
+              >
+                <Text style={[s.tableCellText, { color: textColor }]}>
+                  {renderInline(cell, textColor, colors)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -257,8 +309,9 @@ const s = StyleSheet.create({
   numLabel: { fontSize: 15, lineHeight: 22, width: 20, fontWeight: "600" },
   bulletText: { fontSize: 15, lineHeight: 22, flex: 1 },
   hr: { height: 1, marginVertical: 8 },
-  table: { borderWidth: 1, borderRadius: 8, overflow: "hidden", marginVertical: 4 },
+  tableScroll: { marginVertical: 6 },
+  table: { borderWidth: 1, borderRadius: 8, overflow: "hidden" },
   tableRow: { flexDirection: "row" },
-  tableCell: { flex: 1, padding: 8 },
-  tableCellText: { fontSize: 13, lineHeight: 18 },
+  tableCell: { paddingHorizontal: 10, paddingVertical: 8 },
+  tableCellText: { fontSize: 13, lineHeight: 19 },
 });
