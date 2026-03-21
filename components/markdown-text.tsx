@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import { Text, View, StyleSheet, ScrollView } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 
@@ -240,11 +240,12 @@ function CellContent({
 }
 
 /**
- * Render a markdown table with a frozen first column and a single shared horizontal ScrollView
- * for all remaining columns — so all rows scroll together.
+ * Render a markdown table with a frozen first column and a single shared horizontal ScrollView.
  *
- * Layout:
- *   [ frozen col 0 (fixed) ] | [ single ScrollView containing col 1…N for ALL rows stacked ]
+ * Row height sync strategy:
+ *   The scrollable column section drives the true row heights (it has more content/wrapping).
+ *   We measure each scrollable row via onLayout and apply the same height to the corresponding
+ *   frozen cell, keeping both columns pixel-perfect aligned.
  */
 function TableBlock({
   lines,
@@ -257,6 +258,18 @@ function TableBlock({
 }) {
   const dataLines = lines.filter((l) => !isSeparatorRow(l));
   const rows = dataLines.map(parseCells);
+
+  // rowHeights[i] = measured height of scrollable row i (undefined until measured)
+  const [rowHeights, setRowHeights] = useState<(number | undefined)[]>([]);
+
+  const handleRowLayout = useCallback((ri: number, height: number) => {
+    setRowHeights((prev) => {
+      if (prev[ri] === height) return prev;
+      const next = [...prev];
+      next[ri] = height;
+      return next;
+    });
+  }, []);
 
   if (rows.length === 0) return null;
 
@@ -280,7 +293,7 @@ function TableBlock({
   return (
     <View style={[s.table, { borderColor: colors.border }]}>
       <View style={{ flexDirection: "row" }}>
-        {/* Frozen first column — one cell per row, stacked vertically */}
+        {/* Frozen first column — height of each cell is synced to the measured scrollable row */}
         {shouldFreeze && (
           <View
             style={[
@@ -294,6 +307,7 @@ function TableBlock({
           >
             {allRows.map((row, ri) => {
               const isHeader = ri === 0;
+              const measuredHeight = rowHeights[ri];
               return (
                 <View
                   key={ri}
@@ -301,6 +315,8 @@ function TableBlock({
                     s.tableCell,
                     { backgroundColor: getRowBg(ri - 1, isHeader) },
                     ri > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
+                    // Apply measured height once available so frozen cell matches scrollable row
+                    measuredHeight !== undefined && { height: measuredHeight },
                   ]}
                 >
                   <CellContent
@@ -315,19 +331,19 @@ function TableBlock({
           </View>
         )}
 
-        {/* Single shared ScrollView for all scrollable columns */}
+        {/* Single shared ScrollView for all scrollable columns — drives row heights */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={{ flex: 1 }}
         >
-          {/* All rows stacked vertically inside the scroll view */}
           <View>
             {allRows.map((row, ri) => {
               const isHeader = ri === 0;
               return (
                 <View
                   key={ri}
+                  onLayout={(e) => handleRowLayout(ri, e.nativeEvent.layout.height)}
                   style={[
                     s.tableRow,
                     { backgroundColor: getRowBg(ri - 1, isHeader) },

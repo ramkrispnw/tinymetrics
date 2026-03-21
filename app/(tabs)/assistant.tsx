@@ -176,7 +176,7 @@ export default function AssistantScreen() {
     try {
       const context = buildContext();
       const result = await askAI.mutateAsync({
-        question: "Generate a comprehensive daily summary of the baby's feeding, sleeping, diaper changes, and any health observations. Include trends compared to previous days. Use a table for the daily breakdown. Highlight any patterns or concerns. Tailor your advice to the baby's age, weight, and height.",
+        question: "Generate a comprehensive daily summary of the baby's feeding, sleeping, diaper changes, and any health observations. Include trends compared to previous days. When using a table for the daily breakdown, use EXACTLY ONE row per date — never split a single date across multiple rows. Every table that includes diapers MUST include both wet diaper count AND poo diaper count as separate columns. Highlight any patterns or concerns. Tailor your advice to the baby's age, weight, and height.",
         context,
         babyProfile: getBabyProfilePayload(),
       });
