@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import {
   FlatList,
   Pressable,
@@ -20,7 +20,6 @@ import {
 } from "@/lib/store";
 import { buildAIContext } from "@/lib/ai-context-builder";
 import * as Haptics from "expo-haptics";
-import * as Clipboard from "expo-clipboard";
 import { pickImage } from "@/lib/image-utils";
 import { MarkdownText } from "@/components/markdown-text";
 
@@ -199,20 +198,8 @@ export default function AssistantScreen() {
     setLoading(false);
   };
 
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const handleCopy = useCallback(async (id: string, content: string) => {
-    await Clipboard.setStringAsync(content);
-    setCopiedId(id);
-    if (Platform.OS !== "web") {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-    setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 2000);
-  }, []);
-
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.role === "user";
-    const isCopied = copiedId === item.id;
     return (
       <View
         style={[
@@ -236,28 +223,10 @@ export default function AssistantScreen() {
             {item.content}
           </Text>
         ) : (
-          <>
-            <MarkdownText
-              content={item.content}
-              baseColor={colors.foreground}
-            />
-            <Pressable
-              onPress={() => handleCopy(item.id, item.content)}
-              style={({ pressed }) => [
-                styles.copyBtn,
-                { opacity: pressed ? 0.6 : 1 },
-              ]}
-            >
-              <IconSymbol
-                name={isCopied ? "checkmark" : "doc.on.doc"}
-                size={13}
-                color={isCopied ? colors.success : colors.muted}
-              />
-              <Text style={[styles.copyLabel, { color: isCopied ? colors.success : colors.muted }]}>
-                {isCopied ? "Copied" : "Copy"}
-              </Text>
-            </Pressable>
-          </>
+          <MarkdownText
+            content={item.content}
+            baseColor={colors.foreground}
+          />
         )}
       </View>
     );
@@ -491,20 +460,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 16,
     borderWidth: 1,
-  },
-  copyBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    alignSelf: "flex-end",
-    marginTop: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  copyLabel: {
-    fontSize: 11,
-    fontWeight: "500",
   },
   loadingRow: {
     flexDirection: "row",

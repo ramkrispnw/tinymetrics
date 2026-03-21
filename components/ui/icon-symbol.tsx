@@ -56,8 +56,6 @@ const MAPPING = {
   "pills.fill": "medication",
   "bell.fill": "notifications",
   "bell.slash.fill": "notifications-off",
-  "checkmark": "check",
-  "doc.on.doc": "content-copy",
 } as IconMapping;
 
 export function IconSymbol({

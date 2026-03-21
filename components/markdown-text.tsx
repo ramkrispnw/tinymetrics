@@ -9,7 +9,7 @@ interface Props {
 
 /**
  * Simple markdown renderer for AI responses.
- * Supports: bold, headers, bullets, numbered lists, tables (frozen first column + horizontal scroll), and emojis.
+ * Supports: bold, headers, bullets, numbered lists, tables (horizontally scrollable), and emojis.
  */
 export function MarkdownText({ content, baseColor }: Props) {
   const colors = useColors();
@@ -182,6 +182,7 @@ function renderInline(
 
 /**
  * Parse a markdown table line into cells.
+ * Splits on | and trims whitespace, ignoring leading/trailing empty strings.
  */
 function parseCells(line: string): string[] {
   return line
@@ -194,13 +195,14 @@ function parseCells(line: string): string[] {
  * Returns true if a line is a markdown separator row (e.g. |---|:---:|---:|)
  */
 function isSeparatorRow(line: string): boolean {
+  // After splitting, every cell should be only dashes, colons, and spaces
   const cells = parseCells(line);
   if (cells.length === 0) return false;
   return cells.every((cell) => /^:?-+:?$/.test(cell));
 }
 
 /**
- * Estimate column width in px based on longest content in that column.
+ * Estimate a minimum column width (in px) based on the longest content in that column.
  * Min 60px, max 160px, ~8px per character.
  */
 function estimateColWidths(rows: string[][]): number[] {
@@ -215,40 +217,11 @@ function estimateColWidths(rows: string[][]): number[] {
     }
   }
 
+  // Convert character count to px: ~8px per char, clamp between 60–160
   return widths.map((w) => Math.min(Math.max(w * 8, 60), 160));
 }
 
-/**
- * Render a single table cell's content.
- */
-function CellContent({
-  cell,
-  textColor,
-  colors,
-  bold,
-}: {
-  cell: string;
-  textColor: string;
-  colors: any;
-  bold?: boolean;
-}) {
-  return (
-    <Text style={[s.tableCellText, { color: textColor, fontWeight: bold ? "700" : "400" }]}>
-      {renderInline(cell, textColor, colors)}
-    </Text>
-  );
-}
-
-/**
- * Render a markdown table with a frozen first column and horizontally scrollable remaining columns.
- *
- * Layout:
- *   [ frozen col 0 ] | [ ScrollView → col 1, col 2, col 3 … ]
- *
- * Each row in the frozen column and the scrollable section must have the same height.
- * We achieve this by rendering them side-by-side in a flex-row, letting RN natural layout
- * match heights within each row.
- */
+/** Render a markdown table inside a horizontal ScrollView */
 function TableBlock({
   lines,
   textColor,
@@ -258,6 +231,7 @@ function TableBlock({
   textColor: string;
   colors: any;
 }) {
+  // Filter out separator rows
   const dataLines = lines.filter((l) => !isSeparatorRow(l));
   const rows = dataLines.map(parseCells);
 
@@ -267,88 +241,60 @@ function TableBlock({
   const bodyRows = rows.slice(1);
   const colWidths = estimateColWidths(rows);
 
-  // Only freeze first column if there are 3+ columns (otherwise just scroll the whole thing)
-  const shouldFreeze = headerRow.length >= 3;
-  const frozenWidth = shouldFreeze ? (colWidths[0] ?? 80) : 0;
-  const scrollCols = shouldFreeze ? headerRow.length - 1 : headerRow.length;
-  const startCol = shouldFreeze ? 1 : 0;
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={s.tableScroll}
+      contentContainerStyle={{ paddingBottom: 2 }}
+    >
+      <View style={[s.table, { borderColor: colors.border }]}>
+        {/* Header row */}
+        <View style={[s.tableRow, { backgroundColor: colors.surface }]}>
+          {headerRow.map((cell, ci) => (
+            <View
+              key={ci}
+              style={[
+                s.tableCell,
+                { width: colWidths[ci] ?? 80 },
+                ci > 0 && { borderLeftWidth: 1, borderLeftColor: colors.border },
+              ]}
+            >
+              <Text style={[s.tableCellText, { color: textColor, fontWeight: "700" }]}>
+                {cell}
+              </Text>
+            </View>
+          ))}
+        </View>
 
-  const renderRow = (row: string[], ri: number, isHeader: boolean) => {
-    const rowBg = isHeader
-      ? colors.surface
-      : ri % 2 === 1
-      ? colors.surface + "60"
-      : "transparent";
-
-    return (
-      <View
-        key={`row-${ri}`}
-        style={[
-          s.tableRow,
-          { backgroundColor: rowBg },
-          !isHeader && { borderTopWidth: 1, borderTopColor: colors.border },
-        ]}
-      >
-        {/* Frozen first column */}
-        {shouldFreeze && (
+        {/* Body rows */}
+        {bodyRows.map((row, ri) => (
           <View
+            key={ri}
             style={[
-              s.tableCell,
-              s.frozenCell,
-              {
-                width: frozenWidth,
-                backgroundColor: isHeader ? colors.surface : rowBg,
-                borderRightColor: colors.border,
-                borderRightWidth: 1,
-              },
+              s.tableRow,
+              { borderTopWidth: 1, borderTopColor: colors.border },
+              ri % 2 === 1 && { backgroundColor: colors.surface + "60" },
             ]}
           >
-            <CellContent
-              cell={row[0] ?? ""}
-              textColor={textColor}
-              colors={colors}
-              bold={isHeader}
-            />
-          </View>
-        )}
-
-        {/* Scrollable remaining columns */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          scrollEnabled={scrollCols > 2}
-          contentContainerStyle={{ flexDirection: "row" }}
-        >
-          {Array.from({ length: scrollCols }, (_, idx) => {
-            const ci = startCol + idx;
-            return (
+            {row.map((cell, ci) => (
               <View
                 key={ci}
                 style={[
                   s.tableCell,
                   { width: colWidths[ci] ?? 80 },
-                  idx > 0 && { borderLeftWidth: 1, borderLeftColor: colors.border },
+                  ci > 0 && { borderLeftWidth: 1, borderLeftColor: colors.border },
                 ]}
               >
-                <CellContent
-                  cell={row[ci] ?? ""}
-                  textColor={textColor}
-                  colors={colors}
-                  bold={isHeader}
-                />
+                <Text style={[s.tableCellText, { color: textColor }]}>
+                  {renderInline(cell, textColor, colors)}
+                </Text>
               </View>
-            );
-          })}
-        </ScrollView>
+            ))}
+          </View>
+        ))}
       </View>
-    );
-  };
-
-  return (
-    <View style={[s.table, { borderColor: colors.border }]}>
-      {renderRow(headerRow, 0, true)}
-      {bodyRows.map((row, ri) => renderRow(row, ri, false))}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -363,9 +309,9 @@ const s = StyleSheet.create({
   numLabel: { fontSize: 15, lineHeight: 22, width: 20, fontWeight: "600" },
   bulletText: { fontSize: 15, lineHeight: 22, flex: 1 },
   hr: { height: 1, marginVertical: 8 },
-  table: { borderWidth: 1, borderRadius: 8, overflow: "hidden", marginVertical: 6 },
+  tableScroll: { marginVertical: 6 },
+  table: { borderWidth: 1, borderRadius: 8, overflow: "hidden" },
   tableRow: { flexDirection: "row" },
   tableCell: { paddingHorizontal: 10, paddingVertical: 8 },
-  frozenCell: { zIndex: 1 },
   tableCellText: { fontSize: 13, lineHeight: 19 },
 });
