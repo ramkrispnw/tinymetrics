@@ -47,7 +47,11 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
   const [feedNotes, setFeedNotes] = useState("");
 
   // Sleep fields
-  const [sleepDuration, setSleepDuration] = useState("");
+  const [sleepStartTime, setSleepStartTime] = useState(new Date());
+  const [sleepEndTime, setSleepEndTime] = useState(new Date());
+  const [showSleepStartPicker, setShowSleepStartPicker] = useState(false);
+  const [showSleepEndPicker, setShowSleepEndPicker] = useState(false);
+  const [sleepNotes, setSleepNotes] = useState("");
 
   // Diaper fields
   const [diaperType, setDiaperType] = useState<"pee" | "poo" | "both">("pee");
@@ -93,7 +97,17 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
       }
       case "sleep": {
         const d = event.data as SleepData;
-        setSleepDuration(d.durationMin ? String(d.durationMin) : "");
+        const sStart = d.startTime ? new Date(d.startTime) : new Date(event.timestamp);
+        setSleepStartTime(sStart);
+        // Derive end time: prefer endTime, then durationMin, then startTime + 0
+        if (d.endTime) {
+          setSleepEndTime(new Date(d.endTime));
+        } else if (d.durationMin && d.durationMin > 0) {
+          setSleepEndTime(new Date(sStart.getTime() + d.durationMin * 60000));
+        } else {
+          setSleepEndTime(new Date(sStart.getTime()));
+        }
+        setSleepNotes(d.notes || "");
         break;
       }
       case "diaper": {
@@ -151,12 +165,17 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
           notes: feedNotes || undefined,
         };
         break;
-      case "sleep":
+      case "sleep": {
+        const durationMin = Math.round((sleepEndTime.getTime() - sleepStartTime.getTime()) / 60000);
         data = {
           ...(event.data as SleepData),
-          durationMin: sleepDuration ? parseInt(sleepDuration) : undefined,
+          startTime: sleepStartTime.toISOString(),
+          endTime: sleepEndTime.toISOString(),
+          durationMin: durationMin > 0 ? durationMin : 0,
+          notes: sleepNotes || undefined,
         };
         break;
+      }
       case "diaper":
         data = {
           ...(event.data as DiaperData),
@@ -343,14 +362,51 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
           {/* Sleep fields */}
           {event.type === "sleep" && (
             <>
-              <Text style={[styles.label, { color: colors.muted }]}>DURATION (MINUTES)</Text>
+              <Text style={[styles.label, { color: colors.muted }]}>START TIME</Text>
+              <Pressable
+                onPress={() => setShowSleepStartPicker(true)}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, justifyContent: "center" }]}
+              >
+                <Text style={{ color: colors.foreground }}>{formatDate(sleepStartTime.toISOString())} {formatTime(sleepStartTime.toISOString())}</Text>
+              </Pressable>
+              {showSleepStartPicker && (
+                <DateTimePicker
+                  value={sleepStartTime}
+                  onChange={(d) => { setSleepStartTime(d); setShowSleepStartPicker(false); }}
+                />
+              )}
+
+              <Text style={[styles.label, { color: colors.muted }]}>END TIME</Text>
+              <Pressable
+                onPress={() => setShowSleepEndPicker(true)}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, justifyContent: "center" }]}
+              >
+                <Text style={{ color: colors.foreground }}>{formatDate(sleepEndTime.toISOString())} {formatTime(sleepEndTime.toISOString())}</Text>
+              </Pressable>
+              {showSleepEndPicker && (
+                <DateTimePicker
+                  value={sleepEndTime}
+                  onChange={(d) => { setSleepEndTime(d); setShowSleepEndPicker(false); }}
+                />
+              )}
+
+              {sleepStartTime < sleepEndTime && (
+                <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 8 }}>
+                  Duration: {Math.round((sleepEndTime.getTime() - sleepStartTime.getTime()) / 60000)} min
+                </Text>
+              )}
+              {sleepStartTime >= sleepEndTime && (
+                <Text style={{ color: colors.error, fontSize: 13, marginBottom: 8 }}>End time must be after start time</Text>
+              )}
+
+              <Text style={[styles.label, { color: colors.muted }]}>NOTES</Text>
               <TextInput
-                value={sleepDuration}
-                onChangeText={setSleepDuration}
-                keyboardType="numeric"
-                placeholder="e.g. 90"
+                value={sleepNotes}
+                onChangeText={setSleepNotes}
+                placeholder="Optional notes..."
                 placeholderTextColor={colors.muted + "80"}
-                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                multiline
+                style={[styles.input, styles.textArea, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
               />
             </>
           )}
