@@ -12,6 +12,7 @@ import {
   getSleepMinutesForDay,
   formatDuration,
 } from "./store";
+import { calculateProjections } from "./projections";
 
 /**
  * Projection data for today's metrics
@@ -117,122 +118,63 @@ export function getAgeSpecificTargets(ageWeeks: number) {
 }
 
 /**
- * Calculate today's projections based on logged events
+ * Calculate today's projections based on logged events.
+ * Delegates to the smart projection engine in lib/projections.ts.
  */
 export function calculateTodayProjections(
   events: BabyEvent[],
   ageWeeks: number
 ): TodayProjection {
+  const proj = calculateProjections(events, ageWeeks);
+  const targets = getAgeSpecificTargets(ageWeeks);
+
+  // Count today's feed sessions for the AI context
   const now = new Date();
   const todayKey = getDayKey(now.toISOString());
   const todayEvents = events.filter((e) => getDayKey(e.timestamp) === todayKey);
-
-  // Time calculations
-  const dayStart = new Date(now);
-  dayStart.setHours(0, 0, 0, 0);
-  const timeElapsedMs = now.getTime() - dayStart.getTime();
-  const timeElapsedHours = timeElapsedMs / (1000 * 60 * 60);
-  const timeRemainingHours = 24 - timeElapsedHours;
-
-  const targets = getAgeSpecificTargets(ageWeeks);
-
-  // ── Feeding Projection ──
   const feeds = todayEvents.filter((e) => e.type === "feed");
-  const totalFeedMl = feeds.reduce((sum, e) => sum + ((e.data as FeedData).amountMl || 0), 0);
-  const averageFeedMl = feeds.length > 0 ? totalFeedMl / feeds.length : 0;
-  const avgTimeBetweenFeeds = feeds.length > 0 ? timeElapsedHours / feeds.length : 3.5; // default 3.5 hours
-  const projectedRemainingFeeds = Math.max(0, Math.round(timeRemainingHours / avgTimeBetweenFeeds));
-  const projectedTotalMl = totalFeedMl + averageFeedMl * projectedRemainingFeeds;
-  const feedingPercentage = (projectedTotalMl / targets.feedingMlDaily) * 100;
-
-  let feedingStatus: "ahead" | "on-track" | "behind" = "on-track";
-  if (feedingPercentage > 110) feedingStatus = "ahead";
-  else if (feedingPercentage < 90) feedingStatus = "behind";
-
-  // ── Sleep Projection ──
-  // Use ALL events (not just today's) to capture overnight sleep that started
-  // yesterday but overlaps into today — same logic as the header badge.
-  const allSleepEvents = events.filter((e) => e.type === "sleep");
-  const totalSleepMin = allSleepEvents.reduce(
-    (sum, e) => sum + getSleepMinutesForDay(e, todayKey),
-    0
-  );
-  // For nap cadence projection, use only sessions that started today
   const sleeps = todayEvents.filter((e) => e.type === "sleep");
-  const completedSleepMin = sleeps.length > 0
-    ? sleeps.reduce((sum, e) => sum + ((e.data as SleepData).durationMin || 0), 0)
-    : totalSleepMin;
-  const averageSleepMin = sleeps.length > 0 ? completedSleepMin / sleeps.length : 60;
-  const avgTimeBetweenNaps = sleeps.length > 0 ? timeElapsedHours / sleeps.length : 4;
-  const projectedRemainingNaps = Math.max(0, Math.round(timeRemainingHours / avgTimeBetweenNaps));
-  const projectedTotalSleepMin = totalSleepMin + averageSleepMin * projectedRemainingNaps;
-  const sleepPercentage = (projectedTotalSleepMin / (targets.sleepHoursDaily * 60)) * 100;
-
-  let sleepStatus: "ahead" | "on-track" | "behind" = "on-track";
-  if (sleepPercentage > 110) sleepStatus = "ahead";
-  else if (sleepPercentage < 90) sleepStatus = "behind";
-
-  // ── Diaper Projection ──
-  const diapers = todayEvents.filter((e) => e.type === "diaper");
-  const wetDiapers = diapers.filter((e) => {
-    const type = (e.data as DiaperData).type;
-    return type === "pee" || type === "both";
-  }).length;
-  const poopyDiapers = diapers.filter((e) => {
-    const type = (e.data as DiaperData).type;
-    return type === "poo" || type === "both";
-  }).length;
-
-  const avgWetPerHour = wetDiapers > 0 ? wetDiapers / timeElapsedHours : targets.wetDiapersDaily / 24;
-  const avgPoopyPerHour = poopyDiapers > 0 ? poopyDiapers / timeElapsedHours : targets.poopyDiapersDaily / 24;
-  const projectedWetDiapers = Math.round(wetDiapers + avgWetPerHour * timeRemainingHours);
-  const projectedPoopyDiapers = Math.round(poopyDiapers + avgPoopyPerHour * timeRemainingHours);
-
-  const wetPercentage = (projectedWetDiapers / targets.wetDiapersDaily) * 100;
-  const poopyPercentage = (projectedPoopyDiapers / targets.poopyDiapersDaily) * 100;
-
-  let wetStatus: "ahead" | "on-track" | "behind" = "on-track";
-  if (wetPercentage > 110) wetStatus = "ahead";
-  else if (wetPercentage < 90) wetStatus = "behind";
-
-  let poopyStatus: "ahead" | "on-track" | "behind" = "on-track";
-  if (poopyPercentage > 110) poopyStatus = "ahead";
-  else if (poopyPercentage < 90) poopyStatus = "behind";
+  const avgFeedMl = feeds.length > 0
+    ? feeds.reduce((s, e) => s + ((e.data as FeedData).amountMl || 0), 0) / feeds.length
+    : 0;
+  const avgSleepMin = sleeps.length > 0
+    ? sleeps.reduce((s, e) => s + ((e.data as SleepData).durationMin || 0), 0) / sleeps.length
+    : 0;
 
   return {
     feedingProjection: {
-      totalLoggedMl: totalFeedMl,
+      totalLoggedMl: proj.feeding.logged,
       feedingsCount: feeds.length,
-      averagePerFeeding: averageFeedMl,
-      timeElapsedHours: Math.round(timeElapsedHours * 10) / 10,
-      timeRemainingHours: Math.round(timeRemainingHours * 10) / 10,
-      projectedTotalMl: Math.round(projectedTotalMl),
+      averagePerFeeding: Math.round(avgFeedMl),
+      timeElapsedHours: proj.hoursElapsed,
+      timeRemainingHours: proj.hoursRemaining,
+      projectedTotalMl: proj.feeding.projected,
       dailyTargetMl: targets.feedingMlDaily,
-      percentageOfTarget: Math.round(feedingPercentage),
-      status: feedingStatus,
+      percentageOfTarget: Math.round((proj.feeding.projected / targets.feedingMlDaily) * 100),
+      status: proj.feeding.status,
     },
     sleepProjection: {
-      totalLoggedMinutes: totalSleepMin,
+      totalLoggedMinutes: proj.sleep.logged,
       napsCount: sleeps.length,
-      averageNapDuration: Math.round(averageSleepMin),
-      timeElapsedHours: Math.round(timeElapsedHours * 10) / 10,
-      timeRemainingHours: Math.round(timeRemainingHours * 10) / 10,
-      projectedTotalMinutes: Math.round(projectedTotalSleepMin),
+      averageNapDuration: Math.round(avgSleepMin),
+      timeElapsedHours: proj.hoursElapsed,
+      timeRemainingHours: proj.hoursRemaining,
+      projectedTotalMinutes: proj.sleep.projected,
       dailyTargetMinutes: targets.sleepHoursDaily * 60,
-      percentageOfTarget: Math.round(sleepPercentage),
-      status: sleepStatus,
+      percentageOfTarget: Math.round((proj.sleep.projected / (targets.sleepHoursDaily * 60)) * 100),
+      status: proj.sleep.status,
     },
     diaperProjection: {
-      wetDiapersLogged: wetDiapers,
-      poopyDiapersLogged: poopyDiapers,
-      timeElapsedHours: Math.round(timeElapsedHours * 10) / 10,
-      timeRemainingHours: Math.round(timeRemainingHours * 10) / 10,
-      projectedWetDiapers,
-      projectedPoopyDiapers,
+      wetDiapersLogged: proj.wetDiapers.logged,
+      poopyDiapersLogged: proj.poopyDiapers.logged,
+      timeElapsedHours: proj.hoursElapsed,
+      timeRemainingHours: proj.hoursRemaining,
+      projectedWetDiapers: proj.wetDiapers.projected,
+      projectedPoopyDiapers: proj.poopyDiapers.projected,
       dailyTargetWet: targets.wetDiapersDaily,
       dailyTargetPoopy: targets.poopyDiapersDaily,
-      wetStatus,
-      poopyStatus,
+      wetStatus: proj.wetDiapers.status,
+      poopyStatus: proj.poopyDiapers.status,
     },
   };
 }

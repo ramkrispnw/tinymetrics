@@ -3,12 +3,10 @@ import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
 import {
   calculateAge,
-  getDayKey,
   formatDuration,
-  type FeedData,
-  type DiaperData,
 } from "@/lib/store";
-import { calculateTodayProjections, getAgeSpecificTargets } from "@/lib/ai-context-builder";
+import { calculateProjections, get7DayFeedingHistory } from "@/lib/projections";
+
 
 // ── Progress Bar ──────────────────────────────────────────────────────────────
 
@@ -21,9 +19,10 @@ interface ProgressBarProps {
   unit: string;
   formatValue?: (v: number) => string;
   status: "ahead" | "on-track" | "behind";
+  basedOnHistory?: boolean;
 }
 
-function ProgressBar({ label, emoji, logged, projected, target, unit, formatValue, status }: ProgressBarProps) {
+function ProgressBar({ label, emoji, logged, projected, target, unit, formatValue, status, basedOnHistory }: ProgressBarProps) {
   const colors = useColors();
 
   const loggedPct = Math.min((logged / target) * 100, 100);
@@ -48,7 +47,7 @@ function ProgressBar({ label, emoji, logged, projected, target, unit, formatValu
             {fmt(logged)}
           </Text>
           <Text style={[styles.projectedValue, { color: colors.muted }]}>
-            {" → "}{fmt(projected)} projected
+            {" → "}{fmt(projected)}{basedOnHistory ? " (hist.)" : " projected"}
           </Text>
         </View>
       </View>
@@ -220,27 +219,13 @@ export function TodayProjectionCard() {
 
   const ageInfo = calculateAge(state.profile.birthDate);
   const ageWeeks = Math.floor((ageInfo.months * 30 + ageInfo.days) / 7);
-  const targets = getAgeSpecificTargets(ageWeeks);
-  const projections = calculateTodayProjections(state.events, ageWeeks);
-  const { feedingProjection, sleepProjection, diaperProjection } = projections;
+  const proj = calculateProjections(state.events, ageWeeks);
 
-  // ── Build 7-day daily feeding totals ──
-  const dailyFeedingMl: number[] = [];
-  for (let daysAgo = 6; daysAgo >= 0; daysAgo--) {
-    const d = new Date();
-    d.setDate(d.getDate() - daysAgo);
-    const dk = getDayKey(d.toISOString());
-    const dayFeeds = state.events.filter(
-      (e) => e.type === "feed" && getDayKey(e.timestamp) === dk
-    );
-    const ml = dayFeeds.reduce((sum, e) => sum + ((e.data as FeedData).amountMl || 0), 0);
-    dailyFeedingMl.push(ml);
-  }
-  // Replace today (index 6) with projected value for the sparkline
-  const sparklineValues = [...dailyFeedingMl.slice(0, 6), feedingProjection.projectedTotalMl];
+  // 7-day sparkline: 6 historical days + today projected
+  const sparklineValues = get7DayFeedingHistory(state.events, proj.feeding.projected);
 
   // Time remaining label
-  const hoursLeft = Math.round(feedingProjection.timeRemainingHours);
+  const hoursLeft = Math.round(proj.hoursRemaining);
   const timeLabel = hoursLeft <= 1 ? "< 1h left today" : `${hoursLeft}h left today`;
 
   return (
@@ -255,47 +240,51 @@ export function TodayProjectionCard() {
       <ProgressBar
         label="Feeding"
         emoji="🍼"
-        logged={feedingProjection.totalLoggedMl}
-        projected={feedingProjection.projectedTotalMl}
-        target={feedingProjection.dailyTargetMl}
+        logged={proj.feeding.logged}
+        projected={proj.feeding.projected}
+        target={proj.feeding.target}
         unit=" ml"
-        status={feedingProjection.status}
+        status={proj.feeding.status}
+        basedOnHistory={proj.feeding.basedOnHistory}
       />
 
       {/* Sleep bar */}
       <ProgressBar
         label="Sleep"
         emoji="😴"
-        logged={sleepProjection.totalLoggedMinutes}
-        projected={sleepProjection.projectedTotalMinutes}
-        target={sleepProjection.dailyTargetMinutes}
+        logged={proj.sleep.logged}
+        projected={proj.sleep.projected}
+        target={proj.sleep.target}
         unit=""
         formatValue={(v) => formatDuration(Math.round(v))}
-        status={sleepProjection.status}
+        status={proj.sleep.status}
+        basedOnHistory={proj.sleep.basedOnHistory}
       />
 
       {/* Wet Diapers bar */}
       <ProgressBar
         label="Wet Diapers"
         emoji="💧"
-        logged={diaperProjection.wetDiapersLogged}
-        projected={diaperProjection.projectedWetDiapers}
-        target={diaperProjection.dailyTargetWet}
+        logged={proj.wetDiapers.logged}
+        projected={proj.wetDiapers.projected}
+        target={proj.wetDiapers.target}
         unit=""
         formatValue={(v) => `${Math.round(v)}`}
-        status={diaperProjection.wetStatus}
+        status={proj.wetDiapers.status}
+        basedOnHistory={proj.wetDiapers.basedOnHistory}
       />
 
       {/* Poopy Diapers bar */}
       <ProgressBar
         label="Poopy Diapers"
         emoji="💩"
-        logged={diaperProjection.poopyDiapersLogged}
-        projected={diaperProjection.projectedPoopyDiapers}
-        target={diaperProjection.dailyTargetPoopy}
+        logged={proj.poopyDiapers.logged}
+        projected={proj.poopyDiapers.projected}
+        target={proj.poopyDiapers.target}
         unit=""
         formatValue={(v) => `${Math.round(v)}`}
-        status={diaperProjection.poopyStatus}
+        status={proj.poopyDiapers.status}
+        basedOnHistory={proj.poopyDiapers.basedOnHistory}
       />
 
       {/* Divider */}
@@ -304,8 +293,8 @@ export function TodayProjectionCard() {
       {/* 7-day Feeding Sparkline */}
       <FeedingSparkline
         dailyMl={sparklineValues}
-        todayProjected={feedingProjection.projectedTotalMl}
-        dailyTarget={feedingProjection.dailyTargetMl}
+        todayProjected={proj.feeding.projected}
+        dailyTarget={proj.feeding.target}
       />
 
       {/* Legend */}
