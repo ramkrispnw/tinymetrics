@@ -51,6 +51,7 @@ import { EventDetailSheet } from "@/components/event-detail-sheet";
 import type { FormulaPrepData, MedicationData } from "@/lib/store";
 import { TodayProjectionCard } from "@/components/today-projection-card";
 import { UndoSnackbar } from "@/components/undo-snackbar";
+import { InlineAIInsight } from "@/components/inline-ai-insight";
 
 type SheetType = "feed" | "sleep" | "diaper" | "observation" | "pump" | "formula_prep" | "medication" | "profile" | "settings" | "share" | "growth" | "import" | "digest" | null;
 
@@ -70,7 +71,7 @@ function formatRelativeTime(isoString: string): string {
 export default function HomeScreen() {
   const colors = useColors();
   const { isAuthenticated, user } = useAuth();
-  const { state, deleteEvent, deleteEvents, addEvent, syncToCloud, loadFromCloud } = useStore();
+  const { state, deleteEvent, deleteEvents, addEvent, syncToCloud, loadFromCloud, stopSleep, startSleep } = useStore();
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
   const [viewingEvent, setViewingEvent] = useState<BabyEvent | null>(null);
@@ -79,6 +80,9 @@ export default function HomeScreen() {
 
   // Undo-delete state: holds the event pending deletion during the grace period
   const [pendingDelete, setPendingDelete] = useState<BabyEvent | null>(null);
+
+  // Session-level nudge dismiss — resets when app restarts
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
 
   const handleSyncNow = useCallback(async () => {
     if (syncing) return;
@@ -216,6 +220,57 @@ export default function HomeScreen() {
       .filter((e) => e.type === "pump")
       .reduce((sum, e) => sum + ((e.data as PumpData).amountMl || 0), 0);
   }, [todayEvents]);
+
+  // Priority: Alert (diaper gap) > Nudge (next feed) > null
+  const homeInsight = useMemo(() => {
+    const babyName = state.profile?.name || "Baby";
+
+    // Alert: no diaper logged in 6+ hours
+    const lastDiaper = state.events
+      .filter((e) => e.type === "diaper")
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+    if (lastDiaper) {
+      const hoursAgo = (Date.now() - new Date(lastDiaper.timestamp).getTime()) / 3600000;
+      if (hoursAgo >= 6) {
+        return {
+          variant: "alert" as const,
+          text: `No diaper logged in ${Math.floor(hoursAgo)}h — outside ${babyName}'s usual pattern.`,
+          actionLabel: "Log diaper now" as const,
+          actionSheet: "diaper" as SheetType,
+        };
+      }
+    }
+
+    // Nudge: next feed window approaching based on 7-day average interval
+    if (!nudgeDismissed) {
+      const feedEvents = state.events
+        .filter((e) => e.type === "feed")
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      const cutoff = Date.now() - 7 * 24 * 3600000;
+      const recentFeeds = feedEvents.filter((e) => new Date(e.timestamp).getTime() > cutoff);
+      if (recentFeeds.length >= 3) {
+        let totalGap = 0;
+        for (let i = 1; i < recentFeeds.length; i++) {
+          totalGap += new Date(recentFeeds[i].timestamp).getTime() - new Date(recentFeeds[i - 1].timestamp).getTime();
+        }
+        const avgIntervalMs = totalGap / (recentFeeds.length - 1);
+        const lastFeed = recentFeeds[recentFeeds.length - 1];
+        const timeSinceLastMs = Date.now() - new Date(lastFeed.timestamp).getTime();
+        const msUntilNext = avgIntervalMs - timeSinceLastMs;
+        if (msUntilNext > 0 && msUntilNext <= 45 * 60000) {
+          const minsUntil = Math.round(msUntilNext / 60000);
+          return {
+            variant: "nudge" as const,
+            text: `Based on the last 7 days, ${babyName} typically feeds around this time. Next window in ~${minsUntil} min.`,
+            actionLabel: "Log feed early" as const,
+            actionSheet: "feed" as SheetType,
+          };
+        }
+      }
+    }
+
+    return null;
+  }, [state.events, state.profile, nudgeDismissed]);
 
   const handleDeleteEvent = useCallback((event: BabyEvent) => {
     // Optimistically remove from local state immediately for snappy UX
@@ -458,47 +513,99 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Single AI insight slot — Alert > Nudge > nothing */}
+        {homeInsight && (
+          <View style={{ marginBottom: 12 }}>
+            <InlineAIInsight
+              variant={homeInsight.variant}
+              text={homeInsight.text}
+              actionLabel={homeInsight.actionLabel}
+              onAction={() => setActiveSheet(homeInsight.actionSheet)}
+              dismissible={homeInsight.variant === "nudge"}
+              onDismiss={() => setNudgeDismissed(true)}
+            />
+          </View>
+        )}
+
         {/* Quick Actions */}
         <Text className="text-lg font-semibold text-foreground mb-3">Log Event</Text>
         {(() => {
-          const allActions = [
-            { type: "feed" as const, label: "Feed", icon: "fork.knife" as const, color: colors.feed },
-            { type: "sleep" as const, label: "Sleep", icon: "moon.fill" as const, color: colors.sleep },
-            { type: "diaper" as const, label: "Diaper", icon: "drop.fill" as const, color: colors.diaper },
+          const isSleeping = !!state.activeSleep;
+
+          // Primary row: the three most-used actions, full-width feel
+          const primaryActions: { type: SheetType; label: string; icon: Parameters<typeof IconSymbol>[0]["name"]; color: string; isStopSleep: boolean }[] = [
+            { type: "feed", label: "Feed", icon: "fork.knife", color: colors.feed, isStopSleep: false },
+            { type: "sleep", label: isSleeping ? "Stop Sleep" : "Sleep", icon: "moon.fill", color: colors.sleep, isStopSleep: isSleeping },
+            { type: "diaper", label: "Diaper", icon: "drop.fill", color: colors.diaper, isStopSleep: false },
+          ];
+
+          // Secondary row: less frequent actions, smaller
+          const secondaryActions = [
             { type: "observation" as const, label: "Note", icon: "eye.fill" as const, color: colors.observation },
             { type: "pump" as const, label: "Pump", icon: "drop.triangle.fill" as const, color: colors.pump },
             { type: "formula_prep" as const, label: "Formula", icon: "flask.fill" as const, color: colors.formula },
             { type: "medication" as const, label: "Meds", icon: "pills.fill" as const, color: colors.medication },
           ];
-          const row1 = allActions.slice(0, 4);
-          const row2 = allActions.slice(4);
-          const renderBtn = (action: typeof allActions[number]) => (
-            <Pressable
-              key={action.type}
-              onPress={() => setActiveSheet(action.type)}
-              style={({ pressed }) => [
-                styles.quickAction,
-                { backgroundColor: action.color + "20", borderColor: action.color + "40" },
-                pressed && { transform: [{ scale: 0.96 }], opacity: 0.85 },
-              ]}
-            >
-              <View
-                style={[styles.quickActionIcon, { backgroundColor: action.color + "35" }]}
-              >
-                <IconSymbol name={action.icon} size={22} color={action.color} />
-              </View>
-              <Text style={[styles.quickActionLabel, { color: colors.foreground }]}>
-                {action.label}
-              </Text>
-            </Pressable>
-          );
+
           return (
             <View className="mb-6" style={{ gap: 8 }}>
+              {/* Primary: Feed / Sleep / Diaper */}
               <View style={{ flexDirection: "row", gap: 8 }}>
-                {row1.map(renderBtn)}
+                {primaryActions.map((action) => (
+                  <Pressable
+                    key={action.type + (action.isStopSleep ? "-stop" : "")}
+                    onPress={async () => {
+                      if (action.isStopSleep) {
+                        if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        await stopSleep();
+                      } else {
+                        setActiveSheet(action.type);
+                      }
+                    }}
+                    style={({ pressed }) => [
+                      styles.primaryAction,
+                      {
+                        backgroundColor: action.isStopSleep ? action.color + "30" : action.color + "18",
+                        borderColor: action.isStopSleep ? action.color + "70" : action.color + "35",
+                      },
+                      pressed && { transform: [{ scale: 0.96 }], opacity: 0.85 },
+                    ]}
+                  >
+                    <View style={[styles.primaryActionIcon, { backgroundColor: action.color + "35" }]}>
+                      <IconSymbol name={action.icon} size={26} color={action.color} />
+                    </View>
+                    <Text style={[styles.primaryActionLabel, { color: colors.foreground }]}>
+                      {action.label}
+                    </Text>
+                    {action.isStopSleep && (
+                      <Text style={{ fontSize: 10, color: action.color, fontWeight: "600", marginTop: 1 }}>
+                        TAP TO STOP
+                      </Text>
+                    )}
+                  </Pressable>
+                ))}
               </View>
+
+              {/* Secondary: Note / Pump / Formula / Meds */}
               <View style={{ flexDirection: "row", gap: 8 }}>
-                {row2.map(renderBtn)}
+                {secondaryActions.map((action) => (
+                  <Pressable
+                    key={action.type}
+                    onPress={() => setActiveSheet(action.type)}
+                    style={({ pressed }) => [
+                      styles.quickAction,
+                      { backgroundColor: action.color + "14", borderColor: action.color + "30" },
+                      pressed && { transform: [{ scale: 0.96 }], opacity: 0.85 },
+                    ]}
+                  >
+                    <View style={[styles.quickActionIcon, { backgroundColor: action.color + "28" }]}>
+                      <IconSymbol name={action.icon} size={18} color={action.color} />
+                    </View>
+                    <Text style={[styles.quickActionLabel, { color: colors.foreground }]}>
+                      {action.label}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
             </View>
           );
@@ -822,14 +929,34 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
+  primaryAction: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 4,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    gap: 7,
+  },
+  primaryActionIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryActionLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
   quickAction: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 4,
     borderRadius: 14,
-    borderWidth: 1.5,
-    gap: 6,
+    borderWidth: 1,
+    gap: 5,
   },
   quickActionIcon: {
     width: 44,
