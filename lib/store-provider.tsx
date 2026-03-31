@@ -175,8 +175,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
           // Detect new partner events for notifications
           const existingIds = new Set(prev.events.map((e) => e.id));
+          const SYSTEM_EVENT_TYPES = new Set(["deletion_audit"]);
           const newPartnerEvents = parsedEvents.filter(
-            (e) => !existingIds.has(e.id) && e.loggedBy && e.loggedBy !== currentUserId
+            (e) =>
+              !existingIds.has(e.id) &&
+              e.loggedBy &&
+              e.loggedBy !== currentUserId &&
+              !SYSTEM_EVENT_TYPES.has(e.type)
           );
           for (const e of parsedEvents) {
             if (!deletedSet.has(e.id)) mergedMap.set(e.id, e);
