@@ -811,6 +811,9 @@ function LineChart({
     return dt.toLocaleDateString([], { month: "short", day: "numeric" });
   };
 
+  // Show at most ~8 date labels on the x-axis regardless of data density
+  const dateStep = Math.max(1, Math.ceil(data.length / 8));
+
   return (
     <View>
       {selectedIdx !== null && (
@@ -905,13 +908,14 @@ function LineChart({
               { backgroundColor: colors.border + "40", bottom: 0 },
             ]}
           />
-          <View style={growthStyles.pointsRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={growthStyles.pointsRow}>
             {data.map((d, i) => {
               const yPct =
                 data.length === 1
                   ? 50
                   : ((d.value - minVal) / rangeVal) * 80 + 10;
               const isSelected = selectedIdx === i;
+              const showDate = isSelected || i % dateStep === 0;
               return (
                 <Pressable
                   key={d.date + i}
@@ -928,18 +932,16 @@ function LineChart({
                     <View
                       style={{ height: `${yPct}%`, alignItems: "center" }}
                     >
-                      <Text
-                        style={[
-                          growthStyles.pointValue,
-                          {
-                            color,
-                            fontWeight: isSelected ? "800" : "600",
-                            fontSize: isSelected ? 11 : 9,
-                          },
-                        ]}
-                      >
-                        {d.value.toFixed(1)}
-                      </Text>
+                      {isSelected && (
+                        <Text
+                          style={[
+                            growthStyles.pointValue,
+                            { color, fontWeight: "800", fontSize: 11 },
+                          ]}
+                        >
+                          {d.value.toFixed(1)}
+                        </Text>
+                      )}
                       <View
                         style={[
                           growthStyles.dot,
@@ -959,16 +961,17 @@ function LineChart({
                       {
                         color: isSelected ? color : colors.muted,
                         fontWeight: isSelected ? "700" : "400",
+                        opacity: showDate ? 1 : 0,
                       },
                     ]}
                     numberOfLines={1}
                   >
-                    {formatDate(d.date)}
+                    {showDate ? formatDate(d.date) : " "}
                   </Text>
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         </View>
       </View>
     </View>
@@ -1003,11 +1006,10 @@ const growthStyles = StyleSheet.create({
     height: 1,
   },
   pointsRow: {
-    flex: 1,
     flexDirection: "row",
   },
   pointColumn: {
-    flex: 1,
+    minWidth: 32,
     alignItems: "center",
   },
   pointValue: {
