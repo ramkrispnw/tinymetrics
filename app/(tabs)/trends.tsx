@@ -213,6 +213,12 @@ export default function TrendsScreen() {
   const maxSleep = Math.max(...sleepData.map((d) => d.value), 1);
   const maxPump = Math.max(...pumpData.map((d) => d.value), 1);
 
+  const hasFeedData = feedData.some((d) => d.value > 0);
+  const hasPeeData = peeData.some((d) => d.value > 0);
+  const hasPooData = pooData.some((d) => d.value > 0);
+  const hasSleepData = sleepData.some((d) => d.value > 0);
+  const hasPumpData = pumpData.some((d) => d.value > 0);
+
   const avgFeed = feedData.reduce((s, d) => s + d.value, 0) / range;
   const avgPee = peeData.reduce((s, d) => s + d.value, 0) / range;
   const avgPoo = pooData.reduce((s, d) => s + d.value, 0) / range;
@@ -305,6 +311,18 @@ export default function TrendsScreen() {
           </Text>
         </Pressable>
       ))}
+    </View>
+  );
+
+  const EmptyChartState = ({ emoji, label }: { emoji: string; label: string }) => (
+    <View style={[styles.emptyChartCard, { borderColor: colors.border }]}>
+      <Text style={{ fontSize: 28 }}>{emoji}</Text>
+      <Text style={{ color: colors.muted, fontSize: 14, fontWeight: "600", marginTop: 6 }}>
+        No {label} data yet
+      </Text>
+      <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2, textAlign: "center" }}>
+        Log your first session to see trends here
+      </Text>
     </View>
   );
 
@@ -506,26 +524,32 @@ export default function TrendsScreen() {
               Avg: {displayFeedAmount(avgFeed)}
             </Text>
           </View>
-          <UnitToggle
-            options={[
-              { key: "ml", label: "ml" },
-              { key: "oz", label: "oz" },
-            ]}
-            selected={feedUnit}
-            onSelect={(k) => setFeedUnit(k as FeedUnit)}
-          />
-          <BarChart
-            data={feedData}
-            maxVal={maxFeed}
-            color={colors.feed}
-            labelFn={displayFeedAmount}
-            avgVal={avgFeed}
-            trendValues={feedTrend}
-          />
-          <ChartAISummary
-            chartType="Daily Feed Intake"
-            dataJson={JSON.stringify(feedData.map(d => ({ day: d.day, value: d.value, unit: feedUnit })))}
-          />
+          {hasFeedData ? (
+            <>
+              <UnitToggle
+                options={[
+                  { key: "ml", label: "ml" },
+                  { key: "oz", label: "oz" },
+                ]}
+                selected={feedUnit}
+                onSelect={(k) => setFeedUnit(k as FeedUnit)}
+              />
+              <BarChart
+                data={feedData}
+                maxVal={maxFeed}
+                color={colors.feed}
+                labelFn={displayFeedAmount}
+                avgVal={avgFeed}
+                trendValues={feedTrend}
+              />
+              <ChartAISummary
+                chartType="Daily Feed Intake"
+                dataJson={JSON.stringify(feedData.map(d => ({ day: d.day, value: d.value, unit: feedUnit })))}
+              />
+            </>
+          ) : (
+            <EmptyChartState emoji="🍼" label="feeding" />
+          )}
         </View>
 
         {/* Pee Diaper Chart */}
@@ -543,18 +567,24 @@ export default function TrendsScreen() {
               Avg: {avgPee.toFixed(1)}/day
             </Text>
           </View>
-          <BarChart
-            data={peeData}
-            maxVal={maxPee}
-            color={colors.feed}
-            labelFn={(v) => `${v}`}
-            avgVal={avgPee}
-            trendValues={peeTrend}
-          />
-          <ChartAISummary
-            chartType="Wet Diapers (Pee) per Day"
-            dataJson={JSON.stringify(peeData.map(d => ({ day: d.day, count: d.value })))}
-          />
+          {hasPeeData ? (
+            <>
+              <BarChart
+                data={peeData}
+                maxVal={maxPee}
+                color={colors.feed}
+                labelFn={(v) => `${v}`}
+                avgVal={avgPee}
+                trendValues={peeTrend}
+              />
+              <ChartAISummary
+                chartType="Wet Diapers (Pee) per Day"
+                dataJson={JSON.stringify(peeData.map(d => ({ day: d.day, count: d.value })))}
+              />
+            </>
+          ) : (
+            <EmptyChartState emoji="💧" label="wet diaper" />
+          )}
         </View>
 
         {/* Poo Diaper Chart */}
@@ -572,18 +602,24 @@ export default function TrendsScreen() {
               Avg: {avgPoo.toFixed(1)}/day
             </Text>
           </View>
-          <BarChart
-            data={pooData}
-            maxVal={maxPoo}
-            color={colors.warning}
-            labelFn={(v) => `${v}`}
-            avgVal={avgPoo}
-            trendValues={pooTrend}
-          />
-          <ChartAISummary
-            chartType="Poo Diapers per Day"
-            dataJson={JSON.stringify(pooData.map(d => ({ day: d.day, count: d.value })))}
-          />
+          {hasPooData ? (
+            <>
+              <BarChart
+                data={pooData}
+                maxVal={maxPoo}
+                color={colors.warning}
+                labelFn={(v) => `${v}`}
+                avgVal={avgPoo}
+                trendValues={pooTrend}
+              />
+              <ChartAISummary
+                chartType="Poo Diapers per Day"
+                dataJson={JSON.stringify(pooData.map(d => ({ day: d.day, count: d.value })))}
+              />
+            </>
+          ) : (
+            <EmptyChartState emoji="💩" label="poo diaper" />
+          )}
         </View>
 
         {/* Sleep Chart */}
@@ -601,18 +637,24 @@ export default function TrendsScreen() {
               Avg: {formatDuration(avgSleep)}
             </Text>
           </View>
-          <BarChart
-            data={sleepData}
-            maxVal={maxSleep}
-            color={colors.sleep}
-            labelFn={(v) => formatDuration(v)}
-            avgVal={avgSleep}
-            trendValues={sleepTrend}
-          />
-          <ChartAISummary
-            chartType="Daily Sleep Duration"
-            dataJson={JSON.stringify(sleepData.map(d => ({ day: d.day, minutes: d.value })))}
-          />
+          {hasSleepData ? (
+            <>
+              <BarChart
+                data={sleepData}
+                maxVal={maxSleep}
+                color={colors.sleep}
+                labelFn={(v) => formatDuration(v)}
+                avgVal={avgSleep}
+                trendValues={sleepTrend}
+              />
+              <ChartAISummary
+                chartType="Daily Sleep Duration"
+                dataJson={JSON.stringify(sleepData.map(d => ({ day: d.day, minutes: d.value })))}
+              />
+            </>
+          ) : (
+            <EmptyChartState emoji="😴" label="sleep" />
+          )}
         </View>
 
         {/* Pump Output Chart */}
@@ -630,26 +672,32 @@ export default function TrendsScreen() {
               Avg: {displayFeedAmount(avgPump)}
             </Text>
           </View>
-          <UnitToggle
-            options={[
-              { key: "ml", label: "ml" },
-              { key: "oz", label: "oz" },
-            ]}
-            selected={feedUnit}
-            onSelect={(k) => setFeedUnit(k as FeedUnit)}
-          />
-          <BarChart
-            data={pumpData}
-            maxVal={maxPump}
-            color={colors.pump}
-            labelFn={displayFeedAmount}
-            avgVal={avgPump}
-            trendValues={pumpTrend}
-          />
-          <ChartAISummary
-            chartType="Daily Pump Output"
-            dataJson={JSON.stringify(pumpData.map(d => ({ day: d.day, value: d.value, unit: feedUnit })))}
-          />
+          {hasPumpData ? (
+            <>
+              <UnitToggle
+                options={[
+                  { key: "ml", label: "ml" },
+                  { key: "oz", label: "oz" },
+                ]}
+                selected={feedUnit}
+                onSelect={(k) => setFeedUnit(k as FeedUnit)}
+              />
+              <BarChart
+                data={pumpData}
+                maxVal={maxPump}
+                color={colors.pump}
+                labelFn={displayFeedAmount}
+                avgVal={avgPump}
+                trendValues={pumpTrend}
+              />
+              <ChartAISummary
+                chartType="Daily Pump Output"
+                dataJson={JSON.stringify(pumpData.map(d => ({ day: d.day, value: d.value, unit: feedUnit })))}
+              />
+            </>
+          ) : (
+            <EmptyChartState emoji="🤱" label="pump" />
+          )}
         </View>
 
         {/* Weight Chart */}
@@ -1045,6 +1093,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 16,
     marginBottom: 14,
+  },
+  emptyChartCard: {
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderRadius: 12,
+    padding: 20,
+    alignItems: "center",
+    marginTop: 8,
+    marginBottom: 4,
   },
   chartHeader: {
     flexDirection: "row",

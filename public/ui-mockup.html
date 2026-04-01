@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TinyMetrics — UI Design Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #6C63FF;
+    --primary-light: #8B83FF;
+    --bg: #FAFBFC;
+    --surface: #FFFFFF;
+    --border: #E5E7EB;
+    --foreground: #111827;
+    --muted: #6B7280;
+    --feed: #3B82F6;
+    --sleep: #8B5CF6;
+    --diaper: #F97316;
+    --observation: #EC4899;
+    --pump: #E879A0;
+    --formula: #14B8A6;
+    --medication: #06B6D4;
+    --success: #10B981;
+    --warning: #F59E0B;
+    --error: #EF4444;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #ECEEF2;
+    color: var(--foreground);
+    padding: 48px 32px;
+  }
+
+  /* ── Page header ── */
+  .page-header { text-align: center; margin-bottom: 56px; }
+  .page-header h1 { font-size: 28px; font-weight: 800; color: var(--foreground); }
+  .page-header p { font-size: 14px; color: var(--muted); margin-top: 6px; }
+  .page-header .badge {
+    display: inline-block; margin-top: 12px;
+    padding: 4px 12px; border-radius: 20px;
+    background: #6C63FF1A; color: var(--primary);
+    font-size: 12px; font-weight: 600;
+  }
+
+  /* ── Section headers ── */
+  .section { margin-bottom: 72px; }
+  .section-title {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 24px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Color palette ── */
+  .palette { display: flex; flex-wrap: wrap; gap: 12px; }
+  .swatch {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    width: 72px;
+  }
+  .swatch-dot { width: 48px; height: 48px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+  .swatch-name { font-size: 11px; font-weight: 600; color: var(--foreground); }
+  .swatch-hex { font-size: 10px; color: var(--muted); }
+
+  /* ── Phone frame ── */
+  .phone-frame {
+    width: 375px;
+    height: 812px;
+    border-radius: 44px;
+    border: 8px solid #1C1C1E;
+    background: var(--bg);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.22), inset 0 0 0 1px #3a3a3c;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .phone-notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 30px;
+    background: #1C1C1E; border-radius: 0 0 20px 20px; z-index: 10;
+  }
+  .phone-status {
+    height: 44px; padding: 12px 20px 0;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-shrink: 0;
+  }
+  .phone-status .time { font-size: 12px; font-weight: 600; color: var(--foreground); }
+  .phone-status .icons { font-size: 11px; color: var(--foreground); display: flex; gap: 4px; align-items: center; }
+  .phone-content {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 0;
+    scrollbar-width: none;
+  }
+  .phone-content::-webkit-scrollbar { display: none; }
+  .phone-tabs {
+    height: 64px; border-top: 1px solid var(--border);
+    background: var(--bg); display: flex; flex-shrink: 0;
+    padding-bottom: 8px;
+  }
+  .tab-item {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 3px;
+    cursor: pointer;
+  }
+  .tab-icon { font-size: 22px; }
+  .tab-label { font-size: 10px; font-weight: 500; color: var(--muted); }
+  .tab-item.active .tab-label { color: var(--primary); }
+  .tab-item.active .tab-icon { filter: none; }
+
+  /* ── Improvement pairs layout ── */
+  .improvement-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 56px;
+  }
+  .improvement-item { display: flex; flex-direction: column; gap: 16px; }
+  .improvement-label {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .improvement-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--primary); color: white;
+    font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .improvement-title { font-size: 14px; font-weight: 700; color: var(--foreground); }
+  .improvement-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .frame-pair { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+  .frame-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted);
+    text-align: center; margin-top: 10px;
+  }
+  .arrow-connector {
+    font-size: 22px; color: var(--primary); align-self: center; margin-top: -20px;
+  }
+  @media (max-width: 900px) {
+    .arrow-connector { transform: rotate(90deg); align-self: auto; margin: 0 auto; }
+    .frame-pair { flex-direction: column; align-items: flex-start; }
+    body { padding: 32px 16px; }
+  }
+
+  /* ── Screen content components ── */
+  .screen-header {
+    padding: 12px 16px 8px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .screen-title { font-size: 17px; font-weight: 700; color: var(--foreground); }
+  .screen-subtitle { font-size: 12px; color: var(--muted); }
+
+  .event-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; border-bottom: 1px solid #F3F4F6;
+    flex-shrink: 0;
+  }
+  .event-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .event-body { flex: 1; min-width: 0; }
+  .event-title { font-size: 13px; font-weight: 600; color: var(--foreground); }
+  .event-detail { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .event-time { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+  .event-trash { font-size: 14px; color: var(--error); opacity: 0.7; margin-left: 6px; cursor: pointer; }
+
+  .summary-cards {
+    display: flex; gap: 8px; padding: 8px 16px;
+  }
+  .summary-card {
+    flex: 1; border-radius: 12px; padding: 10px 8px;
+    display: flex; flex-direction: column; gap: 2px;
+    border: 1px solid; min-width: 0;
+  }
+  .summary-card-icon { font-size: 14px; margin-bottom: 4px; }
+  .summary-card-value { font-size: 15px; font-weight: 700; color: var(--foreground); }
+  .summary-card-label { font-size: 10px; font-weight: 500; color: var(--muted); }
+  .summary-card-row { display: flex; gap: 4px; font-size: 11px; margin-top: 2px; }
+
+  .sync-banner {
+    margin: 8px 16px; padding: 10px 12px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .sync-banner-text { font-size: 12px; color: var(--muted); }
+  .sync-banner-action { font-size: 12px; font-weight: 600; color: var(--primary); }
+
+  .sync-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--success); display: inline-block; margin-left: 6px;
+    vertical-align: middle; box-shadow: 0 0 0 2px rgba(16,185,129,0.2);
+  }
+
+  .quick-actions {
+    display: flex; gap: 8px; padding: 8px 16px; overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .quick-actions::-webkit-scrollbar { display: none; }
+  .quick-action-card {
+    flex-shrink: 0; width: 64px; height: 64px; border-radius: 14px;
+    background: var(--surface); border: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .quick-action-card .qa-icon { font-size: 20px; }
+  .quick-action-card .qa-label { font-size: 9px; font-weight: 600; color: var(--muted); }
+  .qa-more { background: #F3F4F6 !important; }
+
+  .utility-row {
+    margin: 4px 16px; padding: 12px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .utility-row-icon { font-size: 18px; }
+  .utility-row-text { font-size: 13px; font-weight: 500; color: var(--foreground); flex: 1; }
+  .utility-row-chevron { font-size: 12px; color: var(--muted); }
+
+  .filter-row {
+    display: flex; gap: 6px; padding: 6px 16px; overflow-x: auto;
+    scrollbar-width: none; flex-shrink: 0;
+  }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    flex-shrink: 0; height: 30px; padding: 0 12px;
+    border-radius: 15px; border: 1px solid var(--border);
+    background: var(--surface); font-size: 12px; font-weight: 600;
+    color: var(--muted); display: flex; align-items: center; cursor: pointer;
+    white-space: nowrap;
+  }
+  .filter-chip.active {
+    background: var(--primary); border-color: var(--primary); color: #fff;
+  }
+  .filter-divider {
+    width: 1px; height: 20px; background: var(--border);
+    flex-shrink: 0; align-self: center; margin: 0 2px;
+  }
+
+  .search-bar {
+    margin: 8px 16px; padding: 9px 12px;
+    border-radius: 10px; background: var(--surface);
+    border: 1px solid var(--border); display: flex; align-items: center; gap: 8px;
+  }
+  .search-bar span { font-size: 13px; color: #9CA3AF; }
+  .search-icon { font-size: 14px; color: var(--muted); }
+
+  .date-label {
+    padding: 12px 16px 4px;
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }
+
+  .swipe-row {
+    position: relative; overflow: hidden; margin: 0;
+  }
+  .swipe-actions {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    display: flex; align-items: stretch;
+  }
+  .swipe-action {
+    width: 70px; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 3px; font-size: 10px; font-weight: 600; color: white;
+  }
+  .swipe-action.edit { background: var(--feed); }
+  .swipe-action.delete { background: var(--error); }
+  .swipe-action-icon { font-size: 16px; }
+  .swipe-event {
+    transform: translateX(-140px);
+    background: var(--surface);
+  }
+
+  .chart-section { padding: 12px 16px; flex-shrink: 0; }
+  .chart-title { font-size: 13px; font-weight: 700; color: var(--foreground); margin-bottom: 4px; }
+  .chart-sub { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+  .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 60px; }
+  .bar {
+    flex: 1; border-radius: 4px 4px 0 0;
+    background: var(--feed); opacity: 0.85;
+  }
+  .chart-empty {
+    border: 1.5px dashed var(--border); border-radius: 12px;
+    padding: 16px; display: flex; flex-direction: column;
+    align-items: center; gap: 6px; text-align: center;
+    margin: 4px 0;
+  }
+  .chart-empty-icon { font-size: 22px; }
+  .chart-empty-text { font-size: 12px; color: var(--muted); }
+  .chart-empty-cta {
+    margin-top: 4px; font-size: 11px; font-weight: 600;
+    color: var(--primary); padding: 5px 12px;
+    border: 1px solid var(--primary); border-radius: 8px;
+    background: #6C63FF0D;
+  }
+
+  .milestone-list { padding: 8px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .milestone-card {
+    border-radius: 12px; background: var(--surface); border: 1px solid var(--border);
+    padding: 12px; display: flex; gap: 10px;
+  }
+  .milestone-emoji-badge {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+    background: #6C63FF15;
+  }
+  .milestone-body { flex: 1; min-width: 0; }
+  .milestone-title { font-size: 13px; font-weight: 700; color: var(--foreground); }
+  .milestone-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .milestone-thumb {
+    width: 48px; height: 48px; border-radius: 8px;
+    background: linear-gradient(135deg, #E0E7FF, #C7D2FE);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+
+  .milestone-grid { padding: 8px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .milestone-grid-card {
+    border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--border); aspect-ratio: 1;
+    position: relative; display: flex; align-items: center;
+    justify-content: center;
+  }
+  .milestone-grid-photo {
+    width: 100%; height: 100%; object-fit: cover;
+    background: linear-gradient(135deg, #E0E7FF, #818CF8);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+  }
+  .milestone-grid-date {
+    position: absolute; bottom: 6px; right: 6px;
+    background: rgba(0,0,0,0.5); color: white;
+    font-size: 9px; font-weight: 600; padding: 2px 5px; border-radius: 4px;
+  }
+
+  .ai-context-card {
+    margin: 12px 16px; padding: 12px; border-radius: 12px;
+    background: #6C63FF0D; border: 1px solid #6C63FF28;
+  }
+  .ai-context-title { font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
+  .ai-context-name { font-size: 14px; font-weight: 700; color: var(--foreground); }
+  .ai-context-age { font-size: 11px; color: var(--muted); }
+  .ai-context-bullets { margin-top: 6px; display: flex; gap: 8px; }
+  .ai-context-bullet {
+    font-size: 11px; font-weight: 600;
+    padding: 3px 8px; border-radius: 6px;
+    background: var(--surface); border: 1px solid var(--border); color: var(--foreground);
+  }
+
+  .quick-chips {
+    display: flex; gap: 8px; padding: 4px 16px 8px; overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .quick-chips::-webkit-scrollbar { display: none; }
+  .quick-chip {
+    flex-shrink: 0; padding: 7px 14px; border-radius: 20px;
+    background: var(--surface); border: 1px solid var(--border);
+    font-size: 12px; font-weight: 500; color: var(--foreground);
+    white-space: nowrap; cursor: pointer;
+  }
+  .quick-chip:hover { border-color: var(--primary); color: var(--primary); }
+
+  .ai-messages { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .ai-msg-user {
+    align-self: flex-end; background: var(--primary); color: white;
+    padding: 9px 13px; border-radius: 16px 16px 4px 16px;
+    font-size: 13px; max-width: 75%;
+  }
+  .ai-msg-bot {
+    align-self: flex-start; background: var(--surface); border: 1px solid var(--border);
+    padding: 9px 13px; border-radius: 16px 16px 16px 4px;
+    font-size: 13px; color: var(--foreground); max-width: 80%;
+  }
+  .ai-input-row {
+    padding: 8px 12px; display: flex; gap: 8px; align-items: center;
+    border-top: 1px solid var(--border); background: var(--bg);
+  }
+  .ai-input {
+    flex: 1; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 8px 14px; font-size: 13px; color: var(--muted);
+  }
+  .ai-send {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--primary); display: flex; align-items: center;
+    justify-content: center; font-size: 14px; color: white;
+  }
+
+  .today-projection {
+    margin: 6px 16px; padding: 12px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+  }
+  .projection-title { font-size: 12px; font-weight: 700; color: var(--foreground); margin-bottom: 10px; }
+  .projection-row { margin-bottom: 8px; }
+  .projection-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .projection-bar-track {
+    height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
+  }
+  .projection-bar-fill { height: 100%; border-radius: 3px; }
+
+  .ai-insight {
+    margin: 4px 16px 8px; padding: 10px 12px; border-radius: 10px;
+    display: flex; gap: 10px;
+  }
+  .ai-insight-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .ai-insight-body { flex: 1; }
+  .ai-insight-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+  .ai-insight-text { font-size: 12px; color: var(--foreground); line-height: 1.4; }
+
+  /* ── Journal tab section ── */
+  .journal-frames { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+  .journal-frame-wrapper { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .journal-frame-title {
+    font-size: 13px; font-weight: 700; color: var(--foreground);
+    text-align: center;
+  }
+  .journal-frame-subtitle { font-size: 11px; color: var(--muted); text-align: center; }
+
+  .segment-control {
+    display: flex; margin: 8px 16px; background: #F0F1F3;
+    border-radius: 10px; padding: 3px;
+  }
+  .seg-btn {
+    flex: 1; text-align: center; padding: 6px; border-radius: 7px;
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .seg-btn.active {
+    background: white; color: var(--foreground);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+
+  .view-pane { display: none; }
+  .view-pane.active { display: block; }
+
+  .timeline-milestone-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; border-left: 3px solid var(--primary);
+    margin: 4px 16px; border-radius: 0 10px 10px 0;
+    background: var(--surface); border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  .tm-badge {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: #6C63FF15; display: flex; align-items: center;
+    justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+  .tm-body { flex: 1; }
+  .tm-title { font-size: 13px; font-weight: 700; color: var(--foreground); }
+  .tm-meta { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .tm-thumb {
+    width: 44px; height: 44px; border-radius: 8px;
+    background: linear-gradient(135deg, #818CF8, #6C63FF);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .milestone-star {
+    position: absolute; top: -6px; right: 10px;
+    background: var(--primary); color: white;
+    font-size: 8px; font-weight: 700; padding: 2px 6px;
+    border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  /* ── Nav map ── */
+  .nav-map { display: flex; justify-content: center; gap: 0; }
+  .nav-tab-node {
+    flex: 1; max-width: 200px; padding: 16px;
+    background: var(--surface); border: 2px solid var(--border);
+    border-right: none; text-align: center;
+  }
+  .nav-tab-node:first-child { border-radius: 12px 0 0 12px; }
+  .nav-tab-node:last-child { border-radius: 0 12px 12px 0; border-right: 2px solid var(--border); }
+  .nav-tab-node.highlight { border-color: var(--primary); background: #6C63FF0A; }
+  .nav-tab-icon { font-size: 24px; margin-bottom: 6px; }
+  .nav-tab-name { font-size: 13px; font-weight: 700; color: var(--foreground); }
+  .nav-tab-desc { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  .nav-sub-items { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .nav-sub-item {
+    font-size: 10px; font-weight: 600; padding: 4px 8px;
+    border-radius: 6px; background: #F3F4F6; color: var(--muted);
+    text-align: center;
+  }
+  .nav-sub-item.primary-sub {
+    background: #6C63FF15; color: var(--primary);
+  }
+
+  /* ── Annotation callout ── */
+  .callout-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--warning); color: white;
+    font-size: 11px; font-weight: 700; flex-shrink: 0;
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.2);
+  }
+
+  /* ── Annotation notes below frames ── */
+  .annotation-note {
+    background: white; border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; font-size: 12px; color: var(--foreground);
+    line-height: 1.5; max-width: 375px;
+  }
+  .annotation-note strong { color: var(--primary); }
+
+  /* Compact phone frame — status bar pseudo-element pushes content below rounded corners */
+  .phone-frame.compact::before {
+    content: '9:41';
+    display: block;
+    height: 32px;
+    padding: 8px 16px 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--foreground);
+    flex-shrink: 0;
+  }
+
+  /* utility */
+  .spacer { height: 8px; }
+  .small-frame { transform: scale(0.84); transform-origin: top center; }
+  .frames-row { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; }
+  .frame-col { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- PAGE HEADER -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="page-header">
+  <h1>TinyMetrics — UI Design Review</h1>
+  <p>8 annotated improvements · Journal tab redesign · Light mode · 375px iPhone frame</p>
+  <span class="badge">Draft · March 2026</span>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 0: COLOR PALETTE -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Design Tokens</div>
+  <div class="palette">
+    <div class="swatch"><div class="swatch-dot" style="background:#6C63FF"></div><div class="swatch-name">Primary</div><div class="swatch-hex">#6C63FF</div></div>
+    <div class="swatch"><div class="swatch-dot" style="background:#FAFBFC;border:1px solid #E5E7EB"></div><div class="swatch-name">Background</div><div class="swatch-hex">#FAFBFC</div></div>
+    <div class="swatch"><div class="swatch-dot" style="background:#FFFFFF;border:1px solid #E5E7EB"></div><div class="swatch-name">Surface</div><div class="swatch-hex">#FFFFFF</div></div>
+    <div class="swatch"><div class="swatch-dot" style="background:#111827"></div><div class="swatch-name">Foreground</div><div class="swatch-hex">#111827</div></div>
+    <div class="swatch"><div class="swatch-dot" style="background:#6B7280"></div><div class="swatch-name">Muted</div><div class="swatch-hex">#6B7280</div></div>
+    <div class="swatch"><div class="swatch-dot" style="background:#10B981"></div><div class="swatch-name">Success</div><div class="swatch-hex">#10B981</div></div>
+    <div class="swatch"><div class="swatch-dot" style="background:#F59E0B"></div><div class="swatch-name">Warning</div><div class="swatch-hex">#F59E0B</div></div>
+    <div class="swatch"><div class="swatch-dot" style="background:#EF4444"></div><div class="swatch-name">Error</div><div class="swatch-hex">#EF4444</div></div>
+    <div class="swatch"><div class="swatch-dot" style="background:#3B82F6"></div><div class="swatch-name">Feed</div><div class="swatch-hex">#3B82F6</div></div>
+    <div class="swatch"><div class="swatch-dot" style="background:#8B5CF6"></div><div class="swatch-name">Sleep</div><div class="swatch-hex">#8B5CF6</div></div>
+    <div class="swatch"><div class="swatch-dot" style="background:#F97316"></div><div class="swatch-name">Diaper</div><div class="swatch-hex">#F97316</div></div>
+    <div class="swatch"><div class="swatch-dot" style="background:#EC4899"></div><div class="swatch-name">Observation</div><div class="swatch-hex">#EC4899</div></div>
+    <div class="swatch"><div class="swatch-dot" style="background:#14B8A6"></div><div class="swatch-name">Formula</div><div class="swatch-hex">#14B8A6</div></div>
+    <div class="swatch"><div class="swatch-dot" style="background:#06B6D4"></div><div class="swatch-name">Medication</div><div class="swatch-hex">#06B6D4</div></div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 1: 8 UI IMPROVEMENTS -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">8 UI Improvements</div>
+  <div class="improvement-grid">
+
+
+    <!-- ─── Improvement 1: Sync banner → ambient dot ─── -->
+    <div class="improvement-item">
+      <div class="improvement-label">
+        <div class="improvement-num">1</div>
+        <div>
+          <div class="improvement-title">Home · Sync banner → ambient dot</div>
+          <div class="improvement-subtitle">Remove banner from primary scan zone</div>
+        </div>
+      </div>
+      <div class="frame-pair">
+        <!-- BEFORE -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:340px;border-radius:24px;">
+            <div style="padding:10px 16px 6px;display:flex;align-items:center;justify-content:space-between;">
+              <div>
+                <div style="font-size:16px;font-weight:700;">👶 Ishaan</div>
+                <div style="font-size:11px;color:var(--muted);">3 months old</div>
+              </div>
+              <div style="font-size:18px;">⚙️</div>
+            </div>
+            <div class="sync-banner">
+              <div class="sync-banner-text">☁️ Last synced 2 min ago</div>
+              <div class="sync-banner-action">Sync now ›</div>
+            </div>
+            <div class="summary-cards">
+              <div class="summary-card" style="background:#3B82F615;border-color:#3B82F630;">
+                <div class="summary-card-icon">🍼</div>
+                <div class="summary-card-value" style="font-size:12px;">480ml</div>
+                <div class="summary-card-label">Feed</div>
+              </div>
+              <div class="summary-card" style="background:#F9731615;border-color:#F9731630;">
+                <div class="summary-card-icon">💧</div>
+                <div class="summary-card-value" style="font-size:12px;">3P/2💩</div>
+                <div class="summary-card-label">Diapers</div>
+              </div>
+              <div class="summary-card" style="background:#8B5CF615;border-color:#8B5CF630;">
+                <div class="summary-card-icon">😴</div>
+                <div class="summary-card-value" style="font-size:12px;">3h40m</div>
+                <div class="summary-card-label">Sleep</div>
+              </div>
+            </div>
+            <div style="padding:8px 16px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Today</div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#3B82F615;">🍼</div>
+              <div class="event-body"><div class="event-title">Bottle · 120ml</div><div class="event-detail">Formula</div></div>
+              <div class="event-time">9:42am</div>
+            </div>
+          </div>
+          <div class="frame-label">Before</div>
+          <div class="annotation-note">⚠️ <strong>Problem:</strong> Full-width sync banner sits between header and summary cards, pushing key metrics down on every session.</div>
+        </div>
+
+        <div class="arrow-connector">→</div>
+
+        <!-- AFTER -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:340px;border-radius:24px;">
+            <div style="padding:10px 16px 6px;display:flex;align-items:center;justify-content:space-between;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div>
+                  <div style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:4px;">
+                    👶 Ishaan <span class="sync-dot" title="Synced 2 min ago"></span>
+                  </div>
+                  <div style="font-size:11px;color:var(--muted);">3 months old</div>
+                </div>
+              </div>
+              <div style="font-size:18px;">⚙️</div>
+            </div>
+            <div class="summary-cards">
+              <div class="summary-card" style="background:#3B82F615;border-color:#3B82F630;">
+                <div class="summary-card-icon">🍼</div>
+                <div class="summary-card-value" style="font-size:12px;">480ml</div>
+                <div class="summary-card-label">Feed</div>
+              </div>
+              <div class="summary-card" style="background:#F9731615;border-color:#F9731630;">
+                <div class="summary-card-icon">💧</div>
+                <div class="summary-card-value" style="font-size:12px;">3P/2💩</div>
+                <div class="summary-card-label">Diapers</div>
+              </div>
+              <div class="summary-card" style="background:#8B5CF615;border-color:#8B5CF630;">
+                <div class="summary-card-icon">😴</div>
+                <div class="summary-card-value" style="font-size:12px;">3h40m</div>
+                <div class="summary-card-label">Sleep</div>
+              </div>
+            </div>
+            <div style="padding:8px 16px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Today</div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#3B82F615;">🍼</div>
+              <div class="event-body"><div class="event-title">Bottle · 120ml</div><div class="event-detail">Formula</div></div>
+              <div class="event-time">9:42am</div>
+            </div>
+          </div>
+          <div class="frame-label">After</div>
+          <div class="annotation-note">✅ <strong>Fix:</strong> Green dot next to name is ambient sync status. Tap for popover: "Synced 2 min ago · Sync now". Summary cards appear immediately below header.</div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─── Improvement 2: Utility actions compacted ─── -->
+    <div class="improvement-item">
+      <div class="improvement-label">
+        <div class="improvement-num">2</div>
+        <div>
+          <div class="improvement-title">Home · Compact utility actions</div>
+          <div class="improvement-subtitle">Growth & Import join the quick-action row</div>
+        </div>
+      </div>
+      <div class="frame-pair">
+        <!-- BEFORE -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:360px;border-radius:24px;">
+            <div style="padding:10px 16px 4px;font-size:16px;font-weight:700;">Quick Log</div>
+            <div class="quick-actions">
+              <div class="quick-action-card"><div class="qa-icon">😴</div><div class="qa-label">Sleep</div></div>
+              <div class="quick-action-card"><div class="qa-icon">💩</div><div class="qa-label">Diaper</div></div>
+              <div class="quick-action-card"><div class="qa-icon">🍼</div><div class="qa-label">Feed</div></div>
+              <div class="quick-action-card"><div class="qa-icon">📝</div><div class="qa-label">Note</div></div>
+            </div>
+            <div class="utility-row">
+              <div class="utility-row-icon">📏</div>
+              <div class="utility-row-text">Log Growth</div>
+              <div class="utility-row-chevron">›</div>
+            </div>
+            <div class="utility-row">
+              <div class="utility-row-icon">📄</div>
+              <div class="utility-row-text">Import Prior Logs</div>
+              <div class="utility-row-chevron">›</div>
+            </div>
+            <div style="padding:8px 16px 4px;font-size:13px;font-weight:700;">Today's Progress</div>
+            <div class="today-projection" style="margin:0 16px;">
+              <div class="projection-title">Feeding</div>
+              <div class="projection-row">
+                <div class="projection-label"><span>480 ml</span><span>target 720 ml</span></div>
+                <div class="projection-bar-track"><div class="projection-bar-fill" style="width:66%;background:var(--feed);"></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="frame-label">Before</div>
+          <div class="annotation-note">⚠️ <strong>Problem:</strong> Log Growth and Import rows separate quick-actions from Today's Progress, requiring extra scroll to reach key info.</div>
+        </div>
+
+        <div class="arrow-connector">→</div>
+
+        <!-- AFTER -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:360px;border-radius:24px;">
+            <div style="padding:10px 16px 4px;font-size:16px;font-weight:700;">Quick Log</div>
+            <div class="quick-actions">
+              <div class="quick-action-card"><div class="qa-icon">😴</div><div class="qa-label">Sleep</div></div>
+              <div class="quick-action-card"><div class="qa-icon">💩</div><div class="qa-label">Diaper</div></div>
+              <div class="quick-action-card"><div class="qa-icon">🍼</div><div class="qa-label">Feed</div></div>
+              <div class="quick-action-card"><div class="qa-icon">📝</div><div class="qa-label">Note</div></div>
+              <div class="quick-action-card"><div class="qa-icon">📏</div><div class="qa-label">Growth</div></div>
+              <div class="quick-action-card qa-more"><div class="qa-icon">📄</div><div class="qa-label">Import</div></div>
+            </div>
+            <div style="padding:8px 16px 4px;font-size:13px;font-weight:700;">Today's Progress</div>
+            <div class="today-projection" style="margin:0 16px;">
+              <div class="projection-title">Feeding</div>
+              <div class="projection-row">
+                <div class="projection-label"><span>480 ml</span><span>target 720 ml</span></div>
+                <div class="projection-bar-track"><div class="projection-bar-fill" style="width:66%;background:var(--feed);"></div></div>
+              </div>
+              <div class="projection-title" style="margin-top:8px;">Sleep</div>
+              <div class="projection-row">
+                <div class="projection-label"><span>3h 40m</span><span>target 6h</span></div>
+                <div class="projection-bar-track"><div class="projection-bar-fill" style="width:60%;background:var(--sleep);"></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="frame-label">After</div>
+          <div class="annotation-note">✅ <strong>Fix:</strong> Growth and Import become scrollable quick-action cards. Today's Progress card appears immediately after the action row.</div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─── Improvement 3: Summary card hierarchy ─── -->
+    <div class="improvement-item">
+      <div class="improvement-label">
+        <div class="improvement-num">3</div>
+        <div>
+          <div class="improvement-title">Home · Summary card hierarchy</div>
+          <div class="improvement-subtitle">Consistent value/label layout, no abbreviations</div>
+        </div>
+      </div>
+      <div class="frame-pair">
+        <!-- BEFORE -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:180px;border-radius:24px;">
+            <div style="padding:10px 16px 6px;font-size:14px;font-weight:700;">Today</div>
+            <div class="summary-cards">
+              <div class="summary-card" style="background:#3B82F615;border-color:#3B82F630;">
+                <div class="summary-card-icon">🍼</div>
+                <div class="summary-card-value" style="font-size:12px;white-space:nowrap;">480ml</div>
+                <div class="summary-card-label">Feed</div>
+              </div>
+              <div class="summary-card" style="background:#F9731615;border-color:#F9731630;">
+                <div class="summary-card-icon">🚽</div>
+                <div class="summary-card-value" style="font-size:11px;white-space:nowrap;">3P/2💩</div>
+                <div class="summary-card-label">Diaper</div>
+              </div>
+              <div class="summary-card" style="background:#8B5CF615;border-color:#8B5CF630;">
+                <div class="summary-card-icon">😴</div>
+                <div class="summary-card-value" style="font-size:11px;">3h40m</div>
+                <div class="summary-card-label">Sleep</div>
+              </div>
+              <div class="summary-card" style="background:#E879A015;border-color:#E879A030;">
+                <div class="summary-card-icon">🫙</div>
+                <div class="summary-card-value" style="font-size:11px;">60ml</div>
+                <div class="summary-card-label">Pump</div>
+              </div>
+            </div>
+          </div>
+          <div class="frame-label">Before</div>
+          <div class="annotation-note">⚠️ <strong>Problem:</strong> "3P/2💩" mixes abbreviation + emoji in a 75px tile. Sleep truncates. No consistent visual rhythm.</div>
+        </div>
+
+        <div class="arrow-connector">→</div>
+
+        <!-- AFTER -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:180px;border-radius:24px;">
+            <div style="padding:10px 16px 6px;font-size:14px;font-weight:700;">Today</div>
+            <div class="summary-cards">
+              <div class="summary-card" style="background:#3B82F615;border-color:#3B82F630;">
+                <div class="summary-card-icon">🍼</div>
+                <div class="summary-card-value">480</div>
+                <div class="summary-card-label">ml · Feed</div>
+              </div>
+              <div class="summary-card" style="background:#F9731615;border-color:#F9731630;">
+                <div class="summary-card-icon">🚽</div>
+                <div class="summary-card-row"><span>💧3</span><span>💩2</span></div>
+                <div class="summary-card-label">Diapers</div>
+              </div>
+              <div class="summary-card" style="background:#8B5CF615;border-color:#8B5CF630;">
+                <div class="summary-card-icon">😴</div>
+                <div class="summary-card-value" style="font-size:13px;">3h 40m</div>
+                <div class="summary-card-label">Sleep</div>
+              </div>
+              <div class="summary-card" style="background:#E879A015;border-color:#E879A030;">
+                <div class="summary-card-icon">🫙</div>
+                <div class="summary-card-value">60</div>
+                <div class="summary-card-label">ml · Pump</div>
+              </div>
+            </div>
+          </div>
+          <div class="frame-label">After</div>
+          <div class="annotation-note">✅ <strong>Fix:</strong> Bold number on top, muted label below. Diapers show 💧3 💩2 stacked. Consistent scan pattern across all cards.</div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─── Improvement 4: Activity search + unified filters ─── -->
+    <div class="improvement-item">
+      <div class="improvement-label">
+        <div class="improvement-num">4</div>
+        <div>
+          <div class="improvement-title">Activity · Search + single filter row</div>
+          <div class="improvement-subtitle">Two rows become one, plus text search</div>
+        </div>
+      </div>
+      <div class="frame-pair">
+        <!-- BEFORE -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:340px;border-radius:24px;">
+            <div class="screen-header"><div class="screen-title">Activity</div><div style="font-size:18px;">⋯</div></div>
+            <div style="padding:2px 16px 4px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:0.06em;">Date Range</div>
+            <div class="filter-row">
+              <div class="filter-chip active">Today</div>
+              <div class="filter-chip">Yesterday</div>
+              <div class="filter-chip">Week</div>
+              <div class="filter-chip">3 Months</div>
+              <div class="filter-chip">Custom</div>
+            </div>
+            <div style="padding:2px 16px 4px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:0.06em;">Type</div>
+            <div class="filter-row">
+              <div class="filter-chip active">All</div>
+              <div class="filter-chip">Feed</div>
+              <div class="filter-chip">Sleep</div>
+              <div class="filter-chip">Diaper</div>
+              <div class="filter-chip">Notes</div>
+              <div class="filter-chip">Pump</div>
+            </div>
+            <div class="date-label">Today, Mar 31</div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#3B82F615;">🍼</div>
+              <div class="event-body"><div class="event-title">Bottle · 120ml</div><div class="event-detail">Formula</div></div>
+              <div class="event-time">9:42am</div>
+              <div class="event-trash">🗑</div>
+            </div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#8B5CF615;">😴</div>
+              <div class="event-body"><div class="event-title">Nap · 1h 15m</div><div class="event-detail">In crib</div></div>
+              <div class="event-time">8:15am</div>
+              <div class="event-trash">🗑</div>
+            </div>
+          </div>
+          <div class="frame-label">Before</div>
+          <div class="annotation-note">⚠️ <strong>Problem:</strong> Two separate filter rows with ALL-CAPS labels consume ~100px of vertical space. No way to search for specific events. Trash icon clutters every row.</div>
+        </div>
+
+        <div class="arrow-connector">→</div>
+
+        <!-- AFTER -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:340px;border-radius:24px;">
+            <div class="screen-header"><div class="screen-title">Activity</div><div style="font-size:18px;">⋯</div></div>
+            <div class="search-bar">
+              <span class="search-icon">🔍</span>
+              <span>Search events…</span>
+            </div>
+            <div class="filter-row">
+              <div class="filter-chip active">Today</div>
+              <div class="filter-chip">Week</div>
+              <div class="filter-chip">Month</div>
+              <div class="filter-chip">All</div>
+              <div class="filter-divider"></div>
+              <div class="filter-chip active">All types</div>
+              <div class="filter-chip">🍼</div>
+              <div class="filter-chip">😴</div>
+              <div class="filter-chip">💩</div>
+            </div>
+            <div class="date-label">Today, Mar 31</div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#3B82F615;">🍼</div>
+              <div class="event-body"><div class="event-title">Bottle · 120ml</div><div class="event-detail">Formula</div></div>
+              <div class="event-time">9:42am</div>
+            </div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#8B5CF615;">😴</div>
+              <div class="event-body"><div class="event-title">Nap · 1h 15m</div><div class="event-detail">In crib</div></div>
+              <div class="event-time">8:15am</div>
+            </div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#F9731615;">💩</div>
+              <div class="event-body"><div class="event-title">Pee & Poo</div><div class="event-detail">Yellow, soft</div></div>
+              <div class="event-time">7:30am</div>
+            </div>
+          </div>
+          <div class="frame-label">After</div>
+          <div class="annotation-note">✅ <strong>Fix:</strong> Search bar at top. Single combined filter row with divider separating date and type. Trash icons removed (swipe-to-delete in #5). Audit log moved to ⋯ menu.</div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─── Improvement 5: Swipe-to-delete ─── -->
+    <div class="improvement-item">
+      <div class="improvement-label">
+        <div class="improvement-num">5</div>
+        <div>
+          <div class="improvement-title">Activity · Swipe-to-delete</div>
+          <div class="improvement-subtitle">Remove persistent trash icons from every row</div>
+        </div>
+      </div>
+      <div class="frame-pair">
+        <!-- BEFORE -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:260px;border-radius:24px;">
+            <div class="screen-header"><div class="screen-title">Activity</div></div>
+            <div class="date-label">Today, Mar 31</div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#3B82F615;">🍼</div>
+              <div class="event-body"><div class="event-title">Bottle · 120ml</div><div class="event-detail">Formula</div></div>
+              <div class="event-time">9:42am</div>
+              <div class="event-trash">🗑</div>
+            </div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#8B5CF615;">😴</div>
+              <div class="event-body"><div class="event-title">Nap · 1h 15m</div></div>
+              <div class="event-time">8:15am</div>
+              <div class="event-trash">🗑</div>
+            </div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#F9731615;">💩</div>
+              <div class="event-body"><div class="event-title">Pee & Poo</div></div>
+              <div class="event-time">7:30am</div>
+              <div class="event-trash">🗑</div>
+            </div>
+          </div>
+          <div class="frame-label">Before</div>
+          <div class="annotation-note">⚠️ <strong>Problem:</strong> Permanent 🗑 icon on every row signals danger at all times and narrows the space for event details.</div>
+        </div>
+
+        <div class="arrow-connector">→</div>
+
+        <!-- AFTER: shows mid-swipe state -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:260px;border-radius:24px;">
+            <div class="screen-header"><div class="screen-title">Activity</div></div>
+            <div class="date-label">Today, Mar 31</div>
+            <!-- normal row -->
+            <div class="event-row">
+              <div class="event-icon" style="background:#3B82F615;">🍼</div>
+              <div class="event-body"><div class="event-title">Bottle · 120ml</div><div class="event-detail">Formula</div></div>
+              <div class="event-time">9:42am</div>
+            </div>
+            <!-- mid-swipe row -->
+            <div class="swipe-row">
+              <div class="swipe-actions">
+                <div class="swipe-action edit"><div class="swipe-action-icon">✏️</div>Edit</div>
+                <div class="swipe-action delete"><div class="swipe-action-icon">🗑</div>Delete</div>
+              </div>
+              <div class="event-row swipe-event">
+                <div class="event-icon" style="background:#8B5CF615;">😴</div>
+                <div class="event-body"><div class="event-title">Nap · 1h 15m</div><div class="event-detail">In crib</div></div>
+                <div class="event-time">8:15am</div>
+              </div>
+            </div>
+            <!-- normal row -->
+            <div class="event-row">
+              <div class="event-icon" style="background:#F9731615;">💩</div>
+              <div class="event-body"><div class="event-title">Pee & Poo</div><div class="event-detail">Yellow, soft</div></div>
+              <div class="event-time">7:30am</div>
+            </div>
+          </div>
+          <div class="frame-label">After (mid-swipe)</div>
+          <div class="annotation-note">✅ <strong>Fix:</strong> Swipe left to reveal Edit (blue) and Delete (red). Clean rows by default. Matches iOS Mail/Messages UX convention.</div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─── Improvement 6: Trends empty state ─── -->
+    <div class="improvement-item">
+      <div class="improvement-label">
+        <div class="improvement-num">6</div>
+        <div>
+          <div class="improvement-title">Trends · Empty state for zero-data charts</div>
+          <div class="improvement-subtitle">Replace dead sections with actionable prompts</div>
+        </div>
+      </div>
+      <div class="frame-pair">
+        <!-- BEFORE -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:360px;border-radius:24px;">
+            <div class="screen-header"><div class="screen-title">Trends</div></div>
+            <div class="filter-row">
+              <div class="filter-chip active">7 days</div>
+              <div class="filter-chip">14 days</div>
+              <div class="filter-chip">30 days</div>
+            </div>
+            <div class="chart-section">
+              <div class="chart-title">Feed Intake</div>
+              <div class="chart-sub">avg: 480 ml/day</div>
+              <div class="bar-chart">
+                <div class="bar" style="height:38px;background:var(--feed)"></div>
+                <div class="bar" style="height:45px;background:var(--feed)"></div>
+                <div class="bar" style="height:42px;background:var(--feed)"></div>
+                <div class="bar" style="height:50px;background:var(--feed)"></div>
+                <div class="bar" style="height:35px;background:var(--feed)"></div>
+                <div class="bar" style="height:48px;background:var(--feed)"></div>
+                <div class="bar" style="height:44px;background:var(--feed)"></div>
+              </div>
+            </div>
+            <div class="chart-section">
+              <div class="chart-title">Pumping Output</div>
+              <div class="chart-sub">avg: 0 ml/day</div>
+              <div class="bar-chart">
+                <div class="bar" style="height:2px;background:var(--pump)"></div>
+                <div class="bar" style="height:2px;background:var(--pump)"></div>
+                <div class="bar" style="height:2px;background:var(--pump)"></div>
+                <div class="bar" style="height:2px;background:var(--pump)"></div>
+                <div class="bar" style="height:2px;background:var(--pump)"></div>
+                <div class="bar" style="height:2px;background:var(--pump)"></div>
+                <div class="bar" style="height:2px;background:var(--pump)"></div>
+              </div>
+            </div>
+          </div>
+          <div class="frame-label">Before</div>
+          <div class="annotation-note">⚠️ <strong>Problem:</strong> Pumping section renders as flat 2px bars with "avg: 0 ml/day" — meaningless dead space for parents who don't pump.</div>
+        </div>
+
+        <div class="arrow-connector">→</div>
+
+        <!-- AFTER -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:440px;border-radius:24px;">
+            <div class="screen-header"><div class="screen-title">Trends</div></div>
+            <div class="filter-row">
+              <div class="filter-chip active">7 days</div>
+              <div class="filter-chip">14 days</div>
+              <div class="filter-chip">30 days</div>
+            </div>
+            <div class="chart-section">
+              <div class="chart-title">Feed Intake</div>
+              <div class="chart-sub">avg: 480 ml/day</div>
+              <div class="bar-chart">
+                <div class="bar" style="height:38px;background:var(--feed)"></div>
+                <div class="bar" style="height:45px;background:var(--feed)"></div>
+                <div class="bar" style="height:42px;background:var(--feed)"></div>
+                <div class="bar" style="height:50px;background:var(--feed)"></div>
+                <div class="bar" style="height:35px;background:var(--feed)"></div>
+                <div class="bar" style="height:48px;background:var(--feed)"></div>
+                <div class="bar" style="height:44px;background:var(--feed)"></div>
+              </div>
+            </div>
+            <div class="chart-section">
+              <div class="chart-title">Pumping Output</div>
+              <div class="chart-empty">
+                <div class="chart-empty-icon">🫙</div>
+                <div class="chart-empty-text">No pump sessions logged yet.<br>Track your first session to see trends.</div>
+                <div class="chart-empty-cta">Log Pump Session</div>
+              </div>
+            </div>
+          </div>
+          <div class="frame-label">After</div>
+          <div class="annotation-note">✅ <strong>Fix:</strong> Empty sections show a dashed card with emoji, explanation, and a CTA to log. Turns dead space into a useful prompt.</div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─── Improvement 7: Milestones grid view ─── -->
+    <div class="improvement-item">
+      <div class="improvement-label">
+        <div class="improvement-num">7</div>
+        <div>
+          <div class="improvement-title">Milestones · Grid view toggle</div>
+          <div class="improvement-subtitle">Photo gallery mode for visual browsing</div>
+        </div>
+      </div>
+      <div class="frame-pair">
+        <!-- BEFORE: list only -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:400px;border-radius:24px;">
+            <div class="screen-header">
+              <div class="screen-title">Milestones</div>
+              <div style="display:flex;gap:10px;align-items:center;">
+                <div style="font-size:13px;font-weight:600;color:var(--primary);">+ Add</div>
+              </div>
+            </div>
+            <div class="filter-row">
+              <div class="filter-chip active">All</div>
+              <div class="filter-chip">Motor</div>
+              <div class="filter-chip">Social</div>
+              <div class="filter-chip">Language</div>
+              <div class="filter-chip">Feeding</div>
+            </div>
+            <div class="milestone-list">
+              <div class="milestone-card">
+                <div class="milestone-emoji-badge">😊</div>
+                <div class="milestone-body"><div class="milestone-title">First Real Smile</div><div class="milestone-meta">Social · Mar 15</div></div>
+                <div class="milestone-thumb">📷</div>
+              </div>
+              <div class="milestone-card">
+                <div class="milestone-emoji-badge">🔄</div>
+                <div class="milestone-body"><div class="milestone-title">Rolled Over</div><div class="milestone-meta">Motor · Mar 8</div></div>
+              </div>
+              <div class="milestone-card">
+                <div class="milestone-emoji-badge">💬</div>
+                <div class="milestone-body"><div class="milestone-title">First Coo</div><div class="milestone-meta">Language · Feb 28</div></div>
+                <div class="milestone-thumb">📷</div>
+              </div>
+            </div>
+          </div>
+          <div class="frame-label">Before (list only)</div>
+          <div class="annotation-note">⚠️ <strong>Problem:</strong> No grid view option. Photos are small 48px thumbnails. At 20+ milestones the list becomes a chore to browse visually.</div>
+        </div>
+
+        <div class="arrow-connector">→</div>
+
+        <!-- AFTER: grid view active -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:400px;border-radius:24px;">
+            <div class="screen-header">
+              <div class="screen-title">Milestones</div>
+              <div style="display:flex;gap:10px;align-items:center;">
+                <div style="font-size:16px;color:var(--primary);font-weight:700;">⊞</div>
+                <div style="font-size:13px;font-weight:600;color:var(--primary);">+ Add</div>
+              </div>
+            </div>
+            <div class="filter-row">
+              <div class="filter-chip active">All</div>
+              <div class="filter-chip">Motor</div>
+              <div class="filter-chip">Social</div>
+              <div class="filter-chip">Language</div>
+            </div>
+            <div class="milestone-grid">
+              <div class="milestone-grid-card">
+                <div class="milestone-grid-photo">📸</div>
+                <div class="milestone-grid-date">Mar 15</div>
+              </div>
+              <div class="milestone-grid-card" style="background:#F3F4F6;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+                  <div style="font-size:32px;">🔄</div>
+                  <div style="font-size:10px;font-weight:600;color:var(--muted);text-align:center;">Rolled Over</div>
+                </div>
+                <div class="milestone-grid-date">Mar 8</div>
+              </div>
+              <div class="milestone-grid-card">
+                <div class="milestone-grid-photo">🤳</div>
+                <div class="milestone-grid-date">Feb 28</div>
+              </div>
+              <div class="milestone-grid-card" style="background:#EEF2FF;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+                  <div style="font-size:32px;">💬</div>
+                  <div style="font-size:10px;font-weight:600;color:var(--muted);text-align:center;">First Coo</div>
+                </div>
+                <div class="milestone-grid-date">Feb 20</div>
+              </div>
+            </div>
+          </div>
+          <div class="frame-label">After (grid view active)</div>
+          <div class="annotation-note">✅ <strong>Fix:</strong> List/grid toggle in header (⊞). Grid = 2-column layout with full-width photos. Text-only milestones show category emoji on tinted background.</div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─── Improvement 8: AI context banner + chips ─── -->
+    <div class="improvement-item">
+      <div class="improvement-label">
+        <div class="improvement-num">8</div>
+        <div>
+          <div class="improvement-title">AI Assistant · Context banner + quick chips</div>
+          <div class="improvement-subtitle">Eliminate blank-state anxiety at 3am</div>
+        </div>
+      </div>
+      <div class="frame-pair">
+        <!-- BEFORE -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:380px;border-radius:24px;display:flex;flex-direction:column;">
+            <div class="screen-header"><div class="screen-title">✨ AI Assistant</div></div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;padding:20px;text-align:center;">
+              <div style="font-size:40px;">✨</div>
+              <div style="font-size:14px;font-weight:600;color:var(--foreground);">Ask me anything</div>
+              <div style="font-size:12px;color:var(--muted);">I have access to Ishaan's data</div>
+            </div>
+            <div class="ai-input-row">
+              <div class="ai-input">Message…</div>
+              <div class="ai-send">↑</div>
+            </div>
+          </div>
+          <div class="frame-label">Before</div>
+          <div class="annotation-note">⚠️ <strong>Problem:</strong> Opens to a near-blank screen. No indication of what data the AI has, no prompt guidance, no starting point.</div>
+        </div>
+
+        <div class="arrow-connector">→</div>
+
+        <!-- AFTER -->
+        <div class="frame-col">
+          <div class="phone-frame compact" style="height:380px;border-radius:24px;display:flex;flex-direction:column;">
+            <div class="screen-header"><div class="screen-title">✨ AI Assistant</div></div>
+            <div style="flex:1;overflow:hidden;">
+              <div class="ai-context-card">
+                <div class="ai-context-title">✨ Ishaan's Summary</div>
+                <div class="ai-context-name">Ishaan · 3 months old</div>
+                <div class="ai-context-age">Last 24 hours</div>
+                <div class="ai-context-bullets">
+                  <div class="ai-context-bullet">🍼 5 feeds</div>
+                  <div class="ai-context-bullet">😴 8h sleep</div>
+                  <div class="ai-context-bullet">💩 4 diapers</div>
+                </div>
+              </div>
+              <div style="padding:8px 16px 4px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Suggested</div>
+              <div class="quick-chips">
+                <div class="quick-chip">Is feeding on track?</div>
+                <div class="quick-chip">How is sleep trending?</div>
+                <div class="quick-chip">Any concerns today?</div>
+                <div class="quick-chip">Weekly summary</div>
+              </div>
+            </div>
+            <div class="ai-input-row">
+              <div class="ai-input">Ask about Ishaan…</div>
+              <div class="ai-send">↑</div>
+            </div>
+          </div>
+          <div class="frame-label">After</div>
+          <div class="annotation-note">✅ <strong>Fix:</strong> Context card shows baby summary. Quick chips reduce time-to-first-answer — especially useful at 3am when typing is hard.</div>
+        </div>
+      </div>
+    </div>
+
+
+  </div><!-- /improvement-grid -->
+</div><!-- /section -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 2: JOURNAL TAB -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Journal Tab — Merging Activity + Milestones</div>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:24px;max-width:700px;line-height:1.6;">
+    Activity and Milestones merge into a single <strong>Journal</strong> tab with three sub-views (Timeline, Events, Milestones). The app moves from 5 tabs to 4: <strong>Home · Trends · Journal · AI</strong>. Click the segment controls below to switch views.
+  </p>
+
+  <div class="journal-frames">
+
+    <!-- Phone 1: Timeline view -->
+    <div class="journal-frame-wrapper">
+      <div class="journal-frame-title">Timeline View <span style="font-size:11px;color:var(--primary);font-weight:600;">(default)</span></div>
+      <div class="journal-frame-subtitle">Unified feed: events + milestones mixed</div>
+      <div class="phone-frame">
+        <div class="phone-notch"></div>
+        <div class="phone-status"><span class="time">9:41</span><span class="icons">▶ 📶 🔋</span></div>
+        <div class="screen-header"><div class="screen-title">Journal</div><div style="font-size:18px;">🔍</div></div>
+
+        <div class="segment-control" id="sc1">
+          <div class="seg-btn active" data-view="timeline" onclick="switchView('sc1','timeline')">Timeline</div>
+          <div class="seg-btn" data-view="events" onclick="switchView('sc1','events')">Events</div>
+          <div class="seg-btn" data-view="milestones" onclick="switchView('sc1','milestones')">Milestones</div>
+        </div>
+
+        <div class="phone-content">
+
+          <!-- TIMELINE PANE -->
+          <div class="view-pane active" data-view="timeline" id="sc1-timeline">
+            <div class="filter-row">
+              <div class="filter-chip active">Today</div>
+              <div class="filter-chip">Week</div>
+              <div class="filter-chip">Month</div>
+              <div class="filter-chip">All</div>
+              <div style="flex-shrink:0;display:flex;align-items:center;padding:0 4px;">
+                <div style="font-size:12px;font-weight:600;color:var(--primary);">⊟ Filter</div>
+              </div>
+            </div>
+            <div class="date-label">Today, Mar 31</div>
+            <!-- milestone in timeline -->
+            <div class="timeline-milestone-row">
+              <div class="milestone-star">Milestone</div>
+              <div class="tm-badge">😊</div>
+              <div class="tm-body"><div class="tm-title">First Real Smile</div><div class="tm-meta">Social · Today</div></div>
+              <div class="tm-thumb">📸</div>
+            </div>
+            <!-- regular events -->
+            <div class="event-row">
+              <div class="event-icon" style="background:#3B82F615;">🍼</div>
+              <div class="event-body"><div class="event-title">Bottle · 120ml</div><div class="event-detail">Formula</div></div>
+              <div class="event-time">9:42am</div>
+            </div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#8B5CF615;">😴</div>
+              <div class="event-body"><div class="event-title">Nap · 1h 15m</div><div class="event-detail">In crib</div></div>
+              <div class="event-time">8:15am</div>
+            </div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#F9731615;">💩</div>
+              <div class="event-body"><div class="event-title">Pee & Poo</div><div class="event-detail">Yellow, soft</div></div>
+              <div class="event-time">7:30am</div>
+            </div>
+            <div class="date-label">Yesterday, Mar 30</div>
+            <!-- milestone -->
+            <div class="timeline-milestone-row">
+              <div class="milestone-star">Milestone</div>
+              <div class="tm-badge">🔄</div>
+              <div class="tm-body"><div class="tm-title">Rolled Over</div><div class="tm-meta">Motor · Mar 30</div></div>
+            </div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#3B82F615;">🍼</div>
+              <div class="event-body"><div class="event-title">Breastfeed · 20min</div><div class="event-detail">Left then right</div></div>
+              <div class="event-time">11:30pm</div>
+            </div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#06B6D415;">💊</div>
+              <div class="event-body"><div class="event-title">Vitamin D · 0.5ml</div><div class="event-detail">Oral drops</div></div>
+              <div class="event-time">9:00am</div>
+            </div>
+          </div>
+
+          <!-- EVENTS PANE -->
+          <div class="view-pane" data-view="events" id="sc1-events">
+            <div class="search-bar">
+              <span class="search-icon">🔍</span>
+              <span>Search events…</span>
+            </div>
+            <div class="filter-row">
+              <div class="filter-chip active">Today</div>
+              <div class="filter-chip">Week</div>
+              <div class="filter-chip">Month</div>
+              <div class="filter-chip">All</div>
+              <div class="filter-divider"></div>
+              <div class="filter-chip active">All types</div>
+              <div class="filter-chip">🍼</div>
+              <div class="filter-chip">😴</div>
+            </div>
+            <div class="date-label">Today, Mar 31</div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#3B82F615;">🍼</div>
+              <div class="event-body"><div class="event-title">Bottle · 120ml</div><div class="event-detail">Formula</div></div>
+              <div class="event-time">9:42am</div>
+            </div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#8B5CF615;">😴</div>
+              <div class="event-body"><div class="event-title">Nap · 1h 15m</div></div>
+              <div class="event-time">8:15am</div>
+            </div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#F9731615;">💩</div>
+              <div class="event-body"><div class="event-title">Pee & Poo · yellow</div></div>
+              <div class="event-time">7:30am</div>
+            </div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#3B82F615;">🍼</div>
+              <div class="event-body"><div class="event-title">Bottle · 90ml</div><div class="event-detail">Formula</div></div>
+              <div class="event-time">5:15am</div>
+            </div>
+            <div class="event-row">
+              <div class="event-icon" style="background:#8B5CF615;">😴</div>
+              <div class="event-body"><div class="event-title">Night sleep · 5h</div></div>
+              <div class="event-time">12:00am</div>
+            </div>
+          </div>
+
+          <!-- MILESTONES PANE -->
+          <div class="view-pane" data-view="milestones" id="sc1-milestones">
+            <div class="filter-row">
+              <div class="filter-chip active">All</div>
+              <div class="filter-chip">Motor</div>
+              <div class="filter-chip">Social</div>
+              <div class="filter-chip">Language</div>
+              <div class="filter-chip">Cognitive</div>
+            </div>
+            <div class="milestone-grid">
+              <div class="milestone-grid-card">
+                <div class="milestone-grid-photo">📸</div>
+                <div class="milestone-grid-date">Mar 31</div>
+              </div>
+              <div class="milestone-grid-card" style="background:#F3F4F6;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;">
+                  <div style="font-size:28px;">🔄</div>
+                  <div style="font-size:10px;font-weight:600;color:var(--muted);text-align:center;">Rolled Over</div>
+                </div>
+                <div class="milestone-grid-date">Mar 8</div>
+              </div>
+              <div class="milestone-grid-card">
+                <div class="milestone-grid-photo">🤳</div>
+                <div class="milestone-grid-date">Feb 28</div>
+              </div>
+              <div class="milestone-grid-card" style="background:#EEF2FF;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;">
+                  <div style="font-size:28px;">💬</div>
+                  <div style="font-size:10px;font-weight:600;color:var(--muted);text-align:center;">First Coo</div>
+                </div>
+                <div class="milestone-grid-date">Feb 20</div>
+              </div>
+              <div class="milestone-grid-card">
+                <div class="milestone-grid-photo">👶</div>
+                <div class="milestone-grid-date">Feb 10</div>
+              </div>
+              <div class="milestone-grid-card" style="background:#FFF7ED;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;">
+                  <div style="font-size:28px;">👀</div>
+                  <div style="font-size:10px;font-weight:600;color:var(--muted);text-align:center;">Tracks Objects</div>
+                </div>
+                <div class="milestone-grid-date">Feb 5</div>
+              </div>
+            </div>
+            <!-- FAB -->
+            <div style="height:60px;"></div>
+          </div>
+
+        </div><!-- /phone-content -->
+
+        <!-- FAB for milestones -->
+        <div id="sc1-fab" style="display:none;position:absolute;bottom:72px;right:16px;width:48px;height:48px;border-radius:50%;background:var(--primary);color:white;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(108,99,255,0.4);z-index:20;">+</div>
+
+        <div class="phone-tabs">
+          <div class="tab-item"><div class="tab-icon">🏠</div><div class="tab-label">Home</div></div>
+          <div class="tab-item"><div class="tab-icon">📊</div><div class="tab-label">Trends</div></div>
+          <div class="tab-item active"><div class="tab-icon" style="filter:none;">📖</div><div class="tab-label" style="color:var(--primary);">Journal</div></div>
+          <div class="tab-item"><div class="tab-icon">✨</div><div class="tab-label">AI</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /journal-frames -->
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 3: NAVIGATION MAP -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">New Navigation Structure · 4 Tabs</div>
+  <div class="nav-map">
+    <div class="nav-tab-node">
+      <div class="nav-tab-icon">🏠</div>
+      <div class="nav-tab-name">Home</div>
+      <div class="nav-tab-desc">Daily summary, quick log, projections, AI nudges</div>
+      <div class="nav-sub-items">
+        <div class="nav-sub-item">Today stats</div>
+        <div class="nav-sub-item">Quick log row</div>
+        <div class="nav-sub-item">Today's Progress</div>
+        <div class="nav-sub-item">Activity feed</div>
+      </div>
+    </div>
+    <div class="nav-tab-node">
+      <div class="nav-tab-icon">📊</div>
+      <div class="nav-tab-name">Trends</div>
+      <div class="nav-tab-desc">Charts, analytics, growth tracking, AI summaries</div>
+      <div class="nav-sub-items">
+        <div class="nav-sub-item">Feed chart</div>
+        <div class="nav-sub-item">Sleep chart</div>
+        <div class="nav-sub-item">Diaper chart</div>
+        <div class="nav-sub-item">Growth / WHO</div>
+      </div>
+    </div>
+    <div class="nav-tab-node highlight">
+      <div class="nav-tab-icon">📖</div>
+      <div class="nav-tab-name">Journal <span style="font-size:10px;color:var(--primary);font-weight:700;">NEW</span></div>
+      <div class="nav-tab-desc">Unified history: events + milestones in one place</div>
+      <div class="nav-sub-items">
+        <div class="nav-sub-item primary-sub">Timeline (unified)</div>
+        <div class="nav-sub-item primary-sub">Events (log)</div>
+        <div class="nav-sub-item primary-sub">Milestones (gallery)</div>
+      </div>
+    </div>
+    <div class="nav-tab-node">
+      <div class="nav-tab-icon">✨</div>
+      <div class="nav-tab-name">AI</div>
+      <div class="nav-tab-desc">Conversational assistant with baby context</div>
+      <div class="nav-sub-items">
+        <div class="nav-sub-item">Context card</div>
+        <div class="nav-sub-item">Quick chips</div>
+        <div class="nav-sub-item">Chat thread</div>
+        <div class="nav-sub-item">Image analysis</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;padding:14px 18px;background:white;border:1px solid var(--border);border-radius:10px;max-width:600px;">
+    <div style="font-size:12px;font-weight:700;color:var(--foreground);margin-bottom:6px;">What's removed</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.6;">
+      The standalone <strong>Activity</strong> tab and <strong>Milestones</strong> tab are removed from the bottom nav.
+      Their full functionality is preserved inside <strong>Journal → Events</strong> and <strong>Journal → Milestones</strong> respectively.
+      No data or features are lost.
+    </div>
+  </div>
+</div>
+
+
+<script>
+function switchView(controlId, viewName) {
+  const control = document.getElementById(controlId);
+  // Update segment buttons
+  control.querySelectorAll('.seg-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === viewName);
+  });
+  // Update view panes within the same phone frame
+  const phoneContent = control.closest('.phone-frame').querySelector('.phone-content');
+  phoneContent.querySelectorAll('.view-pane').forEach(pane => {
+    pane.classList.toggle('active', pane.dataset.view === viewName);
+  });
+  // Show FAB only on milestones view
+  const fab = control.closest('.phone-frame').querySelector('[id$="-fab"]');
+  if (fab) fab.style.display = viewName === 'milestones' ? 'flex' : 'none';
+}
+</script>
+
+</body>
+</html>
