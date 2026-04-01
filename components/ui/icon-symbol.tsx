@@ -58,6 +58,14 @@ const MAPPING = {
   "bell.slash.fill": "notifications-off",
   "checkmark": "check",
   "doc.on.doc": "content-copy",
+  "book.fill": "menu-book",
+  "magnifyingglass": "search",
+  "xmark.circle.fill": "cancel",
+  "square.grid.2x2.fill": "grid-view",
+  "ellipsis": "more-horiz",
+  "doc.text.magnifyingglass": "manage-search",
+  "square.and.arrow.down": "download",
+  "list.bullet.rectangle": "list-alt",
 } as IconMapping;
 
 export function IconSymbol({
