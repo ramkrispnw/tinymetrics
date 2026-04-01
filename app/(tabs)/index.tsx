@@ -410,6 +410,34 @@ export default function HomeScreen() {
                     <Text className="text-2xl font-bold text-foreground">
                       {state.profile.name}
                     </Text>
+                    {isAuthenticated && (
+                      <Pressable
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          const msg = syncing
+                            ? "Syncing now..."
+                            : state.lastSyncedAt
+                            ? `Last synced ${formatRelativeTime(state.lastSyncedAt)}`
+                            : "Not yet synced";
+                          Alert.alert("Sync Status", msg, [
+                            { text: "Dismiss", style: "cancel" },
+                            { text: "Sync Now", onPress: handleSyncNow },
+                          ]);
+                        }}
+                        style={{ padding: 3, justifyContent: "center", alignItems: "center" }}
+                      >
+                        {syncing ? (
+                          <ActivityIndicator size="small" color={colors.warning} style={{ width: 12, height: 12 }} />
+                        ) : (
+                          <View style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor: state.lastSyncedAt ? colors.success : colors.muted,
+                          }} />
+                        )}
+                      </Pressable>
+                    )}
                     <IconSymbol name="chevron.right" size={14} color={colors.muted} />
                   </View>
                   {profileSubtitle && (
@@ -443,36 +471,6 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* Sync Now + Last Synced Indicator */}
-        {isAuthenticated && (
-          <Pressable
-            onPress={handleSyncNow}
-            disabled={syncing}
-            style={({ pressed }) => [
-              styles.syncNowRow,
-              { backgroundColor: colors.primary + "10", borderColor: colors.primary + "25" },
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            {syncing ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <IconSymbol name="arrow.clockwise" size={16} color={colors.primary} />
-            )}
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600" }}>
-                {syncing ? "Syncing..." : "Sync Now"}
-              </Text>
-              {state.lastSyncedAt && (
-                <Text style={{ color: colors.muted, fontSize: 11, marginTop: 1 }}>
-                  Last synced {formatRelativeTime(state.lastSyncedAt)}
-                </Text>
-              )}
-            </View>
-            <IconSymbol name="chevron.right" size={14} color={colors.primary} />
-          </Pressable>
-        )}
-
         {/* Summary Cards */}
         <View className="flex-row gap-2 mb-3">
           <View
@@ -488,9 +486,10 @@ export default function HomeScreen() {
             style={[styles.summaryCard, { backgroundColor: colors.diaper + "15", borderColor: colors.diaper + "30" }]}
           >
             <IconSymbol name="drop.fill" size={18} color={colors.diaper} />
-            <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-              {todayDiapers.pee}P / {todayDiapers.poo}💩
-            </Text>
+            <View style={{ alignItems: "center" }}>
+              <Text style={[styles.summaryValue, { color: colors.foreground }]}>💧 {todayDiapers.pee}</Text>
+              <Text style={[styles.summaryValue, { color: colors.foreground }]}>💩 {todayDiapers.poo}</Text>
+            </View>
             <Text style={[styles.summaryLabel, { color: colors.muted }]}>Diapers</Text>
           </View>
           <View
@@ -539,12 +538,14 @@ export default function HomeScreen() {
             { type: "diaper", label: "Diaper", icon: "drop.fill", color: colors.diaper, isStopSleep: false },
           ];
 
-          // Secondary row: less frequent actions, smaller
+          // Secondary row: less frequent actions + utility actions, scrollable
           const secondaryActions = [
             { type: "observation" as const, label: "Note", icon: "eye.fill" as const, color: colors.observation },
             { type: "pump" as const, label: "Pump", icon: "drop.triangle.fill" as const, color: colors.pump },
             { type: "formula_prep" as const, label: "Formula", icon: "flask.fill" as const, color: colors.formula },
             { type: "medication" as const, label: "Meds", icon: "pills.fill" as const, color: colors.medication },
+            { type: "growth" as const, label: "Growth", icon: "chart.line.uptrend.xyaxis" as const, color: colors.success },
+            { type: "import" as const, label: "Import", icon: "square.and.arrow.down" as const, color: colors.primary },
           ];
 
           return (
@@ -586,20 +587,20 @@ export default function HomeScreen() {
                 ))}
               </View>
 
-              {/* Secondary: Note / Pump / Formula / Meds */}
+              {/* Secondary: Note / Pump / Formula / Meds / Growth / Import */}
               <View style={{ flexDirection: "row", gap: 8 }}>
                 {secondaryActions.map((action) => (
                   <Pressable
                     key={action.type}
                     onPress={() => setActiveSheet(action.type)}
                     style={({ pressed }) => [
-                      styles.quickAction,
+                      styles.quickActionFixed,
                       { backgroundColor: action.color + "14", borderColor: action.color + "30" },
                       pressed && { transform: [{ scale: 0.96 }], opacity: 0.85 },
                     ]}
                   >
-                    <View style={[styles.quickActionIcon, { backgroundColor: action.color + "28" }]}>
-                      <IconSymbol name={action.icon} size={18} color={action.color} />
+                    <View style={[styles.quickActionIconSm, { backgroundColor: action.color + "28" }]}>
+                      <IconSymbol name={action.icon} size={16} color={action.color} />
                     </View>
                     <Text style={[styles.quickActionLabel, { color: colors.foreground }]}>
                       {action.label}
@@ -610,40 +611,6 @@ export default function HomeScreen() {
             </View>
           );
         })()}
-
-        {/* Growth Tracking Button */}
-        <Pressable
-          onPress={() => setActiveSheet("growth")}
-          style={({ pressed }) => [
-            styles.growthBtn,
-            { backgroundColor: colors.success + "12", borderColor: colors.success + "30" },
-            pressed && { opacity: 0.8 },
-          ]}
-        >
-          <Text style={{ fontSize: 20 }}>📏</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 15 }}>Log Growth</Text>
-            <Text style={{ color: colors.muted, fontSize: 12 }}>Track weight & height over time</Text>
-          </View>
-          <IconSymbol name="chevron.right" size={16} color={colors.muted} />
-        </Pressable>
-
-        {/* Import Logs Button */}
-        <Pressable
-          onPress={() => setActiveSheet("import")}
-          style={({ pressed }) => [
-            styles.growthBtn,
-            { backgroundColor: colors.primary + "12", borderColor: colors.primary + "30", marginTop: 8 },
-            pressed && { opacity: 0.8 },
-          ]}
-        >
-          <Text style={{ fontSize: 20 }}>📄</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 15 }}>Import Prior Logs</Text>
-            <Text style={{ color: colors.muted, fontSize: 12 }}>Upload PDF/notes for AI parsing</Text>
-          </View>
-          <IconSymbol name="chevron.right" size={16} color={colors.muted} />
-        </Pressable>
 
         {/* Today's Projection */}
         <TodayProjectionCard />
@@ -957,6 +924,22 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     gap: 5,
+  },
+  quickActionFixed: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 5,
+  },
+  quickActionIconSm: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
   quickActionIcon: {
     width: 44,

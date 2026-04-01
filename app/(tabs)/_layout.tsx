@@ -41,15 +41,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="activity"
-        options={{
-          title: "Activity",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="list.bullet" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="trends"
         options={{
           title: "Trends",
@@ -59,11 +50,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="milestones"
+        name="journal"
         options={{
-          title: "Milestones",
+          title: "Journal",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="star.fill" color={color} />
+            <IconSymbol size={26} name="book.fill" color={color} />
           ),
         }}
       />
@@ -74,6 +65,18 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <IconSymbol size={26} name="sparkles" color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="activity"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="milestones"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

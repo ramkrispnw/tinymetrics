@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import {
   FlatList,
   Pressable,
@@ -40,6 +40,26 @@ export default function AssistantScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   const isPremium = state.settings.isPremium;
+
+  const ageInfo = useMemo(() => {
+    if (!state.profile?.birthDate) return null;
+    return calculateAge(state.profile.birthDate);
+  }, [state.profile?.birthDate]);
+
+  const last24hSummary = useMemo(() => {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const recent = state.events.filter((e) => new Date(e.timestamp).getTime() > cutoff);
+    const feeds = recent.filter((e) => e.type === "feed").length;
+    const diapers = recent.filter((e) => e.type === "diaper").length;
+    const sleepMin = recent
+      .filter((e) => e.type === "sleep")
+      .reduce((s, e) => s + ((e.data as any).durationMin || 0), 0);
+    const parts: string[] = [];
+    if (feeds > 0) parts.push(`${feeds} feed${feeds !== 1 ? "s" : ""}`);
+    if (diapers > 0) parts.push(`${diapers} diaper${diapers !== 1 ? "s" : ""}`);
+    if (sleepMin > 0) parts.push(`${Math.round(sleepMin / 60)}h sleep`);
+    return parts.length > 0 ? parts.join(" · ") : "No events in the last 24h";
+  }, [state.events]);
 
   const getBabyProfilePayload = () => {
     if (!state.profile) return undefined;
@@ -410,6 +430,22 @@ export default function AssistantScreen() {
             <Text style={{ color: colors.muted, fontSize: 15, textAlign: "center", marginTop: 12 }}>
               Ask me anything about your baby's health, feeding patterns, or sleep schedule.
             </Text>
+
+            {/* Context banner: baby name/age + last 24h summary */}
+            {state.profile && (
+              <View style={[styles.contextBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={{ fontSize: 24 }}>👶</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: "700", color: colors.foreground, fontSize: 14 }}>
+                    {state.profile.name}{ageInfo ? ` · ${ageInfo.label}` : ""}
+                  </Text>
+                  <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
+                    Last 24h: {last24hSummary}
+                  </Text>
+                </View>
+              </View>
+            )}
+
             <View style={styles.suggestionsContainer}>
               {[
                 "How much did my baby eat today?",
@@ -554,8 +590,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 24,
   },
+  contextBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    width: "100%",
+    marginTop: 20,
+  },
   suggestionsContainer: {
-    marginTop: 24,
+    marginTop: 16,
     gap: 8,
     width: "100%",
   },
