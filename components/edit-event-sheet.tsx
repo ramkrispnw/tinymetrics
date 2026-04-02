@@ -10,6 +10,7 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
 import {
@@ -36,6 +37,7 @@ interface Props {
 
 export function EditEventSheet({ visible, event, onClose }: Props) {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const { updateEvent } = useStore();
   const [timestamp, setTimestamp] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -264,7 +266,7 @@ export function EditEventSheet({ visible, event, onClose }: Props) {
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={[styles.container, { backgroundColor: colors.background }]}
+        style={[styles.container, { backgroundColor: colors.background, paddingLeft: insets.left, paddingRight: insets.right }]}
       >
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>

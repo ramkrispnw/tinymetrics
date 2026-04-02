@@ -88,7 +88,7 @@ export function LogObservationSheet({ onClose }: Props) {
   ];
 
   return (
-    <ScreenContainer edges={["top", "bottom", "left", "right"]} className="px-4 pt-2">
+    <ScreenContainer edges={["left", "right"]} className="px-4 pt-2">
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}

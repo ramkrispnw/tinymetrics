@@ -476,7 +476,7 @@ export default function HomeScreen() {
           <View
             style={[styles.summaryCard, { backgroundColor: colors.feed + "15", borderColor: colors.feed + "30" }]}
           >
-            <IconSymbol name="fork.knife" size={18} color={colors.feed} />
+            <IconSymbol name="fork.knife" size={22} color={colors.feed} />
             <Text style={[styles.summaryValue, { color: colors.foreground }]}>
               {displayAmount(todayFeedMl)}
             </Text>
@@ -485,7 +485,7 @@ export default function HomeScreen() {
           <View
             style={[styles.summaryCard, { backgroundColor: colors.diaper + "15", borderColor: colors.diaper + "30" }]}
           >
-            <IconSymbol name="drop.fill" size={18} color={colors.diaper} />
+            <IconSymbol name="drop.fill" size={22} color={colors.diaper} />
             <View style={{ alignItems: "center" }}>
               <Text style={[styles.summaryValue, { color: colors.foreground }]}>💧 {todayDiapers.pee}</Text>
               <Text style={[styles.summaryValue, { color: colors.foreground }]}>💩 {todayDiapers.poo}</Text>
@@ -495,7 +495,7 @@ export default function HomeScreen() {
           <View
             style={[styles.summaryCard, { backgroundColor: colors.sleep + "15", borderColor: colors.sleep + "30" }]}
           >
-            <IconSymbol name="moon.fill" size={18} color={colors.sleep} />
+            <IconSymbol name="moon.fill" size={22} color={colors.sleep} />
             <Text style={[styles.summaryValue, { color: colors.foreground }]}>
               {formatDuration(todaySleepMin)}
             </Text>
@@ -504,7 +504,7 @@ export default function HomeScreen() {
           <View
             style={[styles.summaryCard, { backgroundColor: colors.pump + "15", borderColor: colors.pump + "30" }]}
           >
-            <IconSymbol name="drop.triangle.fill" size={18} color={colors.pump} />
+            <IconSymbol name="drop.triangle.fill" size={22} color={colors.pump} />
             <Text style={[styles.summaryValue, { color: colors.foreground }]}>
               {displayAmount(todayPumpMl)}
             </Text>
@@ -919,25 +919,29 @@ const styles = StyleSheet.create({
   quickAction: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 4,
     borderRadius: 14,
     borderWidth: 1,
     gap: 5,
+    minHeight: 44,
+    justifyContent: "center",
   },
   quickActionFixed: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 2,
     borderRadius: 14,
     borderWidth: 1,
     gap: 5,
+    minHeight: 44,
+    justifyContent: "center",
   },
   quickActionIconSm: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },
