@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Platform,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import {
   type BabyEvent,
@@ -34,6 +35,7 @@ interface Props {
 
 export function EventDetailSheet({ visible, event, onClose, onEdit }: Props) {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const { state } = useStore();
   const units = state.settings.units;
 
@@ -177,7 +179,7 @@ export function EventDetailSheet({ visible, event, onClose, onEdit }: Props) {
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: colors.background, paddingLeft: insets.left, paddingRight: insets.right }]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Pressable onPress={onClose} style={({ pressed }) => [pressed && { opacity: 0.6 }]}>

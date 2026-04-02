@@ -97,7 +97,7 @@ export function LogDiaperSheet({ onClose }: Props) {
   const showPooDetails = type === "poo" || type === "both";
 
   return (
-    <ScreenContainer edges={["top", "bottom", "left", "right"]} className="px-4 pt-2">
+    <ScreenContainer edges={["left", "right"]} className="px-4 pt-2">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}

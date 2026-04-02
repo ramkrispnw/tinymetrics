@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
+import { FilterChip } from "@/components/filter-chip";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -626,64 +627,35 @@ export default function JournalScreen() {
         style={styles.filterScroll}
         contentContainerStyle={styles.filterRow}
       >
-        {dateRanges.map((d) => {
-          const active = dateRange === d.key;
-          return (
-            <Pressable
-              key={d.key}
-              onPress={() => {
-                if (d.key === "custom") {
-                  const now = new Date();
-                  const weekAgo = new Date(now);
-                  weekAgo.setDate(weekAgo.getDate() - 7);
-                  if (!customStart) setCustomStart(getDayKey(weekAgo.toISOString()));
-                  if (!customEnd) setCustomEnd(getDayKey(now.toISOString()));
-                  setShowCustomPicker(true);
-                } else {
-                  setDateRange(d.key);
-                }
-                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }}
-              style={({ pressed }) => [
-                styles.filterChip,
-                {
-                  backgroundColor: active ? colors.primary : colors.surface,
-                  borderColor: active ? colors.primary : colors.border + "80",
-                },
-                pressed && { opacity: 0.8 },
-              ]}
-            >
-              <Text style={[styles.filterChipText, { color: active ? "#fff" : colors.foreground, fontWeight: active ? "700" : "600" }]}>
-                {d.key === "custom" && dateRange === "custom" && customRangeLabel ? customRangeLabel : d.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {dateRanges.map((d) => (
+          <FilterChip
+            key={d.key}
+            label={d.key === "custom" && dateRange === "custom" && customRangeLabel ? customRangeLabel : d.label}
+            active={dateRange === d.key}
+            onPress={() => {
+              if (d.key === "custom") {
+                const now = new Date();
+                const weekAgo = new Date(now);
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                if (!customStart) setCustomStart(getDayKey(weekAgo.toISOString()));
+                if (!customEnd) setCustomEnd(getDayKey(now.toISOString()));
+                setShowCustomPicker(true);
+              } else {
+                setDateRange(d.key);
+              }
+            }}
+          />
+        ))}
         <View style={[styles.filterDivider, { backgroundColor: colors.border }]} />
-        {typeFilters.map((f) => {
-          const active = filter === f.key;
-          return (
-            <Pressable
-              key={f.key}
-              onPress={() => {
-                setFilter(f.key);
-                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }}
-              style={({ pressed }) => [
-                styles.filterChip,
-                {
-                  backgroundColor: active ? colors.primary + "20" : colors.surface,
-                  borderColor: active ? colors.primary : colors.border + "80",
-                },
-                pressed && { opacity: 0.8 },
-              ]}
-            >
-              <Text style={[styles.filterChipText, { color: active ? colors.primary : colors.foreground, fontWeight: active ? "700" : "600" }]}>
-                {f.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {typeFilters.map((f) => (
+          <FilterChip
+            key={f.key}
+            label={f.label}
+            active={filter === f.key}
+            activeStyle="tinted"
+            onPress={() => setFilter(f.key)}
+          />
+        ))}
       </ScrollView>
 
       {selectMode && (
@@ -746,42 +718,19 @@ export default function JournalScreen() {
         contentContainerStyle={styles.filterRow}
         style={styles.filterScroll}
       >
-        <Pressable
+        <FilterChip
+          label="All"
+          active={filterCat === "all"}
           onPress={() => setFilterCat("all")}
-          style={({ pressed }) => [
-            styles.filterChip,
-            {
-              backgroundColor: filterCat === "all" ? colors.primary : colors.surface,
-              borderColor: filterCat === "all" ? colors.primary : colors.border + "80",
-            },
-            pressed && { opacity: 0.8 },
-          ]}
-        >
-          <Text style={[styles.filterChipText, { color: filterCat === "all" ? "#fff" : colors.foreground, fontWeight: "600" }]}>
-            All
-          </Text>
-        </Pressable>
-        {MILESTONE_CATEGORIES.map((cat) => {
-          const active = filterCat === cat.key;
-          return (
-            <Pressable
-              key={cat.key}
-              onPress={() => setFilterCat(cat.key)}
-              style={({ pressed }) => [
-                styles.filterChip,
-                {
-                  backgroundColor: active ? colors.primary : colors.surface,
-                  borderColor: active ? colors.primary : colors.border + "80",
-                },
-                pressed && { opacity: 0.8 },
-              ]}
-            >
-              <Text style={[styles.filterChipText, { color: active ? "#fff" : colors.foreground, fontWeight: "600" }]}>
-                {cat.icon} {cat.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+        />
+        {MILESTONE_CATEGORIES.map((cat) => (
+          <FilterChip
+            key={cat.key}
+            label={`${cat.icon} ${cat.label}`}
+            active={filterCat === cat.key}
+            onPress={() => setFilterCat(cat.key)}
+          />
+        ))}
       </ScrollView>
 
       <FlatList
@@ -1369,16 +1318,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 6,
     paddingVertical: 4,
+    paddingLeft: 8,
     paddingRight: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  filterChipText: {
-    fontSize: 13,
   },
   filterDivider: {
     width: 1,
