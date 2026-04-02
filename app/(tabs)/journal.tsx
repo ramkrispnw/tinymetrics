@@ -620,43 +620,49 @@ export default function JournalScreen() {
         )}
       </View>
 
-      {/* Unified single filter row: date chips → divider → type chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterScroll}
-        contentContainerStyle={styles.filterRow}
-      >
-        {dateRanges.map((d) => (
-          <FilterChip
-            key={d.key}
-            label={d.key === "custom" && dateRange === "custom" && customRangeLabel ? customRangeLabel : d.label}
-            active={dateRange === d.key}
-            onPress={() => {
-              if (d.key === "custom") {
-                const now = new Date();
-                const weekAgo = new Date(now);
-                weekAgo.setDate(weekAgo.getDate() - 7);
-                if (!customStart) setCustomStart(getDayKey(weekAgo.toISOString()));
-                if (!customEnd) setCustomEnd(getDayKey(now.toISOString()));
-                setShowCustomPicker(true);
-              } else {
-                setDateRange(d.key);
-              }
-            }}
-          />
-        ))}
-        <View style={[styles.filterDivider, { backgroundColor: colors.border }]} />
-        {typeFilters.map((f) => (
-          <FilterChip
-            key={f.key}
-            label={f.label}
-            active={filter === f.key}
-            activeStyle="tinted"
-            onPress={() => setFilter(f.key)}
-          />
-        ))}
-      </ScrollView>
+      {/* Date range + event type filter rows */}
+      <View style={styles.filterContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          {dateRanges.map((d) => (
+            <FilterChip
+              key={d.key}
+              label={d.key === "custom" && dateRange === "custom" && customRangeLabel ? customRangeLabel : d.label}
+              active={dateRange === d.key}
+              onPress={() => {
+                if (d.key === "custom") {
+                  const now = new Date();
+                  const weekAgo = new Date(now);
+                  weekAgo.setDate(weekAgo.getDate() - 7);
+                  if (!customStart) setCustomStart(getDayKey(weekAgo.toISOString()));
+                  if (!customEnd) setCustomEnd(getDayKey(now.toISOString()));
+                  setShowCustomPicker(true);
+                } else {
+                  setDateRange(d.key);
+                }
+              }}
+            />
+          ))}
+        </ScrollView>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          {typeFilters.map((f) => (
+            <FilterChip
+              key={f.key}
+              label={f.label}
+              active={filter === f.key}
+              activeStyle="tinted"
+              onPress={() => setFilter(f.key)}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
       {selectMode && (
         <View style={[styles.selectBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -716,7 +722,7 @@ export default function JournalScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterRow}
-        style={styles.filterScroll}
+        style={styles.filterContainer}
       >
         <FilterChip
           label="All"
@@ -1311,7 +1317,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
-  filterScroll: {
+  filterContainer: {
     marginBottom: 8,
   },
   filterRow: {
