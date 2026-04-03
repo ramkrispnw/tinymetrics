@@ -625,6 +625,7 @@ export default function JournalScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
           contentContainerStyle={styles.filterRow}
         >
           {dateRanges.map((d) => (
@@ -650,6 +651,7 @@ export default function JournalScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
           contentContainerStyle={styles.filterRow}
         >
           {typeFilters.map((f) => (
@@ -721,8 +723,8 @@ export default function JournalScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={[styles.filterContainer, styles.filterScroll]}
         contentContainerStyle={styles.filterRow}
-        style={styles.filterContainer}
       >
         <FilterChip
           label="All"
@@ -1320,10 +1322,12 @@ const styles = StyleSheet.create({
   filterContainer: {
     marginBottom: 8,
   },
+  filterScroll: {
+    paddingVertical: 4,
+  },
   filterRow: {
     flexDirection: "row",
     gap: 6,
-    paddingVertical: 4,
     paddingLeft: 8,
     paddingRight: 8,
   },
