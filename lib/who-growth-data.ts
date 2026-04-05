@@ -171,6 +171,48 @@ export function getWHOHeightData(sex?: "boy" | "girl"): PercentileRow[] {
   });
 }
 
+/**
+ * Calculate which percentile a baby's measurement falls at relative to WHO data.
+ * Uses linear interpolation between known breakpoints (p3, p15, p50, p85, p97).
+ * Returns a number 0-100, or null if data is unavailable.
+ */
+export function calculateBabyPercentile(
+  value: number,
+  monthAge: number,
+  data: PercentileRow[],
+  convert?: (v: number) => number
+): number | null {
+  const row = data.find((r) => r.month === Math.round(monthAge));
+  if (!row) return null;
+
+  const breakpoints: [number, number][] = [
+    [0, convert ? convert(row.p3) : row.p3],
+    [3, convert ? convert(row.p3) : row.p3],
+    [15, convert ? convert(row.p15) : row.p15],
+    [50, convert ? convert(row.p50) : row.p50],
+    [85, convert ? convert(row.p85) : row.p85],
+    [97, convert ? convert(row.p97) : row.p97],
+    [100, convert ? convert(row.p97) : row.p97],
+  ];
+
+  // Below p3
+  if (value <= breakpoints[1][1]) return Math.round((value / breakpoints[1][1]) * 3);
+  // Above p97
+  if (value >= breakpoints[5][1]) return 97 + Math.min(3, Math.round(((value - breakpoints[5][1]) / breakpoints[5][1]) * 10));
+
+  // Interpolate between known breakpoints
+  for (let i = 1; i < breakpoints.length - 1; i++) {
+    const [pLow, vLow] = breakpoints[i];
+    const [pHigh, vHigh] = breakpoints[i + 1];
+    if (value >= vLow && value <= vHigh) {
+      const ratio = vHigh === vLow ? 0 : (value - vLow) / (vHigh - vLow);
+      return Math.round(pLow + ratio * (pHigh - pLow));
+    }
+  }
+
+  return 50;
+}
+
 /** Convert kg to lbs */
 export function kgToLbs(kg: number): number {
   return +(kg * 2.20462).toFixed(1);
