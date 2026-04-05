@@ -625,7 +625,6 @@ export default function JournalScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
           contentContainerStyle={styles.filterRow}
         >
           {dateRanges.map((d) => (
@@ -651,7 +650,6 @@ export default function JournalScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
           contentContainerStyle={styles.filterRow}
         >
           {typeFilters.map((f) => (
@@ -720,26 +718,27 @@ export default function JournalScreen() {
   const renderMilestonesView = () => (
     <>
       {/* Category filter */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={[styles.filterContainer, styles.filterScroll]}
-        contentContainerStyle={styles.filterRow}
-      >
-        <FilterChip
-          label="All"
-          active={filterCat === "all"}
-          onPress={() => setFilterCat("all")}
-        />
-        {MILESTONE_CATEGORIES.map((cat) => (
+      <View style={styles.filterContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
           <FilterChip
-            key={cat.key}
-            label={`${cat.icon} ${cat.label}`}
-            active={filterCat === cat.key}
-            onPress={() => setFilterCat(cat.key)}
+            label="All"
+            active={filterCat === "all"}
+            onPress={() => setFilterCat("all")}
           />
-        ))}
-      </ScrollView>
+          {MILESTONE_CATEGORIES.map((cat) => (
+            <FilterChip
+              key={cat.key}
+              label={`${cat.icon} ${cat.label}`}
+              active={filterCat === cat.key}
+              onPress={() => setFilterCat(cat.key)}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
       <FlatList
         key={gridMode ? "grid" : "list"}
@@ -1320,10 +1319,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   filterContainer: {
-    marginBottom: 8,
-  },
-  filterScroll: {
     paddingVertical: 4,
+    marginBottom: 4,
   },
   filterRow: {
     flexDirection: "row",
