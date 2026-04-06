@@ -7,13 +7,13 @@ import {
   Platform,
   Modal,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
 import { getDayKey } from "@/lib/store";
 import { LogSleepSheet } from "@/components/log-sleep-sheet";
 import * as Haptics from "expo-haptics";
+import { FLOATING_TAB_BAR_HEIGHT } from "@/constants/theme";
 
 /**
  * A floating banner that appears above the tab bar when a sleep timer is active.
@@ -22,7 +22,6 @@ import * as Haptics from "expo-haptics";
  */
 export function SleepTimerBanner() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const { state } = useStore();
   const [elapsed, setElapsed] = useState(0);
   const [showSheet, setShowSheet] = useState(false);
@@ -70,16 +69,13 @@ export function SleepTimerBanner() {
     ? `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
     : `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 
-  const bottomPadding = Platform.OS === "web" ? 12 : Math.max(insets.bottom, 8);
-  const tabBarHeight = 56 + bottomPadding;
-
   return (
     <>
       <View
         style={[
           styles.container,
           {
-            bottom: tabBarHeight,
+            bottom: FLOATING_TAB_BAR_HEIGHT + 4,
             backgroundColor: colors.sleep,
           },
         ]}

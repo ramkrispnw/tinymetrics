@@ -18,4 +18,34 @@ const themeColors = {
   medication: { light: '#06B6D4', dark: '#22D3EE' },
 };
 
-module.exports = { themeColors };
+/** @type {const} */
+const glassTokens = {
+  /** Native blur intensity (expo-blur) */
+  blurIntensity: { light: 60, dark: 55 },
+  /** Semi-transparent overlay applied on top of blur */
+  surfaceOverlay: {
+    light: "rgba(255,255,255,0.45)",
+    dark: "rgba(28,30,34,0.58)",
+  },
+  /** Glass border ring color */
+  border: {
+    light: "rgba(255,255,255,0.65)",
+    dark: "rgba(255,255,255,0.08)",
+  },
+  /** Top-edge specular highlight */
+  specular: {
+    light: "rgba(255,255,255,0.55)",
+    dark: "rgba(255,255,255,0.05)",
+  },
+  /** Accent vibrancy overlay opacity */
+  vibrancyOpacity: 0.07,
+  /** Elevation shadow */
+  shadow: {
+    color: "#000",
+    opacity: { light: 0.1, dark: 0.4 },
+    radius: 24,
+    offset: { width: 0, height: 8 },
+  },
+};
+
+module.exports = { themeColors, glassTokens };

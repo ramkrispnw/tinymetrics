@@ -52,6 +52,8 @@ import type { FormulaPrepData, MedicationData } from "@/lib/store";
 import { TodayProjectionCard } from "@/components/today-projection-card";
 import { UndoSnackbar } from "@/components/undo-snackbar";
 import { InlineAIInsight } from "@/components/inline-ai-insight";
+import { GlassSurface } from "@/components/ui/glass-surface";
+import { FLOATING_TAB_BAR_HEIGHT } from "@/constants/theme";
 
 type SheetType = "feed" | "sleep" | "diaper" | "observation" | "pump" | "formula_prep" | "medication" | "profile" | "settings" | "share" | "growth" | "import" | "digest" | null;
 
@@ -388,8 +390,8 @@ export default function HomeScreen() {
   const closeSheet = () => setActiveSheet(null);
 
   return (
-    <ScreenContainer className="px-4 pt-2">
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+    <ScreenContainer className="px-4 pt-2" glassBackground>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: FLOATING_TAB_BAR_HEIGHT + 16 }}>
         {/* Header */}
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-1">
@@ -473,43 +475,43 @@ export default function HomeScreen() {
 
         {/* Summary Cards */}
         <View className="flex-row gap-2 mb-3">
-          <View
-            style={[styles.summaryCard, { backgroundColor: colors.feed + "15", borderColor: colors.feed + "30" }]}
-          >
-            <IconSymbol name="fork.knife" size={22} color={colors.feed} />
-            <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-              {displayAmount(todayFeedMl)}
-            </Text>
-            <Text style={[styles.summaryLabel, { color: colors.muted }]}>Feed</Text>
-          </View>
-          <View
-            style={[styles.summaryCard, { backgroundColor: colors.diaper + "15", borderColor: colors.diaper + "30" }]}
-          >
-            <IconSymbol name="drop.fill" size={22} color={colors.diaper} />
-            <View style={{ alignItems: "center" }}>
-              <Text style={[styles.summaryValue, { color: colors.foreground }]}>💧 {todayDiapers.pee}</Text>
-              <Text style={[styles.summaryValue, { color: colors.foreground }]}>💩 {todayDiapers.poo}</Text>
+          <GlassSurface borderRadius={14} tintColor={colors.feed} style={styles.summaryCard}>
+            <View style={styles.summaryCardInner}>
+              <IconSymbol name="fork.knife" size={22} color={colors.feed} />
+              <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                {displayAmount(todayFeedMl)}
+              </Text>
+              <Text style={[styles.summaryLabel, { color: colors.muted }]}>Feed</Text>
             </View>
-            <Text style={[styles.summaryLabel, { color: colors.muted }]}>Diapers</Text>
-          </View>
-          <View
-            style={[styles.summaryCard, { backgroundColor: colors.sleep + "15", borderColor: colors.sleep + "30" }]}
-          >
-            <IconSymbol name="moon.fill" size={22} color={colors.sleep} />
-            <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-              {formatDuration(todaySleepMin)}
-            </Text>
-            <Text style={[styles.summaryLabel, { color: colors.muted }]}>Sleep</Text>
-          </View>
-          <View
-            style={[styles.summaryCard, { backgroundColor: colors.pump + "15", borderColor: colors.pump + "30" }]}
-          >
-            <IconSymbol name="drop.triangle.fill" size={22} color={colors.pump} />
-            <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-              {displayAmount(todayPumpMl)}
-            </Text>
-            <Text style={[styles.summaryLabel, { color: colors.muted }]}>Pumped</Text>
-          </View>
+          </GlassSurface>
+          <GlassSurface borderRadius={14} tintColor={colors.diaper} style={styles.summaryCard}>
+            <View style={styles.summaryCardInner}>
+              <IconSymbol name="drop.fill" size={22} color={colors.diaper} />
+              <View style={{ alignItems: "center" }}>
+                <Text style={[styles.summaryValue, { color: colors.foreground }]}>💧 {todayDiapers.pee}</Text>
+                <Text style={[styles.summaryValue, { color: colors.foreground }]}>💩 {todayDiapers.poo}</Text>
+              </View>
+              <Text style={[styles.summaryLabel, { color: colors.muted }]}>Diapers</Text>
+            </View>
+          </GlassSurface>
+          <GlassSurface borderRadius={14} tintColor={colors.sleep} style={styles.summaryCard}>
+            <View style={styles.summaryCardInner}>
+              <IconSymbol name="moon.fill" size={22} color={colors.sleep} />
+              <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                {formatDuration(todaySleepMin)}
+              </Text>
+              <Text style={[styles.summaryLabel, { color: colors.muted }]}>Sleep</Text>
+            </View>
+          </GlassSurface>
+          <GlassSurface borderRadius={14} tintColor={colors.pump} style={styles.summaryCard}>
+            <View style={styles.summaryCardInner}>
+              <IconSymbol name="drop.triangle.fill" size={22} color={colors.pump} />
+              <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                {displayAmount(todayPumpMl)}
+              </Text>
+              <Text style={[styles.summaryLabel, { color: colors.muted }]}>Pumped</Text>
+            </View>
+          </GlassSurface>
         </View>
 
         {/* Single AI insight slot — Alert > Nudge > nothing */}
@@ -879,11 +881,11 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
+  },
+  summaryCardInner: {
     alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 4,
-    borderRadius: 12,
-    borderWidth: 1,
     gap: 3,
   },
   summaryValue: {

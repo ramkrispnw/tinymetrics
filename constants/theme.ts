@@ -5,8 +5,13 @@
 export {
   Colors,
   Fonts,
+  GlassTokens,
   SchemeColors,
   ThemeColors,
+  useGlassTokens,
   type ColorScheme,
   type ThemeColorPalette,
 } from "@/lib/_core/theme";
+
+/** Total height occupied by the floating glass tab bar (pill + bottom inset). */
+export const FLOATING_TAB_BAR_HEIGHT = 100;
