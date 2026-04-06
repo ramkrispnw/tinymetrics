@@ -88,12 +88,7 @@ const config: ExpoConfig & { cli?: { appVersionSource: string } } = {
     favicon: "./assets/images/favicon.png",
   },
   plugins: [
-    [
-      "expo-router",
-      {
-        origin: env.scheme,
-      },
-    ],
+    "expo-router",
     [
       "expo-audio",
       {
