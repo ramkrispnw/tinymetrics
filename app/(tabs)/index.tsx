@@ -389,7 +389,7 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer className="px-4 pt-2">
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Header */}
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-1">

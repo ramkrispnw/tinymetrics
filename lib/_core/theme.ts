@@ -1,10 +1,12 @@
 import { Platform } from "react-native";
 
 import themeConfig from "@/theme.config";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export type ColorScheme = "light" | "dark";
 
 export const ThemeColors = themeConfig.themeColors;
+export const GlassTokens = themeConfig.glassTokens;
 
 type ThemeColorTokens = typeof ThemeColors;
 type ThemeColorName = keyof ThemeColorTokens;
@@ -58,6 +60,22 @@ export const Colors = {
 } satisfies Record<ColorScheme, RuntimePalette>;
 
 export type ThemeColorPalette = (typeof Colors)[ColorScheme];
+
+export function useGlassTokens() {
+  const colorScheme = useColorScheme();
+  const scheme = (colorScheme ?? "light") as ColorScheme;
+  return {
+    blurIntensity: GlassTokens.blurIntensity[scheme],
+    surfaceOverlay: GlassTokens.surfaceOverlay[scheme],
+    border: GlassTokens.border[scheme],
+    specular: GlassTokens.specular[scheme],
+    shadowOpacity: GlassTokens.shadow.opacity[scheme],
+    shadowColor: GlassTokens.shadow.color,
+    shadowRadius: GlassTokens.shadow.radius,
+    shadowOffset: GlassTokens.shadow.offset,
+    vibrancyOpacity: GlassTokens.vibrancyOpacity,
+  };
+}
 
 export const Fonts = Platform.select({
   ios: {
