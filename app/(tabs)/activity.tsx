@@ -573,7 +573,7 @@ export default function ActivityScreen() {
           return renderItem({ item });
         }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: selectMode ? 80 : 32 }}
+        contentContainerStyle={{ paddingBottom: selectMode ? 120 : 100 }}
         ListHeaderComponent={
           !selectMode ? (
             <View style={styles.filterContainer}>

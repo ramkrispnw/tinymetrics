@@ -299,7 +299,7 @@ function MilestoneDetailSheet({
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
         {/* Category badge + icon */}
         <View style={{ alignItems: "center", marginBottom: 20 }}>
           <Text style={{ fontSize: 56 }}>{cat?.icon || "⭐"}</Text>
