@@ -58,13 +58,17 @@ export function GlassSurface({
             backgroundColor: glass.surfaceOverlay,
             borderWidth: StyleSheet.hairlineWidth,
             borderColor: glass.border,
-            // @ts-ignore — web-only CSS property
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-          },
+          } as any,
           shadowStyle,
           style,
         ]}
+        // @ts-ignore — web-only CSS properties
+        {...({
+          style: {
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+          },
+        } as any)}
         {...props}
       >
         {specularHighlight && (
