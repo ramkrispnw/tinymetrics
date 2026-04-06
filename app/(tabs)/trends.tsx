@@ -468,7 +468,7 @@ export default function TrendsScreen() {
     <ScreenContainer className="px-4 pt-2">
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 32 }}
       >
         <Text className="text-2xl font-bold text-foreground mb-1">Trends</Text>
         <Text className="text-sm text-muted mb-4">

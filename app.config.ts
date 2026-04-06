@@ -38,7 +38,7 @@ const env = {
   androidPackage: bundleId,
 };
 
-const config: ExpoConfig & { cli?: { appVersionSource: string } } = {
+const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
   version: "1.0.0",
@@ -47,9 +47,6 @@ const config: ExpoConfig & { cli?: { appVersionSource: string } } = {
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
-  cli: {
-    appVersionSource: "local",
-  },
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
@@ -130,4 +127,4 @@ const config: ExpoConfig & { cli?: { appVersionSource: string } } = {
   },
 };
 
-export default config as ExpoConfig;
+export default config;

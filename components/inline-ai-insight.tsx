@@ -3,7 +3,6 @@ import { View, Text, Pressable, StyleSheet, Platform } from "react-native";
 import * as Haptics from "expo-haptics";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { GlassSurface } from "@/components/ui/glass-surface";
 
 /**
  * nudge      — proactive prediction or suggestion (purple/primary)
@@ -65,10 +64,11 @@ export function InlineAIInsight({
   };
 
   return (
-    <GlassSurface
-      borderRadius={12}
-      tintColor={accent}
-      style={styles.container}
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: accent + "0D", borderColor: accent + "28" },
+      ]}
     >
       {/* Header row: icon + label + optional dismiss */}
       <View style={styles.headerRow}>
@@ -102,12 +102,14 @@ export function InlineAIInsight({
           <IconSymbol name="chevron.right" size={11} color={accent} />
         </Pressable>
       )}
-    </GlassSurface>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    borderRadius: 12,
+    borderWidth: 1,
     padding: 12,
     gap: 5,
   },

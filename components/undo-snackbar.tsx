@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { View, Text, Pressable, StyleSheet, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
-import { GlassSurface } from "@/components/ui/glass-surface";
 
 export interface UndoSnackbarProps {
   /** Human-readable label, e.g. "Feed deleted" */
@@ -73,49 +72,52 @@ export function UndoSnackbar({ message, onUndo, onCommit, duration = 5000 }: Und
   return (
     <Animated.View
       style={[
-        styles.wrapper,
+        styles.container,
         {
-          bottom: insets.bottom + 80,
+          bottom: insets.bottom + 80, // above tab bar
+          backgroundColor: colors.foreground,
           opacity: opacityAnim,
         },
       ]}
     >
-      <GlassSurface borderRadius={12} specularHighlight elevated style={styles.surface}>
-        {/* Progress bar at top */}
-        <View style={[styles.progressTrack, { backgroundColor: colors.border + "60" }]}>
-          <Animated.View
-            style={[
-              styles.progressFill,
-              { width: progressWidth, backgroundColor: colors.primary },
-            ]}
-          />
-        </View>
+      {/* Progress bar at top */}
+      <View style={[styles.progressTrack, { backgroundColor: colors.foreground + "30" }]}>
+        <Animated.View
+          style={[
+            styles.progressFill,
+            { width: progressWidth, backgroundColor: colors.primary },
+          ]}
+        />
+      </View>
 
-        <View style={styles.row}>
-          <Text style={[styles.message, { color: colors.foreground }]} numberOfLines={1}>
-            {message}
-          </Text>
-          <Pressable
-            onPress={handleUndo}
-            style={({ pressed }) => [styles.undoBtn, pressed && { opacity: 0.7 }]}
-          >
-            <Text style={[styles.undoText, { color: colors.primary }]}>UNDO</Text>
-          </Pressable>
-        </View>
-      </GlassSurface>
+      <View style={styles.row}>
+        <Text style={[styles.message, { color: colors.background }]} numberOfLines={1}>
+          {message}
+        </Text>
+        <Pressable
+          onPress={handleUndo}
+          style={({ pressed }) => [styles.undoBtn, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={[styles.undoText, { color: colors.primary }]}>UNDO</Text>
+        </Pressable>
+      </View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
+  container: {
     position: "absolute",
     left: 16,
     right: 16,
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 8,
     zIndex: 9999,
-  },
-  surface: {
-    // GlassSurface provides borderRadius, overflow, shadow, border
   },
   progressTrack: {
     height: 3,

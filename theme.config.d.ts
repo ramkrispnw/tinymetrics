@@ -17,23 +17,8 @@ export const themeColors: {
   medication: { light: string; dark: string };
 };
 
-export const glassTokens: {
-  blurIntensity: { light: number; dark: number };
-  surfaceOverlay: { light: string; dark: string };
-  border: { light: string; dark: string };
-  specular: { light: string; dark: string };
-  shadow: {
-    color: string;
-    opacity: { light: number; dark: number };
-    radius: number;
-    offset: { width: number; height: number };
-  };
-  vibrancyOpacity: number;
-};
-
 declare const themeConfig: {
   themeColors: typeof themeColors;
-  glassTokens: typeof glassTokens;
 };
 
 export default themeConfig;

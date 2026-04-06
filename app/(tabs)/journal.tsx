@@ -544,7 +544,7 @@ export default function JournalScreen() {
       data={timelineGroups}
       keyExtractor={(g) => g.key}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: 100 }}
+      contentContainerStyle={{ paddingBottom: 40 }}
       ListEmptyComponent={
         <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={{ color: colors.muted, textAlign: "center" }}>
@@ -687,7 +687,7 @@ export default function JournalScreen() {
           return renderEventRow(item);
         }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: selectMode ? 120 : 100 }}
+        contentContainerStyle={{ paddingBottom: selectMode ? 80 : 40 }}
         ListEmptyComponent={
           <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={{ color: colors.muted, textAlign: "center" }}>

@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { GlassSurface } from "@/components/ui/glass-surface";
 import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
 import { getDayKey } from "@/lib/store";
@@ -71,57 +70,46 @@ export function SleepTimerBanner() {
     ? `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
     : `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 
-  // Position banner above the floating pill tab bar
-  const bottomInset = Platform.OS === "web" ? 12 : Math.max(insets.bottom, 8);
-  const pillBottom = bottomInset + 8;   // matches GlassTabBar wrapper
-  const pillHeight = 68;
-  const bannerBottom = pillBottom + pillHeight + 8;
+  const bottomPadding = Platform.OS === "web" ? 12 : Math.max(insets.bottom, 8);
+  const tabBarHeight = 56 + bottomPadding;
 
   return (
     <>
-      <View style={[styles.container, { bottom: bannerBottom }]}>
-        <GlassSurface
-          borderRadius={28}
-          specularHighlight
-          elevated
-          tintColor={colors.sleep}
-          style={styles.surface}
+      <View
+        style={[
+          styles.container,
+          {
+            bottom: tabBarHeight,
+            backgroundColor: colors.sleep,
+          },
+        ]}
+      >
+        <Pressable
+          onPress={() => {
+            setShowSheet(true);
+            if (Platform.OS !== "web") {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          }}
+          style={({ pressed }) => [
+            styles.banner,
+            pressed && { opacity: 0.9 },
+          ]}
         >
-          {/* Sleep-color overlay for strong visual signal */}
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFillObject,
-              { backgroundColor: colors.sleep + "88", borderRadius: 28 },
-            ]}
-          />
-          <Pressable
-            onPress={() => {
-              setShowSheet(true);
-              if (Platform.OS !== "web") {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }
-            }}
-            style={({ pressed }) => [
-              styles.banner,
-              pressed && { opacity: 0.9 },
-            ]}
-          >
-            <View style={styles.leftSection}>
-              <View style={styles.pulseIndicator}>
-                <View style={[styles.pulseDot, { backgroundColor: "#fff" }]} />
-              </View>
-              <IconSymbol name="moon.fill" size={16} color="#fff" />
-              <Text style={styles.label}>
-                {isOvernight ? "🌙 " : ""}Sleeping
-              </Text>
+          <View style={styles.leftSection}>
+            <View style={styles.pulseIndicator}>
+              <View style={[styles.pulseDot, { backgroundColor: "#fff" }]} />
             </View>
-            <View style={styles.rightSection}>
-              <Text style={styles.timer}>{timeStr}</Text>
-              <Text style={styles.tapHint}>Tap to stop</Text>
-            </View>
-          </Pressable>
-        </GlassSurface>
+            <IconSymbol name="moon.fill" size={16} color="#fff" />
+            <Text style={styles.label}>
+              {isOvernight ? "🌙 " : ""}Sleeping
+            </Text>
+          </View>
+          <View style={styles.rightSection}>
+            <Text style={styles.timer}>{timeStr}</Text>
+            <Text style={styles.tapHint}>Tap to stop</Text>
+          </View>
+        </Pressable>
       </View>
 
       <Modal
@@ -138,12 +126,9 @@ export function SleepTimerBanner() {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    left: 20,
-    right: 20,
+    left: 0,
+    right: 0,
     zIndex: 100,
-  },
-  surface: {
-    // GlassSurface handles border, blur, specular, shadow
   },
   banner: {
     flexDirection: "row",

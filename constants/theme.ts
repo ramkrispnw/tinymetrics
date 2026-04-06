@@ -5,12 +5,8 @@
 export {
   Colors,
   Fonts,
-  GlassTokens,
   SchemeColors,
   ThemeColors,
-  useGlassTokens,
   type ColorScheme,
   type ThemeColorPalette,
 } from "@/lib/_core/theme";
-
-export const FLOATING_TAB_BAR_HEIGHT = 100;
