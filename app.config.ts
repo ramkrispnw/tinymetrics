@@ -38,7 +38,7 @@ const env = {
   androidPackage: bundleId,
 };
 
-const config: ExpoConfig = {
+const config: ExpoConfig & { cli?: { appVersionSource: string } } = {
   name: env.appName,
   slug: env.appSlug,
   version: "1.0.0",
@@ -47,6 +47,9 @@ const config: ExpoConfig = {
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
+  cli: {
+    appVersionSource: "local",
+  },
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
@@ -85,7 +88,12 @@ const config: ExpoConfig = {
     favicon: "./assets/images/favicon.png",
   },
   plugins: [
-    "expo-router",
+    [
+      "expo-router",
+      {
+        origin: env.scheme,
+      },
+    ],
     [
       "expo-audio",
       {
@@ -127,4 +135,4 @@ const config: ExpoConfig = {
   },
 };
 
-export default config;
+export default config as ExpoConfig;
