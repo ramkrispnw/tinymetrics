@@ -123,9 +123,11 @@ const styles = StyleSheet.create({
   },
   activeIndicator: {
     position: "absolute",
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    top: 0,
+    bottom: 0,
+    left: 4,
+    right: 4,
+    borderRadius: 16,
   },
   label: {
     fontSize: 10,
