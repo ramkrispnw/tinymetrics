@@ -9,6 +9,8 @@ import {
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { GlassSurface } from "@/components/ui/glass-surface";
+import { FLOATING_TAB_BAR_HEIGHT } from "@/constants/theme";
 import { useStore } from "@/lib/store";
 import {
   getDayKey,
@@ -465,10 +467,10 @@ export default function TrendsScreen() {
   const pumpTrend = computeTrendLine(pumpData.map((d) => d.value));
 
   return (
-    <ScreenContainer className="px-4 pt-2">
+    <ScreenContainer className="px-4 pt-2" glassBackground>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: FLOATING_TAB_BAR_HEIGHT + 16 }}
       >
         <Text className="text-2xl font-bold text-foreground mb-1">Trends</Text>
         <Text className="text-sm text-muted mb-4">
@@ -512,11 +514,11 @@ export default function TrendsScreen() {
         </View>
 
         {/* Feed Chart */}
-        <View
-          style={[
-            styles.chartCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
+        <GlassSurface
+          borderRadius={16}
+          contentPadding={16}
+          contentGap={12}
+          style={styles.chartCardOuter}
         >
           <View style={styles.chartHeader}>
             <Text style={[styles.chartTitle, { color: colors.foreground }]}>
@@ -552,14 +554,14 @@ export default function TrendsScreen() {
           ) : (
             <EmptyChartState emoji="🍼" label="feeding" />
           )}
-        </View>
+        </GlassSurface>
 
         {/* Pee Diaper Chart */}
-        <View
-          style={[
-            styles.chartCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
+        <GlassSurface
+          borderRadius={16}
+          contentPadding={16}
+          contentGap={12}
+          style={styles.chartCardOuter}
         >
           <View style={styles.chartHeader}>
             <Text style={[styles.chartTitle, { color: colors.foreground }]}>
@@ -587,14 +589,14 @@ export default function TrendsScreen() {
           ) : (
             <EmptyChartState emoji="💧" label="wet diaper" />
           )}
-        </View>
+        </GlassSurface>
 
         {/* Poo Diaper Chart */}
-        <View
-          style={[
-            styles.chartCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
+        <GlassSurface
+          borderRadius={16}
+          contentPadding={16}
+          contentGap={12}
+          style={styles.chartCardOuter}
         >
           <View style={styles.chartHeader}>
             <Text style={[styles.chartTitle, { color: colors.foreground }]}>
@@ -622,14 +624,14 @@ export default function TrendsScreen() {
           ) : (
             <EmptyChartState emoji="💩" label="poo diaper" />
           )}
-        </View>
+        </GlassSurface>
 
         {/* Sleep Chart */}
-        <View
-          style={[
-            styles.chartCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
+        <GlassSurface
+          borderRadius={16}
+          contentPadding={16}
+          contentGap={12}
+          style={styles.chartCardOuter}
         >
           <View style={styles.chartHeader}>
             <Text style={[styles.chartTitle, { color: colors.foreground }]}>
@@ -657,14 +659,14 @@ export default function TrendsScreen() {
           ) : (
             <EmptyChartState emoji="😴" label="sleep" />
           )}
-        </View>
+        </GlassSurface>
 
         {/* Pump Output Chart */}
-        <View
-          style={[
-            styles.chartCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
+        <GlassSurface
+          borderRadius={16}
+          contentPadding={16}
+          contentGap={12}
+          style={styles.chartCardOuter}
         >
           <View style={styles.chartHeader}>
             <Text style={[styles.chartTitle, { color: colors.foreground }]}>
@@ -700,18 +702,15 @@ export default function TrendsScreen() {
           ) : (
             <EmptyChartState emoji="🤱" label="pump" />
           )}
-        </View>
+        </GlassSurface>
 
         {/* Weight Chart */}
         {weightData.length > 0 && (
-          <View
-            style={[
-              styles.chartCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
-            ]}
+          <GlassSurface
+            borderRadius={16}
+            contentPadding={16}
+            contentGap={12}
+            style={styles.chartCardOuter}
           >
             <View style={styles.chartHeader}>
               <Text
@@ -745,19 +744,16 @@ export default function TrendsScreen() {
               chartType="Weight Over Time"
               dataJson={JSON.stringify(weightData.map(d => ({ date: d.date, value: d.value, unit: weightUnit })))}
             />
-          </View>
+          </GlassSurface>
         )}
 
         {/* Height Chart */}
         {heightData.length > 0 && (
-          <View
-            style={[
-              styles.chartCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
-            ]}
+          <GlassSurface
+            borderRadius={16}
+            contentPadding={16}
+            contentGap={12}
+            style={styles.chartCardOuter}
           >
             <View style={styles.chartHeader}>
               <Text
@@ -791,7 +787,7 @@ export default function TrendsScreen() {
               chartType="Height Over Time"
               dataJson={JSON.stringify(heightData.map(d => ({ date: d.date, value: d.value, unit: heightUnit })))}
             />
-          </View>
+          </GlassSurface>
         )}
       </ScrollView>
     </ScreenContainer>
@@ -1149,6 +1145,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     padding: 16,
+    marginBottom: 14,
+  },
+  chartCardOuter: {
     marginBottom: 14,
   },
   emptyChartCard: {

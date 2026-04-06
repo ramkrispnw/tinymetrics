@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 import { useStore } from "@/lib/store";
+import { GlassSurface } from "@/components/ui/glass-surface";
 import {
   calculateAge,
   formatDuration,
@@ -242,7 +243,8 @@ export function TodayProjectionCard() {
   const timeLabel = hoursLeft <= 1 ? "< 1h left today" : `${hoursLeft}h left today`;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <GlassSurface borderRadius={16} style={styles.cardOuter}>
+      <View style={styles.card}>
       {/* Header */}
       <View style={styles.cardHeader}>
         <Text style={[styles.cardTitle, { color: colors.foreground }]}>Today's Progress</Text>
@@ -325,16 +327,17 @@ export function TodayProjectionCard() {
           <Text style={[styles.legendText, { color: colors.muted }]}>Target</Text>
         </View>
       </View>
-    </View>
+      </View>
+    </GlassSurface>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
+  cardOuter: {
     marginBottom: 16,
+  },
+  card: {
+    padding: 16,
     gap: 12,
   },
   cardHeader: {
