@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Keyboard,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -23,6 +24,7 @@ import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { pickImage } from "@/lib/image-utils";
 import { MarkdownText } from "@/components/markdown-text";
+import { FLOATING_TAB_BAR_HEIGHT } from "@/constants/theme";
 
 interface Message {
   id: string;
@@ -400,7 +402,7 @@ export default function AssistantScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={90}
+        keyboardVerticalOffset={FLOATING_TAB_BAR_HEIGHT + 20}
       >
         {/* Header */}
         <View style={styles.headerRow}>
@@ -477,6 +479,9 @@ export default function AssistantScreen() {
             renderItem={renderMessage}
             contentContainerStyle={{ paddingVertical: 8, gap: 8 }}
             showsVerticalScrollIndicator={false}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={() => Keyboard.dismiss()}
             onContentSizeChange={() =>
               flatListRef.current?.scrollToEnd({ animated: true })
             }
@@ -492,7 +497,7 @@ export default function AssistantScreen() {
         )}
 
         {/* Input */}
-        <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: FLOATING_TAB_BAR_HEIGHT + 8 }]}>
           <Pressable
             onPress={handlePhotoUpload}
             disabled={loading}
