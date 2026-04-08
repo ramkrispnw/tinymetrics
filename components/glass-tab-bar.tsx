@@ -1,4 +1,4 @@
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -45,6 +45,7 @@ export function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProp
             const iconColor = isFocused ? colors.primary : colors.muted;
 
             const onPress = () => {
+              Keyboard.dismiss();
               if (Platform.OS === "ios") {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }
