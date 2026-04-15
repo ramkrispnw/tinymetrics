@@ -12,6 +12,7 @@ import {
   Keyboard,
   ScrollView,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -36,6 +37,7 @@ interface Message {
 
 export default function AssistantScreen() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const { state } = useStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -416,7 +418,7 @@ export default function AssistantScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={0}
+        keyboardVerticalOffset={insets.top}
       >
         {/* Header */}
         <View style={styles.headerRow}>
@@ -677,6 +679,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     maxHeight: 100,
     paddingVertical: 4,
+    backgroundColor: "transparent",
   },
   sendBtn: {
     width: 36,
