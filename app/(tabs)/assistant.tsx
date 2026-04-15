@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   FlatList,
   Pressable,
@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Keyboard,
+  ScrollView,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -42,6 +43,19 @@ export default function AssistantScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   const isPremium = state.settings.isPremium;
+
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const ageInfo = useMemo(() => {
     if (!state.profile?.birthDate) return null;
@@ -402,7 +416,7 @@ export default function AssistantScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={FLOATING_TAB_BAR_HEIGHT + 20}
+        keyboardVerticalOffset={0}
       >
         {/* Header */}
         <View style={styles.headerRow}>
@@ -427,7 +441,13 @@ export default function AssistantScreen() {
 
         {/* Messages */}
         {messages.length === 0 ? (
-          <View style={styles.emptyState}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.emptyState}
+            showsVerticalScrollIndicator={false}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+          >
             <IconSymbol name="sparkles" size={40} color={colors.primary + "40"} />
             <Text style={{ color: colors.muted, fontSize: 15, textAlign: "center", marginTop: 12 }}>
               Ask me anything about your baby's health, feeding patterns, or sleep schedule.
@@ -470,7 +490,7 @@ export default function AssistantScreen() {
                 </Pressable>
               ))}
             </View>
-          </View>
+          </ScrollView>
         ) : (
           <FlatList
             ref={flatListRef}
@@ -497,7 +517,7 @@ export default function AssistantScreen() {
         )}
 
         {/* Input */}
-        <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: FLOATING_TAB_BAR_HEIGHT + 8 }]}>
+        <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: keyboardVisible ? 8 : FLOATING_TAB_BAR_HEIGHT + 8 }]}>
           <Pressable
             onPress={handlePhotoUpload}
             disabled={loading}
@@ -590,7 +610,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   emptyState: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 24,
