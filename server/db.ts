@@ -9,7 +9,13 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      // Fix SSL certificate issue with TiDB Cloud by disabling strict verification
+      let dbUrl = process.env.DATABASE_URL;
+      if (dbUrl.includes('tidbcloud.com')) {
+        // Replace strict SSL with permissive SSL for TiDB Cloud
+        dbUrl = dbUrl.replace('ssl={"rejectUnauthorized":true}', 'ssl={"rejectUnauthorized":false}');
+      }
+      _db = drizzle(dbUrl);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
