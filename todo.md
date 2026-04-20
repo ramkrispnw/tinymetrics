@@ -110,3 +110,6 @@
 - [x] Add preset medication/supplement dropdown to Log Medication sheet with "Other (custom)" option
 - [x] Add Medication Reminders management section in Settings Notifications with delete capability
 - [x] Allow users to add custom medications to the preset list that persist across sessions
+- [ ] Add event sync status indicator with loading spinner and checkmark
+- [ ] Implement offline event queue with retry logic
+- [ ] Add event sync error notifications with retry button

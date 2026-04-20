@@ -17,15 +17,20 @@ import {
   saveGrowthHistory,
   saveMilestones,
   saveLastSynced,
+  savePendingSyncEvents,
   getEventDetailSummary,
 } from "./store";
 import { trpc, getVanillaClient } from "./trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { sendPartnerActivityNotification } from "./notifications";
+import { offlineQueue } from "./offline-queue";
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(DEFAULT_STATE);
   const [loaded, setLoaded] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [showSyncError, setShowSyncError] = useState(false);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user } = useAuth({ autoFetch: true });
   const currentUserId = user?.id?.toString() || undefined;
   const currentUserName = user?.name || undefined;
@@ -309,7 +314,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setState((prev) => {
         const updated = [newEvent, ...prev.events];
         saveEvents(updated);
-        return { ...prev, events: updated };
+        return { ...prev, events: updated, syncStatus: "syncing" };
       });
       // Sync to cloud in background
       try {
@@ -323,8 +328,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             },
           ],
         });
-      } catch {
+        // Success: show checkmark for 2 seconds then reset
+        setState((prev) => ({ ...prev, syncStatus: "success", syncError: null }));
+        setTimeout(() => {
+          setState((prev) => ({ ...prev, syncStatus: "idle" }));
+        }, 2000);
+      } catch (error) {
         // Offline or not logged in — event is saved locally
+        const errorMsg = error instanceof Error ? error.message : "Sync failed";
+        setState((prev) => ({
+          ...prev,
+          syncStatus: "error",
+          syncError: errorMsg,
+        }));
+        setTimeout(() => {
+          setState((prev) => ({ ...prev, syncStatus: "idle" }));
+        }, 3000);
       }
     },
     [syncMutation, currentUserId, currentUserName]

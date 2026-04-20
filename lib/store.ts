@@ -165,6 +165,9 @@ export interface AppState {
   growthHistory: GrowthEntry[];
   milestones: Milestone[];
   lastSyncedAt: string | null;
+  syncStatus: "idle" | "syncing" | "success" | "error";
+  syncError: string | null;
+  pendingSyncEvents: BabyEvent[];
 }
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
@@ -189,6 +192,9 @@ export const DEFAULT_STATE: AppState = {
   growthHistory: [],
   milestones: [],
   lastSyncedAt: null,
+  syncStatus: "idle",
+  syncError: null,
+  pendingSyncEvents: [],
 };
 
 // ─── Storage Keys ────────────────────────────────────────────────────────────
@@ -201,13 +207,14 @@ const KEYS = {
   GROWTH_HISTORY: "@baby_tracker_growth_history",
   MILESTONES: "@baby_tracker_milestones",
   LAST_SYNCED: "@baby_tracker_last_synced",
+  PENDING_SYNC_EVENTS: "@baby_tracker_pending_sync_events",
 };
 
 // ─── Persistence Helpers ─────────────────────────────────────────────────────
 
 export async function loadState(): Promise<AppState> {
   try {
-    const [profileStr, eventsStr, settingsStr, activeSleepStr, growthStr, milestonesStr, lastSyncedStr] = await AsyncStorage.multiGet([
+    const [profileStr, eventsStr, settingsStr, activeSleepStr, growthStr, milestonesStr, lastSyncedStr, pendingSyncStr] = await AsyncStorage.multiGet([
       KEYS.PROFILE,
       KEYS.EVENTS,
       KEYS.SETTINGS,
@@ -215,6 +222,7 @@ export async function loadState(): Promise<AppState> {
       KEYS.GROWTH_HISTORY,
       KEYS.MILESTONES,
       KEYS.LAST_SYNCED,
+      KEYS.PENDING_SYNC_EVENTS,
     ]);
     return {
       profile: profileStr[1] ? JSON.parse(profileStr[1]) : null,
@@ -224,6 +232,9 @@ export async function loadState(): Promise<AppState> {
       growthHistory: growthStr[1] ? JSON.parse(growthStr[1]) : [],
       milestones: milestonesStr[1] ? JSON.parse(milestonesStr[1]) : [],
       lastSyncedAt: lastSyncedStr[1] || null,
+      syncStatus: "idle",
+      syncError: null,
+      pendingSyncEvents: pendingSyncStr[1] ? JSON.parse(pendingSyncStr[1]) : [],
     };
   } catch {
     return DEFAULT_STATE;
@@ -264,6 +275,10 @@ export async function saveGrowthHistory(entries: GrowthEntry[]) {
 
 export async function saveMilestones(milestones: Milestone[]) {
   await AsyncStorage.setItem(KEYS.MILESTONES, JSON.stringify(milestones));
+}
+
+export async function savePendingSyncEvents(events: BabyEvent[]) {
+  await AsyncStorage.setItem(KEYS.PENDING_SYNC_EVENTS, JSON.stringify(events));
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
